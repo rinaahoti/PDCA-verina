@@ -1,0 +1,31 @@
+{
+  "users": [
+    { "id": "u1", "name": "Admin User", "email": "admin@mso.de", "role": "admin", "avatar": "🛡️" },
+    { "id": "u2", "name": "Sophia Mayer", "email": "sophia.mayer@mso.de", "role": "owner", "avatar": "👩‍💼" },
+    { "id": "u3", "name": "Felix Worker", "email": "felix@mso.de", "role": "user", "avatar": "👨‍🔧" }
+  ],
+  "templates": [
+    { 
+      "id": "t1", 
+      "name": "PDCA Measure", 
+      "steps": ["Plan", "Do", "Check", "Act"],
+      "fields": [
+        { "id": "f1", "label": "Description", "type": "richtext", "step": "Plan" },
+        { "id": "f2", "label": "Root Cause", "type": "richtext", "step": "Plan" },
+        { "id": "f3", "label": "Implementation Date", "type": "date", "step": "Do" },
+        { "id": "f4", "label": "Effectiveness Check", "type": "yesno", "step": "Check" }
+      ]
+    }
+  ],
+  "measures": [
+    {
+      "id": "9",
+      "title": "Outdated Process Model",
+      "ownerId": "u2",
+      "responsibleId": "u3",
+      "status": "Plan",
+      "dueDate": "2026-03-28",
+      "templateId": "t1"
+    }
+  ]
+}
