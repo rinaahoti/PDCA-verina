@@ -35,7 +35,9 @@ export const AppRouter = () => (
             <Route path="/app/settings" element={<Protected><Settings /></Protected>} />
             <Route path="/app/activity-log" element={<Protected><ActivityLog /></Protected>} />
             <Route path="/app/topic/:id" element={<Protected><TopicWorkspace /></Protected>} />
+            <Route path="/app" element={<Navigate to="/app/cockpit" replace />} />
             <Route path="/" element={<Navigate to="/app/cockpit" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </BrowserRouter>
 );
