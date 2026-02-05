@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { authService } from '../services';
 
 const Login: React.FC = () => {
-    const [email, setEmail] = useState('sophia.mayer@mso.de');
+    const [email, setEmail] = useState('elena.rossi@hospital.ch');
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,8 +31,8 @@ const Login: React.FC = () => {
                 <div style={{ marginTop: '2rem', borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>QUICK LOGIN FOR DEMO</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                        <button className="btn btn-outline" onClick={() => setEmail('sophia.mayer@mso.de')}>Sophia (OWNER)</button>
-                        <button className="btn btn-outline" onClick={() => setEmail('demo@mso.de')}>Demo (VIEWER)</button>
+                        <button className="btn btn-outline" onClick={() => setEmail('elena.rossi@hospital.ch')}>Elena (ADMIN)</button>
+                        <button className="btn btn-outline" onClick={() => setEmail('marcus.weber@hospital.ch')}>Marcus (OWNER)</button>
                     </div>
                 </div>
             </div>
