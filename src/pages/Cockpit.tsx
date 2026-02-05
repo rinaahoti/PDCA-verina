@@ -182,7 +182,7 @@ const Cockpit: React.FC = () => {
                 if (uniqueRecipients.length > 0) {
                     const emailResponse = await notificationService.sendActionAssignmentEmails({
                         recipients: uniqueRecipients as any,
-                        subject: `[MSO Maestro] Action Assignment: ${selectedTopic?.title}`,
+                        subject: `[VERINA – PDCA] Action Assignment: ${selectedTopic?.title}`,
                         body: `You have been assigned to one or more actions in the topic "${selectedTopic?.title}".`,
                         actionDetails: {
                             title: formState.actions[0]?.title || 'Multiple Actions',

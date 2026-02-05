@@ -716,7 +716,7 @@ const Settings: React.FC = () => {
                     </div>
 
                     <div style={{ padding: '1.5rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>MSO Maestro PDCA v1.0.0</div>
+                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>VERINA – PDCA v1.0.0</div>
                         <div style={{ fontSize: '10px', color: '#cbd5e1', marginTop: '4px' }}>Build 2026.02.03</div>
                     </div>
                 </div>

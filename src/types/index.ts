@@ -160,7 +160,7 @@ export interface Topic {
         kpis: string[];
         kpiResults: string;
         effectivenessReview: string;
-        // New MSO Maestro CHECK Phase structure
+        // New VERINA – PDCA CHECK Phase structure
         effectivenessStatus?: EffectivenessStatus;
         effectivenessReviewText?: string;
         kpiEvaluations: KPIEvaluation[];
