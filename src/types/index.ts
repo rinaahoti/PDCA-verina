@@ -160,7 +160,7 @@ export interface Topic {
         kpis: string[];
         kpiResults: string;
         effectivenessReview: string;
-        // New VERINA – PDCA CHECK Phase structure
+        // New VIRENA – PDCA CHECK Phase structure
         effectivenessStatus?: EffectivenessStatus;
         effectivenessReviewText?: string;
         kpiEvaluations: KPIEvaluation[];

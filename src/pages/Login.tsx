@@ -18,7 +18,7 @@ const Login: React.FC = () => {
             <div className="card" style={{ width: '400px', padding: '3rem' }}>
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{ width: '64px', height: '64px', background: 'var(--color-primary)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '32px', fontWeight: 'bold', margin: '0 auto 1rem' }}>M</div>
-                    <h1 style={{ margin: 0, fontSize: '24px' }}>VERINA – PDCA</h1>
+                    <h1 style={{ margin: 0, fontSize: '24px' }}>VIRENA – PDCA</h1>
                     <p style={{ color: 'var(--color-text-muted)' }}>Sign in to continue</p>
                 </div>
                 <form onSubmit={handleLogin}>

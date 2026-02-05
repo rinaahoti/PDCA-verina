@@ -48,12 +48,12 @@ const Support: React.FC = () => {
     };
 
     const downloadPDF = () => {
-        const content = "VERINA v1.0 User Guide\n\nThis is a placeholder for the PDF manual.";
+        const content = "VIRENA v1.0 User Guide\n\nThis is a placeholder for the PDF manual.";
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'VERINA_Guide.pdf';
+        a.download = 'VIRENA_Guide.pdf';
         a.click();
     };
 
