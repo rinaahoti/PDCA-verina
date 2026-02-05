@@ -18,8 +18,8 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <aside className="sidebar">
                 <div style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>M</div>
-                        <span style={{ fontWeight: 700, fontSize: '1.4rem', color: 'var(--color-text)' }}>NOVO</span>
+                        <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>H</div>
+                        <span style={{ fontWeight: 700, fontSize: '1.4rem', color: 'var(--color-text)' }}>HOSPITAL</span>
                     </div>
                 </div>
 
@@ -85,7 +85,7 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <main className="main-content">
                 <header className="topbar">
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                        Project Scope / PDCA Management / <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>Maestro v5</span>
+                        Healthcare Governance / Clinical Improvement / <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>Quality Portal</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <div style={{ textAlign: 'right' }}>

@@ -151,7 +151,7 @@ const Administration: React.FC = () => {
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Manage Locations, Departments, and Users</div>
                 </div>
                 <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                    <RefreshCw size={16} /> Reset Demo Data
+                    <RefreshCw size={16} /> Restore Default Master Data
                 </button>
             </div>
 
@@ -656,7 +656,7 @@ const Administration: React.FC = () => {
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
                                 <label>Name *</label>
-                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder="e.g. Plant Berlin" />
+                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder="e.g. University Hospital Zurich" />
                             </div>
                             <div className="form-group">
                                 <label>City</label>
@@ -691,7 +691,7 @@ const Administration: React.FC = () => {
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
                                 <label>Department Name *</label>
-                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder="e.g. Quality" />
+                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder="e.g. Cardiology" />
                             </div>
                             <div className="form-group">
                                 <label>Location *</label>

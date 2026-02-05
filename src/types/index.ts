@@ -49,7 +49,7 @@ export interface Organization {
     name: string;
     industry: string;
     country: string;
-    status: 'Active' | 'Demo';
+    status: 'Active' | 'Sandbox';
     logoUrl?: string;
     departments: Department[];
     governance: GovernanceRules;
@@ -59,7 +59,7 @@ export type Step = 'PLAN' | 'DO' | 'CHECK' | 'ACT';
 export type Status = 'Critical' | 'Warning' | 'On Track' | 'Done';
 export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical' | 'Business Critical';
-export type Category = 'Process' | 'IT' | 'Quality' | 'Compliance' | 'Customer';
+export type Category = 'Clinical' | 'Nursing' | 'Quality' | 'Compliance' | 'Patient Safety';
 export type ToDoStatus = 'Pending' | 'In Progress' | 'Overdue';
 
 // CHECK Phase: Effectiveness Status
@@ -87,10 +87,10 @@ export interface CheckAudit {
 export type ActOutcome = 'Standardize' | 'Improve & Re-run PDCA' | 'Close without Standardization';
 
 // ACT Phase: Standardization Scope
-export type StandardizationScope = 'Process' | 'Work Instruction' | 'Policy' | 'Checklist' | 'Training' | 'System / Tool' | 'Other';
+export type StandardizationScope = 'Process' | 'Clinical Guide' | 'Policy' | 'Checklist' | 'Training' | 'EHR Configuration' | 'Other';
 
 // ACT Phase: Affected Areas
-export type AffectedArea = 'Quality' | 'IT' | 'Operations' | 'Compliance' | 'Customer Service' | 'Other';
+export type AffectedArea = 'Nursing' | 'Surgery' | 'Emergency' | 'Inpatient Ward' | 'Outpatient Clinic' | 'Pharmacy' | 'Diagnostics' | 'Administration' | 'Other';
 
 // ACT Phase: Audit & Traceability
 export interface ActAudit {
@@ -201,7 +201,7 @@ export interface ToDo {
 export interface Audit {
     id: string;
     name: string;
-    type: 'Internal' | 'External' | 'Process' | 'Customer' | 'Certification';
+    type: 'Internal' | 'External' | 'Process' | 'Patient Safety' | 'Certification';
     location: string;
     startDate: string;
     endDate: string;

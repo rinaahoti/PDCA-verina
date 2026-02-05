@@ -319,7 +319,7 @@ const Users: React.FC = () => {
                                         type="email"
                                         value={newUser.email}
                                         onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                                        placeholder="user@demo.com"
+                                        placeholder="user@hospital.ch"
                                         required
                                     />
                                 </div>

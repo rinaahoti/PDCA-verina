@@ -40,12 +40,13 @@ interface AuditLog {
 }
 
 const MOCK_ACTIVITY: AuditLog[] = [
-    { id: 'L-01', user: 'Sophia Mayer', action: 'Downgraded Rating', step: 'PLAN', timestamp: '2024-02-20T10:30:00', details: 'Changed from Major to Minor after review' },
-    { id: 'L-02', user: 'Hans Mueller', action: 'Uploaded Evidence', step: 'DO', timestamp: '2024-02-20T09:15:00', details: 'Added fire extinguisher maintenance content' },
-    { id: 'L-03', user: 'Audit Team', action: 'Finding Created', step: 'PLAN', timestamp: '2024-02-19T16:45:00', details: 'New finding identified in Berlin Plant' },
-    { id: 'L-04', user: 'Sarah Weber', action: 'Effectiveness Verified', step: 'CHECK', timestamp: '2024-02-19T14:20:00', details: 'Training records confirmed complete' },
-    { id: 'L-05', user: 'System', action: 'Overdue Alert', step: 'DO', timestamp: '2024-02-19T08:00:00', details: 'Finding F-24-001 is approaching deadline' },
+    { id: 'L-01', user: 'Dr. Elena Rossi', action: 'Risk Level Adjusted', step: 'PLAN', timestamp: '2024-02-20T10:30:00', details: 'Severity changed after clinical review – Zurich' },
+    { id: 'L-02', user: 'Dr. Marcus Weber', action: 'Clinical Evidence Uploaded', step: 'DO', timestamp: '2024-02-20T09:15:00', details: 'Added surgical prep checklist validation documents – Geneva' },
+    { id: 'L-03', user: 'TJC Survey Team', action: 'Finding Identified', step: 'PLAN', timestamp: '2024-02-19T16:45:00', details: 'New documentation deficiency found – Bern' },
+    { id: 'L-04', user: 'Sarah Johnson', action: 'Safety Protocol Verified', step: 'CHECK', timestamp: '2024-02-19T14:20:00', details: 'Medication double-check records confirmed – Basel' },
+    { id: 'L-05', user: 'System', action: 'Clinical Deadline Alert', step: 'DO', timestamp: '2024-02-19T08:00:00', details: 'PDCA topic moved to CHECK phase – Lausanne' },
 ];
+
 
 // --- Sub-Components ---
 
@@ -223,7 +224,7 @@ export default function Dashboard() {
 
     // --- Render Helpers ---
 
-    const FilterDropdown = ({ label, value, options, onChange }: any) => (
+    const FilterDropdown = ({ label, value, options, onChange, placeholder = 'All' }: any) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{label}</label>
             <div style={{ position: 'relative' }}>
@@ -244,7 +245,7 @@ export default function Dashboard() {
                         minWidth: '140px'
                     }}
                 >
-                    <option value="All">All</option>
+                    <option value="All">{placeholder}</option>
                     {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-muted)' }} />
@@ -277,24 +278,28 @@ export default function Dashboard() {
                     value={auditIdParam}
                     options={Array.from(new Set(findings.map(f => f.auditId)))}
                     onChange={(v: string) => updateFilter('auditId', v)}
+                    placeholder="All Audits"
                 />
                 <FilterDropdown
                     label="Type"
                     value={auditTypeParam}
                     options={['Internal', 'External']}
                     onChange={(v: string) => updateFilter('auditType', v)}
+                    placeholder="All Types"
                 />
                 <FilterDropdown
                     label="Location"
                     value={locationParam}
                     options={Array.from(new Set([...locations.map(l => l.name), ...findings.map(f => f.location)]))}
                     onChange={(v: string) => updateFilter('location', v)}
+                    placeholder="All Swiss Locations"
                 />
                 <FilterDropdown
                     label="Responsible"
                     value={responsibleParam}
                     options={Array.from(new Set([...users.map(u => u.fullName), ...findings.map(f => f.responsible)]))}
                     onChange={(v: string) => updateFilter('responsible', v)}
+                    placeholder="All Responsible"
                 />
                 <div style={{ marginLeft: 'auto' }}>
                     <button className="btn btn-outline" style={{ fontSize: '13px' }} onClick={resetFilters}>
