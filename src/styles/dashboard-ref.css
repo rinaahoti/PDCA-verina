@@ -1,0 +1,334 @@
+.refDash {
+    --bg: #FBF9F6;
+    --surface: #FFFFFF;
+    --surface2: #F7F3EF;
+    --border: #EDE7E1;
+    --text: #171A1F;
+    --muted: #6B7280;
+    --muted2: #8A9099;
+    --shadow: 0 2px 6px rgba(16, 24, 40, .06), 0 18px 30px rgba(16, 24, 40, .06);
+    --r-card: 20px;
+    --r-control: 12px;
+    --accent: #F26B4A;
+    --accentSoft: #FCE7E1;
+    --red: #E05A4F;
+    --yellow: #F4C84A;
+    --green: #2DBB7F;
+    --blue: #4F86E0;
+
+    background-color: var(--bg);
+    min-height: 100vh;
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    padding: 2rem 0;
+}
+
+.refDash .container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 32px;
+}
+
+/* Header Section */
+.refDash .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+}
+
+.refDash .header-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0;
+    letter-spacing: -0.03em;
+}
+
+.refDash .header-subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.refDash .header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* Controls */
+.refDash .control-btn {
+    height: 44px;
+    padding: 0 16px;
+    border-radius: var(--r-control);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.refDash .control-btn:hover {
+    background: var(--surface2);
+    border-color: var(--muted2);
+}
+
+.refDash .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(242, 107, 74, 0.2);
+}
+
+.refDash .btn-primary:hover {
+    background: #e05e3d;
+    transform: translateY(-1px);
+}
+
+/* Cards Row */
+.refDash .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.refDash .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.refDash .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.refDash .stat-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+}
+
+.refDash .stat-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+}
+
+/* Main Grid Layout */
+.refDash .main-grid {
+    display: grid;
+    grid-template-columns: 2.1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.refDash .grid-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.refDash .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.refDash .card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+
+/* Timeline/Lifecycle Style */
+.refDash .lifecycle-row {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 20px 0;
+}
+
+.refDash .lifecycle-line {
+    position: absolute;
+    top: 44px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+}
+
+.refDash .lifecycle-node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.refDash .node-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 4px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
+    font-weight: 800;
+    background: var(--surface);
+    transition: all 0.3s;
+}
+
+.refDash .node-circle.active {
+    background: var(--accentSoft);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.refDash .node-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Audit Trail / Feed Style */
+.refDash .feed-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--surface2);
+    transition: background 0.2s;
+}
+
+.refDash .feed-item:last-child {
+    border-bottom: none;
+}
+
+.refDash .feed-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.refDash .feed-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.refDash .feed-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.refDash .feed-time {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted2);
+    font-weight: 600;
+}
+
+/* Charts Overrides */
+.refDash .chart-container {
+    height: 300px;
+    width: 100%;
+}
+
+.refDash select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(242, 107, 74, .18);
+    border-color: var(--accent);
+}
+
+/* Severity Pills */
+.refDash .severity-pills {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.refDash .severity-pill {
+    flex: 1;
+    padding: 16px;
+    border-radius: 16px;
+    text-align: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.refDash .severity-val {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+
+.refDash .severity-tag {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+@media (max-width: 1024px) {
+    .refDash .main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .refDash .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .refDash .stats-row {
+        grid-template-columns: 1fr;
+    }
+
+    .refDash .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+}

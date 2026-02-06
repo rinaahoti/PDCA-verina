@@ -9,23 +9,19 @@ const KEYS = {
 
 const SEED = {
     LOCATIONS: [
-        { id: 'LOC-001', name: 'University Hospital Zurich', city: 'Zurich', country: 'Switzerland', code: 'ZH' },
-        { id: 'LOC-002', name: 'Geneva University Hospitals', city: 'Geneva', country: 'Switzerland', code: 'GE' },
-        { id: 'LOC-003', name: 'Inselspital Bern', city: 'Bern', country: 'Switzerland', code: 'BE' },
-        { id: 'LOC-004', name: 'University Hospital Basel', city: 'Basel', country: 'Switzerland', code: 'BS' },
-        { id: 'LOC-005', name: 'CHUV Lausanne', city: 'Lausanne', country: 'Switzerland', code: 'VD' }
+        { id: 'LOC-001', name: 'Plant Berlin', city: 'Berlin', country: 'Germany', code: 'BER' },
+        { id: 'LOC-002', name: 'HQ Munich', city: 'Munich', country: 'Germany', code: 'MUC' },
+        { id: 'LOC-003', name: 'Plant Hamburg', city: 'Hamburg', country: 'Germany', code: 'HAM' }
     ] as Location[],
     DEPARTMENTS: [
-        { id: 'DEP-001', name: 'Quality & Patient Safety', locationId: 'LOC-001' },
-        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-002' },
-        { id: 'DEP-003', name: 'Main Pharmacy', locationId: 'LOC-003' },
-        { id: 'DEP-004', name: 'Infectious Diseases', locationId: 'LOC-004' },
-        { id: 'DEP-005', name: 'Emergency Medicine', locationId: 'LOC-005' }
+        { id: 'DEP-001', name: 'Quality', locationId: 'LOC-002' },
+        { id: 'DEP-002', name: 'Production', locationId: 'LOC-001' },
+        { id: 'DEP-003', name: 'Maintenance', locationId: 'LOC-003' }
     ] as Department[],
     USERS: [
-        { id: 'USR-001', fullName: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
-        { id: 'USR-002', fullName: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-002', departmentId: 'DEP-002' },
-        { id: 'USR-003', fullName: 'Sarah Johnson (RN)', email: 'sarah.johnson@hospital.ch', role: 'Viewer', locationId: 'LOC-003', departmentId: 'DEP-003' }
+        { id: 'USR-001', fullName: 'Sophia Mayer', email: 'sophia.mayer@example.com', role: 'Owner', locationId: 'LOC-002', departmentId: 'DEP-001' },
+        { id: 'USR-002', fullName: 'Hans Mueller', email: 'hans.mueller@example.com', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' },
+        { id: 'USR-003', fullName: 'Sarah Weber', email: 'sarah.weber@example.com', role: 'Viewer', locationId: 'LOC-002', departmentId: 'DEP-001' }
     ] as AppUser[]
 };
 

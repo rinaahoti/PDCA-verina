@@ -104,7 +104,7 @@ const ActivityLog: React.FC = () => {
             <div style={{ marginBottom: '2rem' }}>
                 <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>Activity Log</h1>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={14} /> System Governance Log · Clinical Audit Trail
+                    <Activity size={14} /> System Activity (Demo) · Real-time frontend audit trail
                 </div>
             </div>
 
@@ -144,7 +144,7 @@ const ActivityLog: React.FC = () => {
                             onChange={(e) => setFilterLocation(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', minWidth: '140px' }}
                         >
-                            <option value="All">All Swiss Locations</option>
+                            <option value="All">All Locations</option>
                             {availableLocations.map(loc => (
                                 <option key={loc} value={loc}>{loc}</option>
                             ))}

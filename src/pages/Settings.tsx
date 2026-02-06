@@ -81,7 +81,7 @@ const Settings: React.FC = () => {
                 name: formData.get('name') as string,
                 industry: formData.get('industry') as string,
                 country: formData.get('country') as string,
-                status: formData.get('status') as 'Active' | 'Sandbox'
+                status: formData.get('status') as 'Active' | 'Demo'
             };
             const updated = organizationService.update(updates);
             setOrg(updated);
@@ -245,8 +245,8 @@ const Settings: React.FC = () => {
                                 <div>
                                     <label>Environment Mode</label>
                                     <select name="status" defaultValue={org.status}>
-                                        <option value="Active">Active / Healthcare Facility</option>
-                                        <option value="Sandbox">Sandbox / Training</option>
+                                        <option value="Active">Active / Enterprise</option>
+                                        <option value="Demo">Demo / Sandbox</option>
                                     </select>
                                 </div>
                             </div>
@@ -394,7 +394,7 @@ const Settings: React.FC = () => {
                                         <option value="ADMIN">ADMIN</option>
                                         <option value="OWNER">OWNER</option>
                                         <option value="ASSIGNED">RESPONSIBLE</option>
-                                        <option value="DEMO">RESTRICTED / VIEW-ONLY</option>
+                                        <option value="DEMO">DEMO / VIEW-ONLY</option>
                                     </select>
                                 </div>
                                 <div>
@@ -579,9 +579,9 @@ const Settings: React.FC = () => {
                     <RefreshCcw size={20} color="#ef4444" />
                     <h4 style={{ margin: 0, color: '#991b1b' }}>Dangerous Zone</h4>
                 </div>
-                <p style={{ fontSize: '13px', color: '#991b1b', marginBottom: '1.5rem' }}>Reset the entire system to its initial configuration. All clinical records and user changes will be permanently deleted.</p>
+                <p style={{ fontSize: '13px', color: '#991b1b', marginBottom: '1.5rem' }}>Reset the entire system to its initial demo state. All local changes will be permanently deleted.</p>
                 <button className="btn" style={{ background: '#be123c', color: 'white', border: 'none' }} onClick={() => setShowResetModal(true)}>
-                    Reset System Data
+                    Reset Demo Data
                 </button>
             </div>
 

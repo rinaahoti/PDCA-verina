@@ -70,15 +70,15 @@ export const authService = {
 
 const defaultOrg: Organization = {
     id: 'org1',
-    name: "Swiss Healthcare Quality Network",
-    industry: 'Healthcare',
-    country: 'Switzerland',
-    status: 'Sandbox',
+    name: 'MSO Maestro Enterprise',
+    industry: 'Technology',
+    country: 'Germany',
+    status: 'Demo',
     departments: [
-        { id: 'dept1', name: 'Quality & Patient Safety', code: 'QPS', description: 'Clinical quality assurance and patient safety protocols.' },
-        { id: 'dept2', name: 'Infectious Disease Control', code: 'IDC', description: 'Infection monitoring and prevention.' },
-        { id: 'dept3', name: 'Surgery Department', code: 'SURG', description: 'Main clinical surgery and post-op care.' },
-        { id: 'dept4', name: 'Compliance & Ethics', code: 'COMP', description: 'Medical law and regulatory compliance.' }
+        { id: 'dept1', name: 'Quality Management', code: 'QM', description: 'Quality assurance and process optimization.' },
+        { id: 'dept2', name: 'IT Infrastructure', code: 'IT', description: 'General IT services and security.' },
+        { id: 'dept3', name: 'Operations', code: 'OPS', description: 'Main business operations.' },
+        { id: 'dept4', name: 'Compliance', code: 'COMP', description: 'Legal and regulatory compliance.' }
     ],
     governance: {
         dueSoonThreshold: 7

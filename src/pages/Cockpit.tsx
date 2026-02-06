@@ -182,7 +182,7 @@ const Cockpit: React.FC = () => {
                 if (uniqueRecipients.length > 0) {
                     const emailResponse = await notificationService.sendActionAssignmentEmails({
                         recipients: uniqueRecipients as any,
-                        subject: `[VIRENA – PDCA] Action Assignment: ${selectedTopic?.title}`,
+                        subject: `[MSO Maestro] Action Assignment: ${selectedTopic?.title}`,
                         body: `You have been assigned to one or more actions in the topic "${selectedTopic?.title}".`,
                         actionDetails: {
                             title: formState.actions[0]?.title || 'Multiple Actions',
@@ -233,7 +233,7 @@ const Cockpit: React.FC = () => {
             responsibleId: 'u2',
             status: 'On Track',
             severity: 'Medium',
-            category: 'Clinical',
+            category: 'Process',
             kpi: '-',
             objective: '-',
             dueDate: createState.dueDate,
@@ -1211,7 +1211,7 @@ const Cockpit: React.FC = () => {
                                                 <div>
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>2. Standardization Scope <span style={{ color: 'red' }}>*</span></label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                                        {['Process', 'Clinical Guide', 'Policy', 'Checklist', 'Training', 'EHR Configuration', 'Other'].map(item => (
+                                                        {['Process', 'Work Instruction', 'Policy', 'Checklist', 'Training', 'System / Tool', 'Other'].map(item => (
                                                             <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"
@@ -1235,7 +1235,7 @@ const Cockpit: React.FC = () => {
                                                 <div>
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>3. Affected Areas / Rollout</label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                                        {['Nursing', 'Surgery', 'Emergency', 'Inpatient Ward', 'Outpatient Clinic', 'Pharmacy', 'Diagnostics', 'Administration', 'Other'].map(item => (
+                                                        {['Quality', 'IT', 'Operations', 'Compliance', 'Customer Service', 'Other'].map(item => (
                                                             <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"

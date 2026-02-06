@@ -3,96 +3,96 @@ import { Audit, AuditFinding } from '../types';
 export const MOCK_AUDITS: Audit[] = [
     {
         id: 'AUD-2024-001',
-        name: 'Joint Commission Hospital Accreditation',
+        name: 'ISO 9001:2015 Surveillance Audit',
         type: 'Certification',
-        location: 'University Hospital Zurich',
+        location: 'HQ Munich',
         startDate: '2024-03-10',
         endDate: '2024-03-12',
-        auditor: 'TJC Survey Team',
+        auditor: 'TÜV Süd',
         status: 'Completed'
     },
     {
         id: 'AUD-2024-002',
-        name: 'Annual Clinical Safety Audit',
+        name: 'Internal Safety Audit (ISO 45001)',
         type: 'Internal',
-        location: 'Geneva University Hospitals',
+        location: 'Plant Berlin',
         startDate: '2024-04-05',
         endDate: '2024-04-06',
-        auditor: 'Internal Quality Team',
+        auditor: 'Internal QM Team',
         status: 'In Progress'
     },
     {
         id: 'AUD-2024-003',
-        name: 'Pharmacy Compliance Review',
+        name: 'Supplier Quality Audit: TechParts GmbH',
         type: 'External',
-        location: 'Inselspital Bern',
+        location: 'Hamburg',
         startDate: '2024-02-15',
         endDate: '2024-02-16',
-        auditor: 'State Board of Pharmacy',
+        auditor: 'Sophia Mayer',
         status: 'Completed'
     },
     {
         id: 'AUD-2024-004',
-        name: 'Infection Control Site Visit',
+        name: 'IT Security Audit (ISO 27001)',
         type: 'Process',
-        location: 'University Hospital Basel',
+        location: 'Remote / HQ',
         startDate: '2024-05-20',
         endDate: '2024-05-25',
-        auditor: 'CDC External Consultant',
+        auditor: 'CyberSec Consult',
         status: 'Planned'
     },
     {
         id: 'AUD-2024-005',
-        name: 'Pediatric Care Quality Review',
-        type: 'Patient Safety',
-        location: 'CHUV Lausanne',
+        name: 'Customer Audit: Automotive Inc.',
+        type: 'Customer',
+        location: 'Plant Berlin',
         startDate: '2024-01-20',
         endDate: '2024-01-22',
-        auditor: 'Patient Safety Board',
+        auditor: 'Automotive Inc. QA',
         status: 'Completed'
     },
     {
         id: 'AUD-2024-006',
-        name: 'Radiology Safety Compliance',
+        name: 'Environmental Compliance (ISO 14001)',
         type: 'Internal',
-        location: 'University Hospital Zurich',
+        location: 'Plant Hamburg',
         startDate: '2024-06-01',
         endDate: '2024-06-03',
-        auditor: 'Radiation Safety Officer',
+        auditor: 'Green Officer',
         status: 'Planned'
     }
 ];
 
 export const MOCK_FINDINGS: AuditFinding[] = [
-    // AUD-2024-001 (Joint Commission)
-    { id: 'F-001', title: 'Medication reconciliation records incomplete', rating: 'Minor', location: 'University Hospital Zurich', responsible: 'Chief of Medicine', assigned: 'Ward Manager', status: 'DO', deadline: '2024-04-15', cause: 'Workflow Gaps', auditId: 'AUD-2024-001', auditName: 'Joint Commission Hospital Accreditation', auditType: 'Certification', createdAt: '2024-03-12' },
-    { id: 'F-002', title: 'Unauthorized access to EHR in Emergency Dept', rating: 'Major', location: 'University Hospital Zurich', responsible: 'CISO (Medical)', assigned: 'IT Security', status: 'PLAN', deadline: '2024-04-01', cause: 'Protocol Breach', auditId: 'AUD-2024-001', auditName: 'Joint Commission Hospital Accreditation', auditType: 'Certification', createdAt: '2024-03-12' },
-    { id: 'F-003', title: 'Hand hygiene station empty in Outpatient', rating: 'Minor', location: 'University Hospital Zurich', responsible: 'Infection Control', assigned: 'Facility Management', status: 'CHECK', deadline: '2024-03-30', cause: 'Supply Chain Loss', auditId: 'AUD-2024-001', auditName: 'Joint Commission Hospital Accreditation', auditType: 'Certification', createdAt: '2024-03-12' },
+    // AUD-2024-001 (ISO 9001 - HQ Munich)
+    { id: 'F-001', title: 'Document control procedure outdated', rating: 'Minor', location: 'HQ Munich', responsible: 'QM Lead', assigned: 'Doc Controller', status: 'DO', deadline: '2024-04-15', cause: 'Process Change', auditId: 'AUD-2024-001', auditName: 'ISO 9001:2015 Surveillance Audit', auditType: 'Certification', createdAt: '2024-03-12' },
+    { id: 'F-002', title: 'Management Review missing inputs', rating: 'Major', location: 'HQ Munich', responsible: 'CEO', assigned: 'QM Lead', status: 'PLAN', deadline: '2024-04-01', cause: 'Oversight', auditId: 'AUD-2024-001', auditName: 'ISO 9001:2015 Surveillance Audit', auditType: 'Certification', createdAt: '2024-03-12' },
+    { id: 'F-003', title: 'Training records incomplete for new hires', rating: 'Minor', location: 'HQ Munich', responsible: 'HR Director', assigned: 'HR Admin', status: 'CHECK', deadline: '2024-03-30', cause: 'Resource Shortage', auditId: 'AUD-2024-001', auditName: 'ISO 9001:2015 Surveillance Audit', auditType: 'Certification', createdAt: '2024-03-12' },
 
-    // AUD-2024-002 (Surgery Dept)
-    { id: 'F-004', title: 'Surgical site marking not protocol-compliant', rating: 'Major', location: 'Geneva University Hospitals', responsible: 'Head of Surgery', assigned: 'Surgical Team', status: 'ACT', deadline: '2024-04-10', cause: 'Inconsistent Training', auditId: 'AUD-2024-002', auditName: 'Annual Clinical Safety Audit', auditType: 'Internal', createdAt: '2024-04-05' },
-    { id: 'F-005', title: 'Missing sterile equipment timestamps', rating: 'Minor', location: 'Geneva University Hospitals', responsible: 'OR Manager', assigned: 'Sterilization Lead', status: 'DO', deadline: '2024-04-20', cause: 'Human Error', auditId: 'AUD-2024-002', auditName: 'Annual Clinical Safety Audit', auditType: 'Internal', createdAt: '2024-04-05' },
-    { id: 'F-006', title: 'Optimize patient recovery room flow', rating: 'OFI', location: 'Geneva University Hospitals', responsible: 'Clinical Director', assigned: 'Nurses Lead', status: 'PLAN', deadline: '2024-05-01', cause: 'Patient Volume', auditId: 'AUD-2024-002', auditName: 'Annual Clinical Safety Audit', auditType: 'Internal', createdAt: '2024-04-05' },
-    { id: 'F-007', title: 'Expired local anesthetics in OR cabinet', rating: 'Major', location: 'Geneva University Hospitals', responsible: 'Pharmacist Lead', assigned: 'OR Nurse', status: 'DO', deadline: '2024-04-08', cause: 'Inventory Control', auditId: 'AUD-2024-002', auditName: 'Annual Clinical Safety Audit', auditType: 'Internal', createdAt: '2024-04-05' },
+    // AUD-2024-002 (ISO 45001 - Berlin)
+    { id: 'F-004', title: 'Emergency exit blocked in Warehouse', rating: 'Major', location: 'Plant Berlin', responsible: 'Plant Mgr', assigned: 'Safety Officer', status: 'ACT', deadline: '2024-04-10', cause: 'Behavioral', auditId: 'AUD-2024-002', auditName: 'Internal Safety Audit (ISO 45001)', auditType: 'Internal', createdAt: '2024-04-05' },
+    { id: 'F-005', title: 'PPE signage missing in chemical area', rating: 'Minor', location: 'Plant Berlin', responsible: 'Safety Officer', assigned: 'Facility Mgr', status: 'DO', deadline: '2024-04-20', cause: 'Maintenance', auditId: 'AUD-2024-002', auditName: 'Internal Safety Audit (ISO 45001)', auditType: 'Internal', createdAt: '2024-04-05' },
+    { id: 'F-006', title: 'Improve lighting in assembly line', rating: 'OFI', location: 'Plant Berlin', responsible: 'Plant Mgr', assigned: 'Maintenance', status: 'PLAN', deadline: '2024-05-01', cause: 'Optimization', auditId: 'AUD-2024-002', auditName: 'Internal Safety Audit (ISO 45001)', auditType: 'Internal', createdAt: '2024-04-05' },
+    { id: 'F-007', title: 'First aid kits expired', rating: 'Major', location: 'Plant Berlin', responsible: 'Safety Officer', assigned: 'Health Rep', status: 'DO', deadline: '2024-04-08', cause: 'Supplier Issue', auditId: 'AUD-2024-002', auditName: 'Internal Safety Audit (ISO 45001)', auditType: 'Internal', createdAt: '2024-04-05' },
 
-    // AUD-2024-003 (Pharmacy)
-    { id: 'F-008', title: 'Controlled substance log discrepancy', rating: 'Major', location: 'Inselspital Bern', responsible: 'Pharmacy Director', assigned: 'Lead Pharmacist', status: 'ACT', deadline: '2024-03-01', cause: 'Accountability Gap', auditId: 'AUD-2024-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2024-02-16' },
-    { id: 'F-009', title: 'Medication fridge temperature log missing', rating: 'Minor', location: 'Inselspital Bern', responsible: 'Pharmacy Director', assigned: 'Pharmacy Tech', status: 'CHECK', deadline: '2024-03-15', cause: 'System Fault', auditId: 'AUD-2024-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2024-02-16' },
+    // AUD-2024-003 (Supplier - Hamburg)
+    { id: 'F-008', title: 'CoC missing for raw material X', rating: 'Major', location: 'Hamburg', responsible: 'Purchasing', assigned: 'Buyer A', status: 'ACT', deadline: '2024-03-01', cause: 'Supplier Compliance', auditId: 'AUD-2024-003', auditName: 'Supplier Quality Audit: TechParts GmbH', auditType: 'External', createdAt: '2024-02-16' },
+    { id: 'F-009', title: 'Delay in response to complaints', rating: 'Minor', location: 'Hamburg', responsible: 'Purchasing', assigned: 'Buyer B', status: 'CHECK', deadline: '2024-03-15', cause: 'Communication', auditId: 'AUD-2024-003', auditName: 'Supplier Quality Audit: TechParts GmbH', auditType: 'External', createdAt: '2024-02-16' },
 
-    // AUD-2024-005 (Pediatrics)
-    { id: 'F-010', title: 'Pediatric crash cart missing list items', rating: 'Minor', location: 'CHUV Lausanne', responsible: 'Pediatric Lead', assigned: 'Ward Nurse', status: 'ACT', deadline: '2024-02-01', cause: 'Usage Overload', auditId: 'AUD-2024-005', auditName: 'Pediatric Care Quality Review', auditType: 'Patient Safety', createdAt: '2024-01-22' },
-    { id: 'F-011', title: 'Patient wristband mismatch in ward 4B', rating: 'Major', location: 'CHUV Lausanne', responsible: 'Nursing Director', assigned: 'Charge Nurse', status: 'ACT', deadline: '2024-02-10', cause: 'Admissions Error', auditId: 'AUD-2024-005', auditName: 'Pediatric Care Quality Review', auditType: 'Patient Safety', createdAt: '2024-01-22' },
+    // AUD-2024-005 (Customer - Berlin)
+    { id: 'F-010', title: 'Calibration sticker missing on tool #44', rating: 'Minor', location: 'Plant Berlin', responsible: 'QA Mgr', assigned: 'Metrologist', status: 'ACT', deadline: '2024-02-01', cause: 'Human Error', auditId: 'AUD-2024-005', auditName: 'Customer Audit: Automotive Inc.', auditType: 'Customer', createdAt: '2024-01-22' },
+    { id: 'F-011', title: 'Traceability gap in Lot #992', rating: 'Major', location: 'Plant Berlin', responsible: 'Prod Mgr', assigned: 'Supervisor', status: 'ACT', deadline: '2024-02-10', cause: 'System Error', auditId: 'AUD-2024-005', auditName: 'Customer Audit: Automotive Inc.', auditType: 'Customer', createdAt: '2024-01-22' },
 
-    // Generic
-    { id: 'F-012', title: 'Noise levels over 60dB in NICU', rating: 'OFI', location: 'University Hospital Basel', responsible: 'NICU Lead', assigned: 'Facility Management', status: 'PLAN', deadline: '2024-07-01', cause: 'Equipment Vibration', auditId: 'AUD-2024-006', auditName: 'Radiology Safety Compliance', auditType: 'Internal', createdAt: '2024-01-10' },
-    { id: 'F-013', title: 'Patient consent forms lack signatures', rating: 'Minor', location: 'University Hospital Zurich', responsible: 'Legal Counsel', assigned: 'Admin Staff', status: 'CHECK', deadline: '2024-03-01', cause: 'Human Error', auditId: 'AUD-2024-001', auditName: 'Joint Commission Hospital Accreditation', auditType: 'Certification', createdAt: '2024-01-15' },
-    { id: 'F-014', title: 'Critical labs not communicated in 30min', rating: 'Major', location: 'University Hospital Basel', responsible: 'Chief Medical Officer', assigned: 'Lab Director', status: 'DO', deadline: '2024-02-28', cause: 'Comm Breakdown', auditId: 'AUD-2024-004', auditName: 'Infection Control Site Visit', auditType: 'Process', createdAt: '2024-02-20' },
-    { id: 'F-015', title: 'Isolation protocol breach in ICU', rating: 'Major', location: 'University Hospital Basel', responsible: 'Dr. Julia Chen', assigned: 'ICU Staff', status: 'PLAN', deadline: '2024-03-10', cause: 'Lack of PPE Train', auditId: 'AUD-2024-004', auditName: 'Infection Control Site Visit', auditType: 'Process', createdAt: '2024-02-20' },
-    { id: 'F-016', title: 'Incomplete blood transfusion logs', rating: 'Minor', location: 'University Hospital Basel', responsible: 'Chief Medical Officer', assigned: 'Hematology Lead', status: 'ACT', deadline: '2024-03-01', cause: 'Documentation Load', auditId: 'AUD-2024-004', auditName: 'Infection Control Site Visit', auditType: 'Process', createdAt: '2024-02-20' },
-    { id: 'F-017', title: 'Biohazard waste bins overflowing', rating: 'Major', location: 'University Hospital Zurich', responsible: 'Infection Control', assigned: 'Housekeeping', status: 'DO', deadline: '2024-06-15', cause: 'Scheduling Gap', auditId: 'AUD-2024-006', auditName: 'Radiology Safety Compliance', auditType: 'Internal', createdAt: '2024-01-10' },
-    { id: 'F-018', title: 'Radiation shield door sensor faulty', rating: 'Minor', location: 'University Hospital Zurich', responsible: 'Radiation Safety', assigned: 'Maintenance', status: 'PLAN', deadline: '2024-06-20', cause: 'Mechanical Wear', auditId: 'AUD-2024-006', auditName: 'Radiology Safety Compliance', auditType: 'Internal', createdAt: '2024-01-10' },
-    { id: 'F-019', title: 'Emergency call button non-responsive in 2C', rating: 'Minor', location: 'University Hospital Zurich', responsible: 'Nursing Lead', assigned: 'Electrician', status: 'ACT', deadline: '2024-02-15', cause: 'Technical Fault', auditId: 'AUD-2024-001', auditName: 'Joint Commission Hospital Accreditation', auditType: 'Certification', createdAt: '2024-03-12' },
-    { id: 'F-020', title: 'Medicine cabinet left unlocked in ICU', rating: 'Major', location: 'University Hospital Zurich', responsible: 'Charge Nurse', assigned: 'ICU Team', status: 'DO', deadline: '2024-02-25', cause: 'Human Error', auditId: 'AUD-2024-004', auditName: 'Infection Control Site Visit', auditType: 'Process', createdAt: '2024-02-20' }
+    // Generic / Unassigned to specific mock audit for volume
+    { id: 'F-012', title: 'Noise level high in sector C', rating: 'OFI', location: 'Plant Hamburg', responsible: 'Facility Mgr', assigned: 'External Consultant', status: 'PLAN', deadline: '2024-07-01', cause: 'Equipment Aging', auditId: 'AUD-2024-006', auditName: 'Environmental Compliance (ISO 14001)', auditType: 'Internal', createdAt: '2024-01-10' },
+    { id: 'F-013', title: 'Visitor logbook not GDPR compliant', rating: 'Minor', location: 'HQ Munich', responsible: 'DPO', assigned: 'Reception', status: 'CHECK', deadline: '2024-03-01', cause: 'Regulation', auditId: 'AUD-2024-001', auditName: 'ISO 9001:2015 Surveillance Audit', auditType: 'Certification', createdAt: '2024-01-15' },
+    { id: 'F-014', title: 'Update firewall rules', rating: 'Major', location: 'Remote / HQ', responsible: 'CISO', assigned: 'NetAdmin', status: 'DO', deadline: '2024-02-28', cause: 'Security Policy', auditId: 'AUD-2024-004', auditName: 'IT Security Audit (ISO 27001)', auditType: 'Process', createdAt: '2024-02-20' },
+    { id: 'F-015', title: 'Backup restore test failed', rating: 'Major', location: 'Remote / HQ', responsible: 'IT Ops', assigned: 'SysAdmin', status: 'PLAN', deadline: '2024-03-10', cause: 'Configuration', auditId: 'AUD-2024-004', auditName: 'IT Security Audit (ISO 27001)', auditType: 'Process', createdAt: '2024-02-20' },
+    { id: 'F-016', title: 'Password policy not enforced', rating: 'Minor', location: 'Remote / HQ', responsible: 'CISO', assigned: 'Helpdesk', status: 'ACT', deadline: '2024-03-01', cause: 'Config Drift', auditId: 'AUD-2024-004', auditName: 'IT Security Audit (ISO 27001)', auditType: 'Process', createdAt: '2024-02-20' },
+    { id: 'F-017', title: 'Chemical spill kit empty', rating: 'Major', location: 'Plant Hamburg', responsible: 'Safety Officer', assigned: 'Warehouse', status: 'DO', deadline: '2024-06-15', cause: 'Usage', auditId: 'AUD-2024-006', auditName: 'Environmental Compliance (ISO 14001)', auditType: 'Internal', createdAt: '2024-01-10' },
+    { id: 'F-018', title: 'Energy consumption metering faulty', rating: 'Minor', location: 'Plant Hamburg', responsible: 'Facility Mgr', assigned: 'Electrician', status: 'PLAN', deadline: '2024-06-20', cause: 'Maintenance', auditId: 'AUD-2024-006', auditName: 'Environmental Compliance (ISO 14001)', auditType: 'Internal', createdAt: '2024-01-10' },
+    { id: 'F-019', title: 'Customer complaint logged late', rating: 'Minor', location: 'HQ Munich', responsible: 'CS Mgr', assigned: 'Agent', status: 'ACT', deadline: '2024-02-15', cause: 'Training', auditId: 'AUD-2024-001', auditName: 'ISO 9001:2015 Surveillance Audit', auditType: 'Certification', createdAt: '2024-03-12' },
+    { id: 'F-020', title: 'Server room door unlocked', rating: 'Major', location: 'HQ Munich', responsible: 'Security', assigned: 'Guard', status: 'DO', deadline: '2024-02-25', cause: 'Human Error', auditId: 'AUD-2024-004', auditName: 'IT Security Audit (ISO 27001)', auditType: 'Process', createdAt: '2024-02-20' }
 ];
 
 // Helper to calculate findings for an audit
@@ -107,4 +107,3 @@ export const getAuditStats = (auditId: string) => {
         closed: findings.filter(f => f.status === 'ACT').length
     };
 };
-
