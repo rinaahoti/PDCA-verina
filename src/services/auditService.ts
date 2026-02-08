@@ -3,8 +3,8 @@ import { MOCK_AUDITS, MOCK_FINDINGS } from '../data/mock_audits';
 import { activityService } from './activityService';
 
 const KEYS = {
-    AUDITS: 'mso_v5_audits',
-    FINDINGS: 'mso_v5_audit_findings'
+    AUDITS: 'mso_v6_audits',
+    FINDINGS: 'mso_v6_audit_findings'
 };
 
 export const auditService = {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, List, PieChart, HelpCircle, Plus, LogOut, ChevronRight, Menu, Shield, Building2, Settings, Bell, CheckCircle2, Activity } from 'lucide-react';
+import { LayoutDashboard, List, PieChart, HelpCircle, Plus, LogOut, ChevronRight, Menu, Shield, Building2, Settings, Bell, CheckCircle2, Activity, FileText } from 'lucide-react';
 import { User, Topic } from '../types';
 import { topicsService } from '../services';
 
@@ -18,15 +18,15 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <aside className="sidebar">
                 <div style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '32px', height: '32px', background: 'var(--color-primary)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>V</div>
+                        <img src="/logoo.png" alt="Logo" style={{ width: '50px', height: '50px', objectFit: 'contain', borderRadius: '8px' }} />
                         <span style={{ fontWeight: 700, fontSize: '1.4rem', color: 'var(--color-text)' }}>VIRENA</span>
                     </div>
                 </div>
 
                 <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
                     <button
-                        className="btn btn-primary w-full"
-                        style={{ width: '100%', justifyContent: 'center' }}
+                        className="btn w-full"
+                        style={{ width: '100%', justifyContent: 'center', background: '#cbeee2', color: '#5FAE9E', border: 'none' }}
                         onClick={() => user.role !== 'DEMO' && navigate('/app/cockpit?mode=create')}
                         disabled={user.role === 'DEMO'}
                     >
@@ -39,12 +39,6 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                     <NavLink to="/app/cockpit" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <LayoutDashboard size={20} /> Cockpit
-                        </div>
-                        <ChevronRight size={14} className="nav-chevron" />
-                    </NavLink>
-                    <NavLink to="/app/audits" className={({ isActive }) => isActive ? 'active-nav' : ''}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <CheckCircle2 size={20} /> Audits
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
@@ -75,6 +69,12 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
+                    <NavLink to="/app/templates-standards" className={({ isActive }) => isActive ? 'active-nav' : ''}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <FileText size={20} /> Templates & Standards
+                        </div>
+                        <ChevronRight size={14} className="nav-chevron" />
+                    </NavLink>
                 </nav>
 
                 <div style={{ padding: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', fontSize: '12px' }}>
@@ -85,7 +85,7 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <main className="main-content">
                 <header className="topbar">
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                        Project Scope / PDCA Management / <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>Maestro v5</span>
+                        Healthcare Governance / Clinical Improvement / <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>Quality Portal</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <div style={{ textAlign: 'right' }}>

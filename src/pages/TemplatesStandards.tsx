@@ -1,0 +1,811 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    Plus, Edit2, Trash2, Search, Download, RefreshCw, Eye, FileText,
+    X, Save, CheckCircle2, AlertCircle, Tag, MapPin, Building2, Calendar
+} from 'lucide-react';
+
+// --- TYPES ---
+
+type EffectivenessStatus = 'Effective' | 'Partially Effective' | 'Not Effective';
+type DecisionType = 'Standardize' | 'Improve & Re-run' | 'Close';
+type TemplateKind = 'template' | 'standard';
+type TemplateStatus = 'Draft' | 'Published' | 'Archived';
+
+interface PDCAOutcome {
+    ref: string;
+    title: string;
+    owner: string;
+    category: string;
+    location: string;
+    effectiveness: EffectivenessStatus;
+    decision: DecisionType;
+    scope: string[];
+    areas: string[];
+    kpi: {
+        name: string;
+        target: number;
+        actual: number;
+        status: 'Achieved' | 'Partial' | 'Not Achieved';
+    }[];
+    description: string;
+    lessons: string;
+    whyNot?: string;
+    signoff: {
+        standardized: boolean;
+        noPending: boolean;
+        readyClose: boolean;
+    };
+    standardId?: string;
+    createdAt: string;
+}
+
+interface Template {
+    id: string;
+    title: string;
+    kind: TemplateKind;
+    category: string;
+    step: 'PLAN' | 'DO' | 'CHECK' | 'ACT';
+    status: TemplateStatus;
+    source: string;
+}
+
+const STORAGE_KEY_OUTCOMES = 'virena_pdca_outcomes';
+const STORAGE_KEY_TEMPLATES = 'virena_templates';
+
+// --- SEED DATA ---
+
+const seedOutcomes = (): PDCAOutcome[] => [
+    {
+        ref: 'T-001',
+        title: 'Reduction of Post-operative Infection Rates',
+        owner: 'Dr. Marcus Weber',
+        category: 'Patient Safety',
+        location: 'Basel',
+        effectiveness: 'Effective',
+        decision: 'Standardize',
+        scope: ['Surgery Department', 'Infection Control'],
+        areas: ['Pre-op protocols', 'Sterilization procedures'],
+        kpi: [
+            { name: 'Infection Rate Reduction', target: 50, actual: 65, status: 'Achieved' }
+        ],
+        description: 'Implemented enhanced pre-operative protocols',
+        lessons: 'Early intervention and staff training critical',
+        signoff: { standardized: true, noPending: true, readyClose: true },
+        standardId: 'STD-T-001',
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+        ref: 'T-002',
+        title: 'Medication Administration Error Reduction',
+        owner: 'Dr. Elena Rossi',
+        category: 'Medication Safety',
+        location: 'Bern',
+        effectiveness: 'Partially Effective',
+        decision: 'Improve & Re-run',
+        scope: ['Nursing', 'Pharmacy'],
+        areas: ['Double-check procedures', 'Electronic verification'],
+        kpi: [
+            { name: 'Error Rate Reduction', target: 80, actual: 45, status: 'Partial' }
+        ],
+        description: 'Piloted electronic verification system',
+        lessons: 'Technology adoption requires more training',
+        whyNot: 'Target not met; requires additional training cycles and system refinement before standardization',
+        signoff: { standardized: false, noPending: false, readyClose: false },
+        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+        ref: 'T-003',
+        title: 'Patient Fall Prevention Protocol Compliance',
+        owner: 'Sarah Johnson (RN)',
+        category: 'Patient Safety',
+        location: 'Basel',
+        effectiveness: 'Effective',
+        decision: 'Standardize',
+        scope: ['Nursing', 'Geriatrics'],
+        areas: ['Risk assessment', 'Environmental safety'],
+        kpi: [
+            { name: 'Fall Incident Reduction', target: 40, actual: 52, status: 'Achieved' }
+        ],
+        description: 'Enhanced fall risk assessment and prevention measures',
+        lessons: 'Consistent application across all shifts essential',
+        signoff: { standardized: true, noPending: true, readyClose: true },
+        standardId: 'STD-T-003',
+        createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString()
+    }
+];
+
+const seedTemplates = (): Template[] => [
+    {
+        id: 'STD-T-001',
+        title: 'Standard: Reduction of Post-operative Infection Rates',
+        kind: 'standard',
+        category: 'Patient Safety',
+        step: 'ACT',
+        status: 'Published',
+        source: 'PDCA T-001'
+    },
+    {
+        id: 'STD-T-003',
+        title: 'Standard: Patient Fall Prevention Protocol Compliance',
+        kind: 'standard',
+        category: 'Patient Safety',
+        step: 'ACT',
+        status: 'Published',
+        source: 'PDCA T-003'
+    }
+];
+
+// --- SERVICE LAYER ---
+
+const outcomesService = {
+    getAll: (): PDCAOutcome[] => {
+        const data = localStorage.getItem(STORAGE_KEY_OUTCOMES);
+        if (!data) {
+            const seed = seedOutcomes();
+            localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(seed));
+            return seed;
+        }
+        return JSON.parse(data);
+    },
+    save: (outcome: PDCAOutcome) => {
+        const all = outcomesService.getAll();
+        const idx = all.findIndex(o => o.ref === outcome.ref);
+        if (idx >= 0) all[idx] = outcome;
+        else all.push(outcome);
+        localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(all));
+        window.dispatchEvent(new Event('storage-outcomes'));
+    },
+    delete: (ref: string) => {
+        const all = outcomesService.getAll().filter(o => o.ref !== ref);
+        localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(all));
+        window.dispatchEvent(new Event('storage-outcomes'));
+    },
+    reset: () => {
+        localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(seedOutcomes()));
+        window.dispatchEvent(new Event('storage-outcomes'));
+    }
+};
+
+const templatesService = {
+    getAll: (): Template[] => {
+        const data = localStorage.getItem(STORAGE_KEY_TEMPLATES);
+        if (!data) {
+            const seed = seedTemplates();
+            localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(seed));
+            return seed;
+        }
+        return JSON.parse(data);
+    },
+    save: (template: Template) => {
+        const all = templatesService.getAll();
+        const idx = all.findIndex(t => t.id === template.id);
+        if (idx >= 0) all[idx] = template;
+        else all.push(template);
+        localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(all));
+        window.dispatchEvent(new Event('storage-templates'));
+    },
+    delete: (id: string) => {
+        const all = templatesService.getAll().filter(t => t.id !== id);
+        localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(all));
+        window.dispatchEvent(new Event('storage-templates'));
+    },
+    reset: () => {
+        localStorage.setItem(STORAGE_KEY_TEMPLATES, JSON.stringify(seedTemplates()));
+        window.dispatchEvent(new Event('storage-templates'));
+    }
+};
+
+// --- MAIN COMPONENT ---
+
+const TemplatesStandards: React.FC = () => {
+    const [activeTab, setActiveTab] = useState<'standardizations' | 'templates'>('standardizations');
+    const [outcomes, setOutcomes] = useState<PDCAOutcome[]>([]);
+    const [templates, setTemplates] = useState<Template[]>([]);
+
+    // Filters
+    const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('All Categories');
+    const [locationFilter, setLocationFilter] = useState('All Locations');
+    const [decisionFilter, setDecisionFilter] = useState('All Decisions');
+
+    // Modals
+    const [isOutcomeModalOpen, setOutcomeModalOpen] = useState(false);
+    const [isViewModalOpen, setViewModalOpen] = useState(false);
+    const [editingOutcome, setEditingOutcome] = useState<Partial<PDCAOutcome> | null>(null);
+    const [viewingOutcome, setViewingOutcome] = useState<PDCAOutcome | null>(null);
+
+    useEffect(() => {
+        const load = () => {
+            setOutcomes(outcomesService.getAll());
+            setTemplates(templatesService.getAll());
+        };
+        load();
+        window.addEventListener('storage-outcomes', load);
+        window.addEventListener('storage-templates', load);
+        return () => {
+            window.removeEventListener('storage-outcomes', load);
+            window.removeEventListener('storage-templates', load);
+        };
+    }, []);
+
+    // KPI Calculations
+    const totalOutcomes = outcomes.length;
+    const standardized = outcomes.filter(o => o.decision === 'Standardize').length;
+    const notStandardized = outcomes.filter(o => o.decision !== 'Standardize').length;
+    const totalStandards = templates.filter(t => t.kind === 'standard').length;
+
+    // Filtered outcomes
+    const filteredOutcomes = useMemo(() => {
+        return outcomes.filter(o => {
+            const matchesSearch = o.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                o.ref.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = categoryFilter === 'All Categories' || o.category === categoryFilter;
+            const matchesLocation = locationFilter === 'All Locations' || o.location === locationFilter;
+            const matchesDecision = decisionFilter === 'All Decisions' || o.decision === decisionFilter;
+            return matchesSearch && matchesCategory && matchesLocation && matchesDecision;
+        });
+    }, [outcomes, searchTerm, categoryFilter, locationFilter, decisionFilter]);
+
+    // Get unique values for filters
+    const categories = Array.from(new Set(outcomes.map(o => o.category)));
+    const locations = Array.from(new Set(outcomes.map(o => o.location)));
+
+    // Handlers
+    const handleExportJSON = () => {
+        const data = { outcomes, templates };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `virena-templates-standards-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    };
+
+    const handleRestoreDefaults = () => {
+        if (confirm('Restore default master data? This will reset all outcomes and templates.')) {
+            outcomesService.reset();
+            templatesService.reset();
+        }
+    };
+
+    const handleGenerateStandard = (outcome: PDCAOutcome) => {
+        if (outcome.decision !== 'Standardize') return;
+
+        const standard: Template = {
+            id: `STD-${outcome.ref}`,
+            title: `Standard: ${outcome.title}`,
+            kind: 'standard',
+            category: outcome.category,
+            step: 'ACT',
+            status: 'Published',
+            source: `PDCA ${outcome.ref}`
+        };
+
+        templatesService.save(standard);
+
+        // Update outcome with standard ID
+        outcomesService.save({ ...outcome, standardId: standard.id });
+
+        alert(`Standard ${standard.id} generated successfully!`);
+    };
+
+    const handleSaveOutcome = () => {
+        if (!editingOutcome || !editingOutcome.ref || !editingOutcome.title) {
+            return alert('Ref and Title are required');
+        }
+
+        const outcome: PDCAOutcome = {
+            ref: editingOutcome.ref,
+            title: editingOutcome.title,
+            owner: editingOutcome.owner || '',
+            category: editingOutcome.category || '',
+            location: editingOutcome.location || '',
+            effectiveness: editingOutcome.effectiveness || 'Effective',
+            decision: editingOutcome.decision || 'Standardize',
+            scope: editingOutcome.scope || [],
+            areas: editingOutcome.areas || [],
+            kpi: editingOutcome.kpi || [],
+            description: editingOutcome.description || '',
+            lessons: editingOutcome.lessons || '',
+            whyNot: editingOutcome.whyNot,
+            signoff: editingOutcome.signoff || { standardized: false, noPending: false, readyClose: false },
+            standardId: editingOutcome.standardId,
+            createdAt: editingOutcome.createdAt || new Date().toISOString()
+        };
+
+        outcomesService.save(outcome);
+        setOutcomeModalOpen(false);
+        setEditingOutcome(null);
+    };
+
+    return (
+        <div style={{ maxWidth: '1600px', margin: '0 auto', paddingBottom: '4rem' }}>
+            {/* HEADER */}
+            <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>Templates & Standards</h1>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>PDCA outcomes → standardization records and generated standards</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={handleExportJSON} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
+                        <Download size={16} /> Export JSON
+                    </button>
+                    <button onClick={handleRestoreDefaults} className="btn btn-outline" style={{ display: 'flex', gap: '8px', color: '#dc2626', borderColor: '#fee2e2' }}>
+                        <RefreshCw size={16} /> Restore Default Master Data
+                    </button>
+                    <button
+                        onClick={() => { setEditingOutcome({}); setOutcomeModalOpen(true); }}
+                        className="btn"
+                        style={{ display: 'flex', gap: '8px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                    >
+                        <Plus size={16} /> New PDCA Outcome
+                    </button>
+                </div>
+            </div>
+
+            {/* KPI SUMMARY ROW */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
+                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(100,116,139,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={20} color="#64748B" strokeWidth={1.5} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>PDCA OUTCOMES</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--color-text)' }}>{totalOutcomes}</div>
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <CheckCircle2 size={20} color="#22C55E" strokeWidth={1.5} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STANDARDIZED</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#22C55E' }}>{standardized}</div>
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(245,158,11,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <AlertCircle size={20} color="#F59E0B" strokeWidth={1.5} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>NOT STANDARDIZED</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B' }}>{notStandardized}</div>
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={20} color="#3B82F6" strokeWidth={1.5} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STANDARDS</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#3B82F6' }}>{totalStandards}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* MAIN PANEL WITH TABS */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                {/* TABS */}
+                <div style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 1.5rem', display: 'flex', gap: '1rem' }}>
+                    <button
+                        onClick={() => setActiveTab('standardizations')}
+                        style={{
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            border: '1px solid',
+                            background: activeTab === 'standardizations' ? '#cbeee2' : 'white',
+                            color: activeTab === 'standardizations' ? '#5FAE9E' : 'var(--color-text-muted)',
+                            borderColor: activeTab === 'standardizations' ? '#5FAE9E' : 'var(--color-border)',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        Standardizations
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('templates')}
+                        style={{
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: '20px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            border: '1px solid',
+                            background: activeTab === 'templates' ? '#cbeee2' : 'white',
+                            color: activeTab === 'templates' ? '#5FAE9E' : 'var(--color-text-muted)',
+                            borderColor: activeTab === 'templates' ? '#5FAE9E' : 'var(--color-border)',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        Templates
+                    </button>
+                </div>
+
+                {/* FILTERS ROW */}
+                {activeTab === 'standardizations' && (
+                    <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', flex: '1 1 300px' }}>
+                            <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                            <input
+                                type="text"
+                                placeholder="Search outcomes..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ width: '100%', padding: '10px 16px 10px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '14px' }}
+                            />
+                        </div>
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
+                        >
+                            <option>All Categories</option>
+                            {categories.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <select
+                            value={locationFilter}
+                            onChange={(e) => setLocationFilter(e.target.value)}
+                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
+                        >
+                            <option>All Locations</option>
+                            {locations.map(l => <option key={l}>{l}</option>)}
+                        </select>
+                        <select
+                            value={decisionFilter}
+                            onChange={(e) => setDecisionFilter(e.target.value)}
+                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
+                        >
+                            <option>All Decisions</option>
+                            <option>Standardize</option>
+                            <option>Improve & Re-run</option>
+                            <option>Close</option>
+                        </select>
+                    </div>
+                )}
+
+                {/* STANDARDIZATIONS TABLE */}
+                {activeTab === 'standardizations' && (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <tr>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Topic Ref</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Title</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Outcome</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>KPI Summary</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Scope</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Why Not</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Standard ID</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Date</th>
+                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredOutcomes.length === 0 ? (
+                                    <tr><td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No outcomes found.</td></tr>
+                                ) : (
+                                    filteredOutcomes.map(outcome => {
+                                        const achievedKPIs = outcome.kpi.filter(k => k.status === 'Achieved').length;
+                                        const totalKPIs = outcome.kpi.length;
+
+                                        return (
+                                            <tr key={outcome.ref} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>{outcome.ref}</td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>{outcome.title}</div>
+                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                                        {outcome.owner} · {outcome.category} · {outcome.location}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            display: 'inline-block',
+                                                            width: 'fit-content',
+                                                            background: outcome.decision === 'Standardize' ? '#dcfce7' : outcome.decision === 'Improve & Re-run' ? '#fef3c7' : '#fee2e2',
+                                                            color: outcome.decision === 'Standardize' ? '#166534' : outcome.decision === 'Improve & Re-run' ? '#92400e' : '#991b1b'
+                                                        }}>
+                                                            {outcome.decision}
+                                                        </span>
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            display: 'inline-block',
+                                                            width: 'fit-content',
+                                                            background: outcome.effectiveness === 'Effective' ? '#dcfce7' : outcome.effectiveness === 'Partially Effective' ? '#fef3c7' : '#fee2e2',
+                                                            color: outcome.effectiveness === 'Effective' ? '#166534' : outcome.effectiveness === 'Partially Effective' ? '#92400e' : '#991b1b'
+                                                        }}>
+                                                            {outcome.effectiveness}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} Achieved</td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                                        {outcome.scope.slice(0, 2).map((s, i) => (
+                                                            <span key={i} style={{ padding: '2px 6px', background: '#f1f5f9', borderRadius: '4px', fontSize: '10px', color: '#64748b' }}>
+                                                                {s}
+                                                            </span>
+                                                        ))}
+                                                        {outcome.scope.length > 2 && <span style={{ fontSize: '10px', color: '#94a3b8' }}>+{outcome.scope.length - 2}</span>}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem', color: '#64748b', maxWidth: '200px' }}>
+                                                    {outcome.whyNot ? (
+                                                        <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {outcome.whyNot}
+                                                        </div>
+                                                    ) : '—'}
+                                                </td>
+                                                <td style={{ padding: '1rem', fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>
+                                                    {outcome.standardId || '—'}
+                                                </td>
+                                                <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>
+                                                    {new Date(outcome.createdAt).toLocaleDateString()}
+                                                </td>
+                                                <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                        <button
+                                                            onClick={() => { setViewingOutcome(outcome); setViewModalOpen(true); }}
+                                                            className="btn btn-outline"
+                                                            style={{ padding: '4px 8px' }}
+                                                        >
+                                                            <Eye size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => { setEditingOutcome(outcome); setOutcomeModalOpen(true); }}
+                                                            className="btn btn-outline"
+                                                            style={{ padding: '4px 8px' }}
+                                                        >
+                                                            <Edit2 size={13} />
+                                                        </button>
+                                                        {outcome.decision === 'Standardize' && !outcome.standardId && (
+                                                            <button
+                                                                onClick={() => handleGenerateStandard(outcome)}
+                                                                className="btn"
+                                                                style={{ padding: '4px 8px', fontSize: '11px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                                                            >
+                                                                Generate
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {/* TEMPLATES TABLE */}
+                {activeTab === 'templates' && (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                <tr>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>ID</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Title</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Kind</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Category</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Step</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Status</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {templates.length === 0 ? (
+                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No templates found.</td></tr>
+                                ) : (
+                                    templates.map(template => (
+                                        <tr key={template.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                            <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>{template.id}</td>
+                                            <td style={{ padding: '1rem', fontWeight: 600, color: '#1e293b' }}>{template.title}</td>
+                                            <td style={{ padding: '1rem' }}>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 600,
+                                                    background: template.kind === 'standard' ? '#dbeafe' : '#f3e8ff',
+                                                    color: template.kind === 'standard' ? '#1e40af' : '#7e22ce'
+                                                }}>
+                                                    {template.kind}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem', color: '#64748b' }}>{template.category}</td>
+                                            <td style={{ padding: '1rem' }}>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 600,
+                                                    background: '#f1f5f9',
+                                                    color: '#64748b'
+                                                }}>
+                                                    {template.step}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem' }}>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 600,
+                                                    background: template.status === 'Published' ? '#dcfce7' : template.status === 'Draft' ? '#fef3c7' : '#fee2e2',
+                                                    color: template.status === 'Published' ? '#166534' : template.status === 'Draft' ? '#92400e' : '#991b1b'
+                                                }}>
+                                                    {template.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>{template.source}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* VIEW MODAL */}
+            {isViewModalOpen && viewingOutcome && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: '700px', maxHeight: '80vh', overflow: 'auto', padding: 0 }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
+                            <h3 style={{ margin: 0 }}>Outcome Details</h3>
+                            <button onClick={() => { setViewModalOpen(false); setViewingOutcome(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Topic Ref</div>
+                                <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{viewingOutcome.ref}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Title</div>
+                                <div style={{ fontWeight: 600 }}>{viewingOutcome.title}</div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Owner</div>
+                                    <div>{viewingOutcome.owner}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Category</div>
+                                    <div>{viewingOutcome.category}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Description</div>
+                                <div>{viewingOutcome.description}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Lessons Learned</div>
+                                <div>{viewingOutcome.lessons}</div>
+                            </div>
+                            {viewingOutcome.whyNot && (
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Why Not Standardized</div>
+                                    <div style={{ padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', color: '#92400e' }}>{viewingOutcome.whyNot}</div>
+                                </div>
+                            )}
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>KPIs</div>
+                                {viewingOutcome.kpi.map((k, i) => (
+                                    <div key={i} style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', marginBottom: '8px' }}>
+                                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>{k.name}</div>
+                                        <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                            Target: {k.target}% | Actual: {k.actual}% | Status: <span style={{
+                                                padding: '2px 6px',
+                                                borderRadius: '8px',
+                                                background: k.status === 'Achieved' ? '#dcfce7' : k.status === 'Partial' ? '#fef3c7' : '#fee2e2',
+                                                color: k.status === 'Achieved' ? '#166534' : k.status === 'Partial' ? '#92400e' : '#991b1b',
+                                                fontWeight: 600
+                                            }}>{k.status}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* OUTCOME EDIT/ADD MODAL - Simplified for demo */}
+            {isOutcomeModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: '600px', padding: 0 }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0 }}>{editingOutcome?.ref ? 'Edit Outcome' : 'New PDCA Outcome'}</h3>
+                            <button onClick={() => { setOutcomeModalOpen(false); setEditingOutcome(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '60vh', overflowY: 'auto' }}>
+                            <div className="form-group">
+                                <label>Topic Ref *</label>
+                                <input
+                                    className="input"
+                                    value={editingOutcome?.ref || ''}
+                                    onChange={e => setEditingOutcome({ ...editingOutcome, ref: e.target.value })}
+                                    placeholder="e.g. T-004"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Title *</label>
+                                <input
+                                    className="input"
+                                    value={editingOutcome?.title || ''}
+                                    onChange={e => setEditingOutcome({ ...editingOutcome, title: e.target.value })}
+                                />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group">
+                                    <label>Owner</label>
+                                    <input
+                                        className="input"
+                                        value={editingOutcome?.owner || ''}
+                                        onChange={e => setEditingOutcome({ ...editingOutcome, owner: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Category</label>
+                                    <input
+                                        className="input"
+                                        value={editingOutcome?.category || ''}
+                                        onChange={e => setEditingOutcome({ ...editingOutcome, category: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label>Decision *</label>
+                                <select
+                                    className="input"
+                                    value={editingOutcome?.decision || 'Standardize'}
+                                    onChange={e => setEditingOutcome({ ...editingOutcome, decision: e.target.value as DecisionType })}
+                                >
+                                    <option>Standardize</option>
+                                    <option>Improve & Re-run</option>
+                                    <option>Close</option>
+                                </select>
+                            </div>
+                            {editingOutcome?.decision !== 'Standardize' && (
+                                <div className="form-group">
+                                    <label>Why Not Standardized *</label>
+                                    <textarea
+                                        className="input"
+                                        value={editingOutcome?.whyNot || ''}
+                                        onChange={e => setEditingOutcome({ ...editingOutcome, whyNot: e.target.value })}
+                                        rows={3}
+                                        style={{ resize: 'vertical' }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button onClick={handleSaveOutcome} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>
+                                <Save size={16} /> Save Outcome
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default TemplatesStandards;

@@ -132,7 +132,7 @@ const OrganizationPage: React.FC = () => {
                                     name: formData.get('name') as string,
                                     industry: formData.get('industry') as string,
                                     country: formData.get('country') as string,
-                                    status: formData.get('status') as 'Active' | 'Demo'
+                                    status: formData.get('status') as 'Active' | 'Sandbox'
                                 });
                             }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -152,7 +152,7 @@ const OrganizationPage: React.FC = () => {
                                         <label>Status</label>
                                         <select name="status" defaultValue={org.status}>
                                             <option value="Active">Active</option>
-                                            <option value="Demo">Demo</option>
+                                            <option value="Sandbox">Sandbox</option>
                                         </select>
                                     </div>
                                 </div>

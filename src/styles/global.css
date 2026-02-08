@@ -1,20 +1,20 @@
 :root {
-    --color-primary: #2FAE9E;
-    --color-primary-dark: #21877B;
-    --color-primary-light: #D7F3EF;
-    --color-bg: #F6FAFF;
+    --color-primary: #F97316;
+    --color-primary-dark: #C2410C;
+    --color-primary-light: #FFEDD5;
+    --color-bg: #F9FAFB;
     --color-surface: #ffffff;
-    --color-border: #E2E8F0;
-    --color-text: #0F172A;
-    --color-text-muted: #64748B;
+    --color-border: #E6E8EC;
+    --color-text: #1C1917;
+    --color-text-muted: #78716C;
     --color-status-red: #EF4444;
-    --color-status-yellow: #F4C542;
+    --color-status-yellow: #F59E0B;
     --color-status-green: #22C55E;
     --color-status-gray: #94a3b8;
     --color-status-done: #475569;
-    --color-row-hover: #F0FBF8;
-    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.07);
+    --color-row-hover: #FFF7ED;
+    --shadow-sm: 0 4px 6px -1px rgba(95, 174, 158, 0.15);
+    --shadow-md: 0 10px 15px -3px rgba(95, 174, 158, 0.20);
 }
 
 * {
@@ -37,7 +37,7 @@ body {
 
 .sidebar {
     width: 300px;
-    background: var(--color-surface);
+    background: #F5F6F8;
     color: var(--color-text);
     display: flex;
     flex-direction: column;
@@ -67,13 +67,17 @@ body {
 }
 
 .sidebar a.active-nav {
-    color: var(--color-primary);
-    background: var(--color-primary-light);
-    border-left-color: var(--color-primary);
+    color: #5FAE9E;
+    background: #cbeee2;
+    border-left-color: #5FAE9E;
+}
+
+.sidebar a.active-nav svg {
+    color: #5FAE9E;
 }
 
 .sidebar a.active-nav .nav-chevron {
-    color: var(--color-primary);
+    color: #5FAE9E;
 }
 
 .main-content {
@@ -150,8 +154,8 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-light);
+    border-color: #94a3b8;
+    box-shadow: 0 0 0 3px #f1f5f9;
 }
 
 input::placeholder,

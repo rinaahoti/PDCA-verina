@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { authService } from './services';
 import { AppShell } from './components/AppShell';
+import LandingDashboard from './pages/LandingDashboard';
 import Login from './pages/Login';
 import Cockpit from './pages/Cockpit';
 import Lists from './pages/Lists';
@@ -11,8 +12,8 @@ import Users from './pages/Users';
 import Organization from './pages/Organization';
 import Settings from './pages/Settings';
 import TopicWorkspace from './pages/TopicWorkspace';
-import Audits from './pages/Audits';
 import ActivityLog from './pages/ActivityLog';
+import TemplatesStandards from './pages/TemplatesStandards';
 
 const Protected: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const user = authService.getCurrentUser();
@@ -23,9 +24,9 @@ const Protected: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 export const AppRouter = () => (
     <BrowserRouter>
         <Routes>
+            <Route path="/" element={<LandingDashboard />} />
             <Route path="/login" element={<Login />} />
             <Route path="/app/cockpit" element={<Protected><Cockpit /></Protected>} />
-            <Route path="/app/audits" element={<Protected><Audits /></Protected>} />
             <Route path="/app/lists" element={<Protected><Lists /></Protected>} />
             <Route path="/app/dashboard" element={<Protected><Dashboard /></Protected>} />
             <Route path="/app/support" element={<Protected><Support /></Protected>} />
@@ -34,8 +35,10 @@ export const AppRouter = () => (
             <Route path="/app/organization" element={<Protected><Organization /></Protected>} />
             <Route path="/app/settings" element={<Protected><Settings /></Protected>} />
             <Route path="/app/activity-log" element={<Protected><ActivityLog /></Protected>} />
+            <Route path="/app/templates-standards" element={<Protected><TemplatesStandards /></Protected>} />
             <Route path="/app/topic/:id" element={<Protected><TopicWorkspace /></Protected>} />
-            <Route path="/" element={<Navigate to="/app/cockpit" replace />} />
+            <Route path="/app" element={<Navigate to="/app/cockpit" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </BrowserRouter>
 );

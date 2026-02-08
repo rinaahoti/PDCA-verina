@@ -48,8 +48,8 @@ const Cockpit: React.FC = () => {
         standardization: '', lessonsLearned: ''
     });
 
-    const [statusFilter, setStatusFilter] = useState<string[]>(['On Track', 'Critical', 'Warning', 'Done']);
-    const [stepFilter, setStepFilter] = useState<Step[]>(['PLAN', 'DO', 'CHECK', 'ACT']);
+    const [statusFilter, setStatusFilter] = useState<string[]>([]);
+    const [stepFilter, setStepFilter] = useState<Step[]>([]);
     const [isSaved, setIsSaved] = useState(false);
     const [emailStatus, setEmailStatus] = useState<{ show: boolean; success: boolean; message: string }>({ show: false, success: false, message: '' });
 
@@ -120,17 +120,17 @@ const Cockpit: React.FC = () => {
 
     const myTopics = topics.filter((t: Topic) => {
         const isOwner = t.ownerId === user?.id;
-        const matchesStatus = statusFilter.includes(t.status);
-        const matchesStep = stepFilter.includes(t.step);
+        const matchesStatus = statusFilter.length === 0 || statusFilter.includes(t.status);
+        const matchesStep = stepFilter.length === 0 || stepFilter.includes(t.step);
         return isOwner && matchesStatus && matchesStep;
     });
 
     const toggleStatus = (status: string) => {
-        setStatusFilter(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
+        setStatusFilter(prev => prev.includes(status) ? [] : [status]);
     };
 
     const toggleStep = (step: Step) => {
-        setStepFilter(prev => prev.includes(step) ? prev.filter(s => s !== step) : [...prev, step]);
+        setStepFilter(prev => prev.includes(step) ? [] : [step]);
     };
 
     const handleSave = async () => {
@@ -182,7 +182,7 @@ const Cockpit: React.FC = () => {
                 if (uniqueRecipients.length > 0) {
                     const emailResponse = await notificationService.sendActionAssignmentEmails({
                         recipients: uniqueRecipients as any,
-                        subject: `[MSO Maestro] Action Assignment: ${selectedTopic?.title}`,
+                        subject: `[VIRENA – PDCA] Action Assignment: ${selectedTopic?.title}`,
                         body: `You have been assigned to one or more actions in the topic "${selectedTopic?.title}".`,
                         actionDetails: {
                             title: formState.actions[0]?.title || 'Multiple Actions',
@@ -233,16 +233,24 @@ const Cockpit: React.FC = () => {
             responsibleId: 'u2',
             status: 'On Track',
             severity: 'Medium',
-            category: 'Process',
+            category: 'Clinical',
             kpi: '-',
             objective: '-',
             dueDate: createState.dueDate,
-            step: createState.step
+            step: 'DO' // Automatically start at DO phase
         });
 
-        // Update plan data immediately
+        // Update plan data immediately and mark as complete
         topicsService.update(newTopic.id, {
-            plan: { ...newTopic.plan, description: createState.description, asIs: createState.asIs, toBe: createState.toBe, rootCause: createState.rootCause }
+            plan: {
+                ...newTopic.plan,
+                description: createState.description,
+                asIs: createState.asIs,
+                toBe: createState.toBe,
+                rootCause: createState.rootCause,
+                completedAt: new Date().toISOString()
+            },
+            step: 'DO'
         });
 
         window.dispatchEvent(new Event('storage'));
@@ -452,7 +460,7 @@ const Cockpit: React.FC = () => {
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                     <div className="action-bar">
-                        <button className="action-btn back" onClick={() => setSearchParams({})}>
+                        <button className="action-btn" onClick={() => setSearchParams({})} style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', width: '100px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}>
                             <ArrowLeft size={16} /> Back
                         </button>
                         <button className="action-btn" onClick={handleCreate}><Save size={16} /> Save</button>
@@ -473,8 +481,8 @@ const Cockpit: React.FC = () => {
                         <div style={{ padding: '1rem', fontWeight: 700, fontSize: '12px', color: 'var(--color-text-muted)' }}>PROCESS LIFECYCLE</div>
                         <div className="lifecycle-stepper">
                             {['PLAN', 'DO', 'CHECK', 'ACT'].map((step, i) => (
-                                <div key={step} className={`lifecycle-step ${step === 'PLAN' ? 'active' : ''}`} style={{ cursor: 'default' }}>
-                                    <div className="lifecycle-step-num">{i + 1}</div>
+                                <div key={step} className={`lifecycle-step ${step === 'PLAN' ? 'active' : ''}`} style={{ cursor: 'default', background: step === 'PLAN' ? '#cbeee2' : 'transparent', color: step === 'PLAN' ? '#5FAE9E' : 'inherit', borderLeftColor: step === 'PLAN' ? '#5FAE9E' : 'transparent' }}>
+                                    <div className="lifecycle-step-num" style={{ background: step === 'PLAN' ? '#5FAE9E' : 'var(--color-border)', color: step === 'PLAN' ? 'white' : 'inherit' }}>{i + 1}</div>
                                     <span>{step.charAt(0) + step.slice(1).toLowerCase()}</span>
                                     {step !== 'PLAN' && <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
                                 </div>
@@ -531,28 +539,14 @@ const Cockpit: React.FC = () => {
                                             placeholder="Enter root cause analysis..."
                                         />
                                     </div>
-                                    <div style={{ display: 'flex', gap: '1rem' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontWeight: 600 }}>Initial Step</label>
-                                            <select value={createState.step} onChange={e => setCreateState({ ...createState, step: e.target.value as Step })}>
-                                                <option value="PLAN">PLAN</option>
-                                                <option value="DO">DO</option>
-                                                <option value="CHECK">CHECK</option>
-                                                <option value="ACT">ACT</option>
-                                            </select>
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontWeight: 600 }}>Due Date</label>
-                                            <input type="date" required value={createState.dueDate} onChange={e => setCreateState({ ...createState, dueDate: e.target.value })} />
-                                        </div>
-                                    </div>
+
                                     <button type="submit" style={{ display: 'none' }} id="hidden-submit" />
                                 </form>
                             </div>
                         </div>
                         <button
-                            className="btn btn-primary"
-                            style={{ alignSelf: 'flex-start', padding: '0.9rem 2rem', fontWeight: 600 }}
+                            className="btn"
+                            style={{ alignSelf: 'flex-start', padding: '0.9rem 2rem', fontWeight: 600, background: '#cbeee2', color: '#5FAE9E', border: 'none' }}
                             onClick={() => document.getElementById('hidden-submit')?.click()}
                         >
                             Create Topic & Proceed
@@ -569,7 +563,7 @@ const Cockpit: React.FC = () => {
                 {/* Detail View Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                     <div className="action-bar">
-                        <button className="action-btn back" onClick={() => setSelectedTopic(null)}>
+                        <button className="action-btn" onClick={() => setSelectedTopic(null)} style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', width: '100px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}>
                             <ArrowLeft size={16} /> Back
                         </button>
                         <button className="action-btn" onClick={handleSave}><Save size={16} /> Save</button>
@@ -632,112 +626,49 @@ const Cockpit: React.FC = () => {
                                         <div
                                             key={step}
                                             className={`lifecycle-step ${isViewing ? 'active' : ''} ${isPast ? 'completed' : ''}`}
-                                            style={{ cursor: clickable ? 'pointer' : 'not-allowed', opacity: clickable ? 1 : 0.5 }}
+                                            style={{
+                                                cursor: clickable ? 'pointer' : 'not-allowed',
+                                                opacity: clickable ? 1 : 0.5,
+                                                background: isViewing ? '#cbeee2' : 'transparent',
+                                                color: isViewing ? '#5FAE9E' : 'inherit',
+                                                borderLeftColor: isViewing ? '#5FAE9E' : 'transparent'
+                                            }}
                                             onClick={() => clickable && setViewingStep(step)}
                                         >
-                                            <div className="lifecycle-step-num">
+                                            <div className="lifecycle-step-num" style={{ background: isViewing ? '#5FAE9E' : 'var(--color-border)', color: isViewing ? 'white' : 'inherit' }}>
                                                 {isPast ? <CheckCircle2 size={12} /> : i + 1}
                                             </div>
                                             <span>{step.charAt(0) + step.slice(1).toLowerCase()}</span>
                                             {!clickable && <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
-                                            {isCurrent && !isViewing && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-primary)', marginLeft: 'auto' }}></div>}
+                                            {isCurrent && !isViewing && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAE9E', marginLeft: 'auto' }}></div>}
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        <div className="card" style={{ padding: '1.5rem' }}>
-                            <div style={{ fontWeight: 700, fontSize: '12px', color: '#94a3b8', marginBottom: '1.25rem', textTransform: 'uppercase' }}>Topic Information</div>
 
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>DUE DATE</label>
-                                <input
-                                    type="date"
-                                    value={formState.dueDate}
-                                    onChange={e => setFormState({ ...formState, dueDate: e.target.value })}
-                                />
-                            </div>
-
-                            <div style={{ marginBottom: '1rem' }}>
-                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>SEVERITY</label>
-                                <select
-                                    value={formState.severity}
-                                    onChange={e => setFormState({ ...formState, severity: e.target.value })}
-                                    disabled={selectedTopic.status === 'Done'}
-                                >
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="Critical">Critical</option>
-                                    <option value="Business Critical">Business Critical</option>
-                                </select>
-                            </div>
-
-                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem', marginTop: '1rem' }}>
-                                <div style={{ fontWeight: 700, fontSize: '12px', color: '#94a3b8', marginBottom: '1rem', marginTop: '1rem' }}>HISTORY LOG</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    <div>• Plan initialized by Sophia Mayer</div>
-                                    <div>• Step advanced to {selectedTopic.step}</div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Main content column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                            <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--color-border)', background: '#fcfcfd', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ margin: 0 }}>{viewingStep.charAt(0) + viewingStep.slice(1).toLowerCase()} Data</h3>
-                            </div>
+
                             <div style={{ padding: '1.75rem' }}>
-                                <div style={{ marginBottom: '2rem' }}>
-                                    <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.8rem' }}>Topic Title</label>
-                                    <input
-                                        type="text"
-                                        value={formState.title}
-                                        onChange={e => setFormState({ ...formState, title: e.target.value })}
-                                        style={{ fontSize: '1.1rem', fontWeight: 600 }}
-                                        disabled={selectedTopic.status === 'Done'}
-                                    />
-                                </div>
+                                {viewingStep !== 'PLAN' && (
+                                    <div style={{ marginBottom: '2rem' }}>
+                                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.8rem' }}>Topic Title</label>
+                                        <input
+                                            type="text"
+                                            value={formState.title}
+                                            onChange={e => setFormState({ ...formState, title: e.target.value })}
+                                            style={{ fontSize: '1.1rem', fontWeight: 600 }}
+                                            disabled={selectedTopic.status === 'Done'}
+                                        />
+                                    </div>
+                                )}
                                 {viewingStep === 'PLAN' && (
-                                    <>
-                                        <div style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                                            <div>
-                                                <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.8rem' }}>AS-IS (Current State)</label>
-                                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px' }}>Describe the problem, where it occurs, and its impact.</div>
-                                                <textarea
-                                                    rows={8}
-                                                    value={formState.asIs}
-                                                    onChange={e => setFormState({ ...formState, asIs: e.target.value })}
-                                                    disabled={selectedTopic.status === 'Done'}
-                                                    placeholder="Enter AS-IS description..."
-                                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.8rem' }}>TO-BE (Target State)</label>
-                                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px' }}>Define the expected outcome and desired state.</div>
-                                                <textarea
-                                                    rows={8}
-                                                    value={formState.toBe}
-                                                    onChange={e => setFormState({ ...formState, toBe: e.target.value })}
-                                                    disabled={selectedTopic.status === 'Done'}
-                                                    placeholder="Enter TO-BE description..."
-                                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.8rem' }}>Root Cause</label>
-                                            <textarea
-                                                rows={6}
-                                                value={formState.rootCause}
-                                                onChange={e => setFormState({ ...formState, rootCause: e.target.value })}
-                                                disabled={selectedTopic.status === 'Done'} placeholder="Enter root cause analysis..."
-                                            />
-                                        </div>
-                                    </>
+                                    <></>
                                 )}
                                 {viewingStep === 'DO' && (
                                     <div>
@@ -857,9 +788,13 @@ const Cockpit: React.FC = () => {
                                                                                     updated[idx].assignments[aIdx].completedAt = isCompleted ? new Date().toISOString() : undefined;
 
                                                                                     // Auto-update status
-                                                                                    const allDone = updated[idx].assignments.every((a: any) => a.completed);
-                                                                                    const anyDone = updated[idx].assignments.some((a: any) => a.completed);
-                                                                                    updated[idx].status = allDone ? 'Done' : (anyDone ? 'In Progress' : 'Open');
+                                                                                    const allDone = updated[idx].assignments.length > 0 && updated[idx].assignments.every((a: any) => a.completed);
+                                                                                    // If all done, mark Done. If unchecking and it was Done, revert to On Track. Preserve Critical/Warning.
+                                                                                    if (allDone) {
+                                                                                        updated[idx].status = 'Done';
+                                                                                    } else if (updated[idx].status === 'Done') {
+                                                                                        updated[idx].status = 'On Track';
+                                                                                    }
 
                                                                                     setFormState({ ...formState, actions: updated });
                                                                                 }}
@@ -937,8 +872,9 @@ const Cockpit: React.FC = () => {
                                                                     }}
                                                                     style={{ fontSize: '12px', padding: '4px', width: '100%', fontWeight: 600, color: getStatusMeta(action.status, action.dueDate).color }}
                                                                 >
-                                                                    <option value="Open">Open</option>
-                                                                    <option value="In Progress">In Progress</option>
+                                                                    <option value="On Track">On Track (Normal)</option>
+                                                                    <option value="Warning">Warning (Near Alert)</option>
+                                                                    <option value="Critical">Critical (Alert)</option>
                                                                     <option value="Done">Done</option>
                                                                 </select>
                                                             </div>
@@ -1211,7 +1147,7 @@ const Cockpit: React.FC = () => {
                                                 <div>
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>2. Standardization Scope <span style={{ color: 'red' }}>*</span></label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                                        {['Process', 'Work Instruction', 'Policy', 'Checklist', 'Training', 'System / Tool', 'Other'].map(item => (
+                                                        {['Process', 'Clinical Guide', 'Policy', 'Checklist', 'Training', 'EHR Configuration', 'Other'].map(item => (
                                                             <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"
@@ -1235,7 +1171,7 @@ const Cockpit: React.FC = () => {
                                                 <div>
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>3. Affected Areas / Rollout</label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                                                        {['Quality', 'IT', 'Operations', 'Compliance', 'Customer Service', 'Other'].map(item => (
+                                                        {['Nursing', 'Surgery', 'Emergency', 'Inpatient Ward', 'Outpatient Clinic', 'Pharmacy', 'Diagnostics', 'Administration', 'Other'].map(item => (
                                                             <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"
@@ -1342,8 +1278,8 @@ const Cockpit: React.FC = () => {
 
                         {viewingStep === selectedTopic.step && (
                             <button
-                                className="btn btn-primary"
-                                style={{ alignSelf: 'flex-start', padding: '0.9rem 2rem', fontWeight: 600 }}
+                                className="btn"
+                                style={{ alignSelf: 'flex-start', padding: '0.9rem 2rem', fontWeight: 600, background: '#cbeee2', color: '#5FAE9E', border: 'none' }}
                                 onClick={handleProceed}
                             >
                                 {selectedTopic.step === 'ACT' ? 'Close Topic' : 'Complete Step & Proceed'}
@@ -1507,9 +1443,9 @@ const Cockpit: React.FC = () => {
                                         padding: '4px 10px',
                                         borderRadius: '4px',
                                         border: '1px solid',
-                                        borderColor: statusFilter.includes(s) ? 'var(--color-primary)' : '#e2e8f0',
-                                        background: statusFilter.includes(s) ? 'var(--color-primary-light)' : 'transparent',
-                                        color: statusFilter.includes(s) ? 'var(--color-primary)' : '#475569',
+                                        borderColor: statusFilter.includes(s) ? '#5FAE9E' : '#e2e8f0',
+                                        background: statusFilter.includes(s) ? '#cbeee2' : 'white',
+                                        color: statusFilter.includes(s) ? '#5FAE9E' : '#64748b',
                                         fontSize: '11px',
                                         fontWeight: 600,
                                         cursor: 'pointer'
@@ -1532,9 +1468,9 @@ const Cockpit: React.FC = () => {
                                         padding: '4px 10px',
                                         borderRadius: '4px',
                                         border: '1px solid',
-                                        borderColor: stepFilter.includes(s) ? 'var(--color-primary)' : '#e2e8f0',
-                                        background: stepFilter.includes(s) ? 'var(--color-primary-light)' : 'transparent',
-                                        color: stepFilter.includes(s) ? 'var(--color-primary)' : '#475569',
+                                        borderColor: stepFilter.includes(s) ? '#5FAE9E' : '#e2e8f0',
+                                        background: stepFilter.includes(s) ? '#cbeee2' : 'white',
+                                        color: stepFilter.includes(s) ? '#5FAE9E' : '#64748b',
                                         fontSize: '11px',
                                         fontWeight: 600,
                                         cursor: 'pointer'
@@ -1546,10 +1482,10 @@ const Cockpit: React.FC = () => {
                         </div>
                     </div>
 
-                    {(statusFilter.length < 4 || stepFilter.length < 4) && (
+                    {(statusFilter.length > 0 || stepFilter.length > 0) && (
                         <button
-                            onClick={() => { setStatusFilter(['On Track', 'Critical', 'Warning', 'Done']); setStepFilter(['PLAN', 'DO', 'CHECK', 'ACT']); }}
-                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                            onClick={() => { setStatusFilter([]); setStepFilter([]); }}
+                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#5FAE9E', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
                         >
                             <X size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> Clear filters
                         </button>
@@ -1562,8 +1498,6 @@ const Cockpit: React.FC = () => {
                             <tr style={{ background: '#f8fafc' }}>
                                 <th>Status</th>
                                 <th>PDCA Topic</th>
-                                <th>Severity</th>
-                                <th>Category</th>
                                 <th>Step</th>
                                 <th>Due Date</th>
                                 <th>Responsible</th>
@@ -1571,7 +1505,7 @@ const Cockpit: React.FC = () => {
                         </thead>
                         <tbody>
                             {myTopics.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>No topics found.</td></tr>
+                                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>No topics found.</td></tr>
                             ) : (
                                 myTopics.map((t: Topic) => (
                                     <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedTopic(t)}>
@@ -1585,19 +1519,8 @@ const Cockpit: React.FC = () => {
                                             <div style={{ fontWeight: 700, color: '#1a202c' }}>{t.title}</div>
                                             <div style={{ fontSize: '11px', color: '#718096', marginTop: '4px' }}>KPI: {t.kpi}</div>
                                         </td>
-                                        <td>
-                                            <span style={{
-                                                fontSize: '11px',
-                                                padding: '2px 8px',
-                                                borderRadius: '4px',
-                                                background: t.severity === 'Business Critical' ? '#fee2e2' : '#f1f5f9',
-                                                color: t.severity === 'Business Critical' ? '#991b1b' : '#475569',
-                                                fontWeight: 700
-                                            }}>{t.severity}</span>
-                                        </td>
-                                        <td style={{ fontSize: '13px' }}>{t.category}</td>
                                         <td><span className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>{t.step}</span></td>
-                                        <td>{new Date(t.dueDate).toLocaleDateString('de-DE')}</td>
+                                        <td>{t.do.checkDate ? new Date(t.do.checkDate).toLocaleDateString('de-DE') : '-'}</td>
                                         <td style={{ fontSize: '13px', fontWeight: 500 }}>Felix Worker</td>
                                     </tr>
                                 ))

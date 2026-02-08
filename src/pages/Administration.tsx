@@ -151,7 +151,7 @@ const Administration: React.FC = () => {
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Manage Locations, Departments, and Users</div>
                 </div>
                 <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                    <RefreshCw size={16} /> Reset Demo Data
+                    <RefreshCw size={16} /> Restore Default Master Data
                 </button>
             </div>
 
@@ -161,11 +161,11 @@ const Administration: React.FC = () => {
                     onClick={() => setActiveTab('locations')}
                     style={{
                         padding: '0.75rem 0',
-                        color: activeTab === 'locations' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                        color: activeTab === 'locations' ? '#5FAE9E' : 'var(--color-text-muted)',
                         fontWeight: 600,
                         background: 'none',
                         border: 'none',
-                        borderBottom: activeTab === 'locations' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                        borderBottom: activeTab === 'locations' ? '2px solid #5FAE9E' : '2px solid transparent',
                         cursor: 'pointer'
                     }}
                 >
@@ -175,11 +175,11 @@ const Administration: React.FC = () => {
                     onClick={() => setActiveTab('departments')}
                     style={{
                         padding: '0.75rem 0',
-                        color: activeTab === 'departments' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                        color: activeTab === 'departments' ? '#5FAE9E' : 'var(--color-text-muted)',
                         fontWeight: 600,
                         background: 'none',
                         border: 'none',
-                        borderBottom: activeTab === 'departments' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                        borderBottom: activeTab === 'departments' ? '2px solid #5FAE9E' : '2px solid transparent',
                         cursor: 'pointer'
                     }}
                 >
@@ -189,11 +189,11 @@ const Administration: React.FC = () => {
                     onClick={() => setActiveTab('users')}
                     style={{
                         padding: '0.75rem 0',
-                        color: activeTab === 'users' ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                        color: activeTab === 'users' ? '#5FAE9E' : 'var(--color-text-muted)',
                         fontWeight: 600,
                         background: 'none',
                         border: 'none',
-                        borderBottom: activeTab === 'users' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                        borderBottom: activeTab === 'users' ? '2px solid #5FAE9E' : '2px solid transparent',
                         cursor: 'pointer'
                     }}
                 >
@@ -208,7 +208,7 @@ const Administration: React.FC = () => {
                     <div>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Locations</h3>
-                            <button className="btn btn-primary" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
                                 <Plus size={16} /> Add Location
                             </button>
                         </div>
@@ -227,7 +227,7 @@ const Administration: React.FC = () => {
                                     locations.map(loc => (
                                         <tr
                                             key={loc.id}
-                                            style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer', background: selectedLocation?.id === loc.id ? 'var(--color-primary-light)' : 'transparent' }}
+                                            style={{ borderBottom: '1px solid var(--color-border)', cursor: 'pointer', background: selectedLocation?.id === loc.id ? '#cbeee2' : 'transparent' }}
                                             onClick={() => setSelectedLocation(loc)}
                                             className="hover-row"
                                         >
@@ -261,29 +261,31 @@ const Administration: React.FC = () => {
                                 const locDeps = departments.filter(d => d.locationId === loc.id);
                                 const isExpanded = expandedLocs[loc.id] !== false;
                                 return (
-                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid var(--color-primary)' : '1px solid var(--color-border)', marginBottom: 0 }}>
+                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid #5FAE9E' : '1px solid var(--color-border)', marginBottom: 0 }}>
                                         <div
                                             onClick={() => toggleLoc(loc.id)}
                                             style={{
                                                 padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? 'var(--color-row-hover)' : 'var(--color-bg)',
+                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#cbeee2' : 'var(--color-bg)',
                                                 borderBottom: isExpanded ? '1px solid var(--color-border)' : 'none'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                {isExpanded ? <ChevronDown size={20} style={{ color: 'var(--color-primary)' }} /> : <ChevronRight size={20} />}
+                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#5FAE9E' }} /> : <ChevronRight size={20} />}
                                                 <div>
-                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? 'var(--color-primary)' : 'var(--color-text)' }}>{loc.name}</span>
-                                                    <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--color-text-muted)' }}>{locDeps.length} Departments</span>
+                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#5FAE9E' : 'var(--color-text)' }}>{loc.name}</span>
+                                                    {isExpanded && <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--color-text-muted)' }}>{locDeps.length} Departments</span>}
                                                 </div>
                                             </div>
-                                            <button
-                                                className="btn btn-primary"
-                                                style={{ fontSize: '12px', padding: '6px 12px' }}
-                                                onClick={(e) => { e.stopPropagation(); onAddDepartment(loc.id); }}
-                                            >
-                                                <Plus size={14} /> Add Department
-                                            </button>
+                                            {isExpanded && (
+                                                <button
+                                                    className="btn"
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                                                    onClick={(e) => { e.stopPropagation(); onAddDepartment(loc.id); }}
+                                                >
+                                                    <Plus size={14} /> Add Department
+                                                </button>
+                                            )}
                                         </div>
                                         {isExpanded && (
                                             <div style={{ padding: '0.5rem' }}>
@@ -347,32 +349,31 @@ const Administration: React.FC = () => {
                                 const filteredUsers = locUsers.filter(u => currentFilter === 'All' || u.role === currentFilter);
 
                                 return (
-                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid var(--color-primary)' : '1px solid var(--color-border)', marginBottom: 0 }}>
+                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid #5FAE9E' : '1px solid var(--color-border)', marginBottom: 0 }}>
                                         <div
                                             onClick={() => toggleLoc(loc.id)}
                                             style={{
                                                 padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? 'var(--color-row-hover)' : 'var(--color-bg)',
+                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#cbeee2' : 'var(--color-bg)',
                                                 borderBottom: isExpanded ? '1px solid var(--color-border)' : 'none'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#3b82f6' }} /> : <ChevronRight size={20} />}
+                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#5FAE9E' }} /> : <ChevronRight size={20} />}
                                                 <div>
-                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? 'var(--color-primary)' : 'var(--color-text)' }}>{loc.name}</span>
-                                                    <div style={{ display: 'inline-flex', gap: '8px', marginLeft: '12px' }}>
-                                                        <span style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary-dark)', padding: '1px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600 }}>{locUsers.length} Users</span>
-                                                        <span style={{ background: '#f3e8ff', color: '#7e22ce', padding: '1px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600 }}>{admins} Admins</span>
-                                                    </div>
+                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#5FAE9E' : 'var(--color-text)' }}>{loc.name}</span>
+
                                                 </div>
                                             </div>
-                                            <button
-                                                className="btn btn-primary"
-                                                style={{ fontSize: '12px', padding: '6px 12px' }}
-                                                onClick={(e) => { e.stopPropagation(); onAddUser(loc.id); }}
-                                            >
-                                                <Plus size={14} /> Add User
-                                            </button>
+                                            {isExpanded && (
+                                                <button
+                                                    className="btn"
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                                                    onClick={(e) => { e.stopPropagation(); onAddUser(loc.id); }}
+                                                >
+                                                    <Plus size={14} /> Add User
+                                                </button>
+                                            )}
                                         </div>
                                         {isExpanded && (
                                             <div style={{ padding: '1.25rem' }}>
@@ -385,9 +386,9 @@ const Administration: React.FC = () => {
                                                             style={{
                                                                 padding: '6px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
                                                                 cursor: 'pointer', border: '1px solid',
-                                                                background: currentFilter === role ? 'var(--color-primary)' : 'white',
-                                                                color: currentFilter === role ? 'white' : 'var(--color-text-muted)',
-                                                                borderColor: currentFilter === role ? 'var(--color-primary)' : 'var(--color-border)',
+                                                                background: currentFilter === role ? '#cbeee2' : 'white',
+                                                                color: currentFilter === role ? '#5FAE9E' : 'var(--color-text-muted)',
+                                                                borderColor: currentFilter === role ? '#5FAE9E' : 'var(--color-border)',
                                                                 transition: 'all 0.2s'
                                                             }}
                                                         >
@@ -510,7 +511,7 @@ const Administration: React.FC = () => {
                                             <Building2 size={18} style={{ color: '#64748b' }} />
                                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>Departments</h3>
                                         </div>
-                                        <button onClick={() => onAddDepartment()} className="btn btn-primary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                                        <button onClick={() => onAddDepartment()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
                                             <Plus size={14} /> Add Department
                                         </button>
                                     </div>
@@ -560,7 +561,7 @@ const Administration: React.FC = () => {
                                             <Users size={18} style={{ color: '#64748b' }} />
                                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>Users</h3>
                                         </div>
-                                        <button onClick={() => onAddUser()} className="btn btn-primary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                                        <button onClick={() => onAddUser()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
                                             <Plus size={14} /> Add User
                                         </button>
                                     </div>
@@ -578,9 +579,9 @@ const Administration: React.FC = () => {
                                                     fontWeight: 600,
                                                     cursor: 'pointer',
                                                     border: '1px solid',
-                                                    background: drawerUserRoleFilter === role ? 'var(--color-primary)' : 'white',
-                                                    color: drawerUserRoleFilter === role ? 'white' : 'var(--color-text-muted)',
-                                                    borderColor: drawerUserRoleFilter === role ? 'var(--color-primary)' : 'var(--color-border)',
+                                                    background: drawerUserRoleFilter === role ? '#cbeee2' : 'white',
+                                                    color: drawerUserRoleFilter === role ? '#5FAE9E' : 'var(--color-text-muted)',
+                                                    borderColor: drawerUserRoleFilter === role ? '#5FAE9E' : 'var(--color-border)',
                                                     transition: 'all 0.2s'
                                                 }}
                                             >
@@ -656,7 +657,7 @@ const Administration: React.FC = () => {
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
                                 <label>Name *</label>
-                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder="e.g. Plant Berlin" />
+                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder="e.g. University Hospital Zurich" />
                             </div>
                             <div className="form-group">
                                 <label>City</label>
@@ -674,7 +675,7 @@ const Administration: React.FC = () => {
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveLocation} className="btn btn-primary">Save Location</button>
+                            <button onClick={handleSaveLocation} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save Location</button>
                         </div>
                     </div>
                 </div>
@@ -691,7 +692,7 @@ const Administration: React.FC = () => {
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
                                 <label>Department Name *</label>
-                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder="e.g. Quality" />
+                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder="e.g. Cardiology" />
                             </div>
                             <div className="form-group">
                                 <label>Location *</label>
@@ -708,7 +709,7 @@ const Administration: React.FC = () => {
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveDepartment} className="btn btn-primary">Save Department</button>
+                            <button onClick={handleSaveDepartment} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save Department</button>
                         </div>
                     </div>
                 </div>
@@ -765,7 +766,7 @@ const Administration: React.FC = () => {
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveUser} className="btn btn-primary">Save User</button>
+                            <button onClick={handleSaveUser} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save User</button>
                         </div>
                     </div>
                 </div>
