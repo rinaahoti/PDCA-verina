@@ -5,8 +5,10 @@ import {
     Activity, User, Building2, MapPin, FileText, Search,
     Filter, Clock, CheckCircle2, ArrowRight, UserPlus, Trash2, Edit
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const ActivityLog: React.FC = () => {
+    const { t, language } = useLanguage();
     const [activities, setActivities] = useState<ActivityEntry[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<string>('All Entities');
@@ -21,6 +23,90 @@ const ActivityLog: React.FC = () => {
         window.addEventListener('storage-activity', load);
         return () => window.removeEventListener('storage-activity', load);
     }, []);
+
+    // Helper to translate known location names (shared logic)
+    const getTranslatedLocationName = (name: string) => {
+        const map: Record<string, string> = {
+            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
+            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
+            'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
+            'CHUV Lausanne (VD)': 'admin.chuvLausanne'
+        };
+        return map[name] ? t(map[name]) : name;
+    };
+
+    // Helper to translate known department names
+    const getTranslatedDepartmentName = (name: string) => {
+        const map: Record<string, string> = {
+            'Quality & Patient Safety': 'admin.qualityPatientSafety',
+            'Surgery Department': 'admin.surgeryDepartment',
+            'Main Pharmacy': 'admin.mainPharmacy',
+            'Infectious Diseases': 'admin.infectiousDiseases',
+            'Emergency Medicine': 'admin.emergencyMedicine'
+        };
+        return map[name] ? t(map[name]) : name;
+    };
+
+    // Helper to translate activity messages
+    const translateActivityMessage = (message: string) => {
+        // Topic Created
+        const topicCreatedMatch = message.match(/^New PDCA Topic (.*?) created$/);
+        if (topicCreatedMatch) return t('activityLog.messages.topicCreated', { id: topicCreatedMatch[1] });
+
+        // Topic Moved
+        const topicMovedMatch = message.match(/^Topic (.*?) moved to (.*?) phase$/);
+        if (topicMovedMatch) return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: topicMovedMatch[2] });
+
+        // Location Created
+        const locCreatedMatch = message.match(/^Location (.*?) created$/);
+        if (locCreatedMatch) return t('activityLog.messages.locationCreated', { name: getTranslatedLocationName(locCreatedMatch[1]) });
+
+        // Location Updated
+        const locUpdatedMatch = message.match(/^Location (.*?) updated$/);
+        if (locUpdatedMatch) return t('activityLog.messages.locationUpdated', { name: getTranslatedLocationName(locUpdatedMatch[1]) });
+
+        // Location Deleted
+        const locDeletedMatch = message.match(/^Location (.*?) deleted$/);
+        if (locDeletedMatch) return t('activityLog.messages.locationDeleted', { name: getTranslatedLocationName(locDeletedMatch[1]) });
+
+        // Department Created
+        const depCreatedMatch = message.match(/^Department (.*?) created$/);
+        if (depCreatedMatch) return t('activityLog.messages.departmentCreated', { name: getTranslatedDepartmentName(depCreatedMatch[1]) });
+
+        // Department Updated
+        const depUpdatedMatch = message.match(/^Department (.*?) updated$/);
+        if (depUpdatedMatch) return t('activityLog.messages.departmentUpdated', { name: getTranslatedDepartmentName(depUpdatedMatch[1]) });
+
+        // Department Deleted
+        const depDeletedMatch = message.match(/^Department (.*?) deleted$/);
+        if (depDeletedMatch) return t('activityLog.messages.departmentDeleted', { name: getTranslatedDepartmentName(depDeletedMatch[1]) });
+
+        // User Added
+        const userAddedMatch = message.match(/^User (.*?) registered$/);
+        if (userAddedMatch) return t('activityLog.messages.userAdded', { name: userAddedMatch[1] });
+
+        // User Updated
+        const userUpdatedMatch = message.match(/^User (.*?) updated$/);
+        if (userUpdatedMatch) return t('activityLog.messages.userEdited', { name: userUpdatedMatch[1] });
+
+        // User Deleted
+        const userDeletedMatch = message.match(/^User (.*?) deleted$/);
+        if (userDeletedMatch) return t('activityLog.messages.userDeleted', { name: userDeletedMatch[1] });
+
+        return message;
+    };
+
+    const getTranslatedEntityType = (type: string) => {
+        const map: Record<string, string> = {
+            'User': 'common.user',
+            'Department': 'common.department',
+            'Location': 'common.location',
+            'Topic': 'activityLog.topic',
+            'Audit': 'activityLog.audit'
+        };
+        return map[type] ? t(map[type]) : type;
+    };
 
     // Get unique locations dynamically from data for the dropdown
     const availableLocations = useMemo(() => {
@@ -37,17 +123,27 @@ const ActivityLog: React.FC = () => {
     const filteredActivities = useMemo(() => {
         return activities.filter(act => {
             const query = searchTerm.toLowerCase();
+            const translatedMsg = translateActivityMessage(act.message).toLowerCase();
+            const translatedEntityName = act.entityType === 'Location' ? getTranslatedLocationName(act.entityName) :
+                act.entityType === 'Department' ? getTranslatedDepartmentName(act.entityName) :
+                    act.entityName;
+
             const matchesSearch =
-                act.message.toLowerCase().includes(query) ||
-                act.entityName.toLowerCase().includes(query) ||
+                translatedMsg.includes(query) ||
+                translatedEntityName.toLowerCase().includes(query) ||
                 (act.entityId && act.entityId.toLowerCase().includes(query)) ||
                 act.entityType.toLowerCase().includes(query) ||
                 act.performedBy.toLowerCase().includes(query) ||
-                (act.location && act.location.toLowerCase().includes(query)) ||
-                (act.department && act.department.toLowerCase().includes(query));
+                (act.location && getTranslatedLocationName(act.location).toLowerCase().includes(query)) ||
+                (act.department && getTranslatedDepartmentName(act.department).toLowerCase().includes(query));
 
             // Map plural back to singular for matching
-            const actTypePlural = act.entityType + 's';
+            const actTypePlural = act.entityType === 'User' ? 'Users' :
+                act.entityType === 'Department' ? 'Departments' :
+                    act.entityType === 'Location' ? 'Locations' :
+                        act.entityType === 'Topic' ? 'Topics' :
+                            act.entityType + 's';
+
             const matchesType = filterType === 'All Entities' || actTypePlural === filterType;
 
             const matchesLocation = filterLocation === 'All' || act.location === filterLocation;
@@ -55,7 +151,7 @@ const ActivityLog: React.FC = () => {
 
             return matchesSearch && matchesType && matchesLocation && matchesDepartment;
         });
-    }, [activities, searchTerm, filterType, filterLocation, filterDepartment]);
+    }, [activities, searchTerm, filterType, filterLocation, filterDepartment, t]);
 
     const handleTypeChange = (value: string) => {
         setFilterType(value);
@@ -74,10 +170,10 @@ const ActivityLog: React.FC = () => {
         const diffInMins = Math.floor(diffInMs / (1000 * 60));
         const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
 
-        if (diffInMins < 1) return 'Just now';
-        if (diffInMins < 60) return `${diffInMins}m ago`;
-        if (diffInHours < 24) return `${diffInHours}h ago`;
-        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        if (diffInMins < 1) return t('common.justNow') || 'Just now';
+        if (diffInMins < 60) return `${diffInMins}m ${t('common.ago') || 'ago'}`;
+        if (diffInHours < 24) return `${diffInHours}h ${t('common.ago') || 'ago'}`;
+        return date.toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
     const getIcon = (type: ActivityType) => {
@@ -102,9 +198,9 @@ const ActivityLog: React.FC = () => {
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '4rem' }}>
             <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>Activity Log</h1>
+                <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('activityLog.pageTitle')}</h1>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={14} /> System Governance Log · Clinical Audit Trail
+                    <Activity size={14} /> {t('activityLog.subtitle')}
                 </div>
             </div>
 
@@ -114,7 +210,7 @@ const ActivityLog: React.FC = () => {
                     <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                     <input
                         type="text"
-                        placeholder="Search activity..."
+                        placeholder={t('activityLog.searchPlaceholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ width: '100%', padding: '10px 16px 10px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '14px' }}
@@ -129,12 +225,12 @@ const ActivityLog: React.FC = () => {
                             onChange={(e) => handleTypeChange(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', minWidth: '150px' }}
                         >
-                            <option value="All Entities">All Entities</option>
-                            <option value="Users">Users</option>
-                            <option value="Audits">Audits</option>
-                            <option value="Topics">Topics</option>
-                            <option value="Locations">Locations</option>
-                            <option value="Departments">Departments</option>
+                            <option value="All Entities">{t('activityLog.allEntities')}</option>
+                            <option value="Users">{t('activityLog.users')}</option>
+                            <option value="Audits">{t('activityLog.audits')}</option>
+                            <option value="Topics">{t('activityLog.topics')}</option>
+                            <option value="Locations">{t('activityLog.locations')}</option>
+                            <option value="Departments">{t('activityLog.departments')}</option>
                         </select>
                     </div>
 
@@ -144,9 +240,9 @@ const ActivityLog: React.FC = () => {
                             onChange={(e) => setFilterLocation(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', minWidth: '140px' }}
                         >
-                            <option value="All">All Swiss Locations</option>
+                            <option value="All">{t('activityLog.allEntities')}</option>
                             {availableLocations.map(loc => (
-                                <option key={loc} value={loc}>{loc}</option>
+                                <option key={loc} value={loc}>{getTranslatedLocationName(loc)}</option>
                             ))}
                         </select>
                     )}
@@ -157,9 +253,9 @@ const ActivityLog: React.FC = () => {
                             onChange={(e) => setFilterDepartment(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', minWidth: '140px' }}
                         >
-                            <option value="All">All Departments</option>
+                            <option value="All">{t('activityLog.allEntities')}</option>
                             {availableDepartments.map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
+                                <option key={dept} value={dept}>{getTranslatedDepartmentName(dept)}</option>
                             ))}
                         </select>
                     )}
@@ -171,7 +267,7 @@ const ActivityLog: React.FC = () => {
                 {filteredActivities.length === 0 ? (
                     <div style={{ padding: '4rem 2rem', textAlign: 'center', color: '#94a3b8' }}>
                         <Clock size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
-                        <p>No activity recorded yet matching your filters.</p>
+                        <p>{t('activityLog.noActivityMatching')}</p>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -202,19 +298,23 @@ const ActivityLog: React.FC = () => {
                                 {/* Content Column */}
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <div style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '15px' }}>{act.message}</div>
+                                        <div style={{ fontWeight: 700, color: 'var(--color-text)', fontSize: '15px' }}>{translateActivityMessage(act.message)}</div>
                                         <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 500 }}>{formatTimestamp(act.timestamp)}</div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-                                            {act.entityType}: <strong style={{ color: 'var(--color-text)' }}>{act.entityName}</strong>
+                                            {getTranslatedEntityType(act.entityType)}: <strong style={{ color: 'var(--color-text)' }}>
+                                                {act.entityType === 'Location' ? getTranslatedLocationName(act.entityName) :
+                                                    act.entityType === 'Department' ? getTranslatedDepartmentName(act.entityName) :
+                                                        act.entityName}
+                                            </strong>
                                             {act.entityId && <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px', fontWeight: 500 }}>({act.entityId})</span>}
                                         </span>
                                         {act.location && (
                                             <>
                                                 <span style={{ color: '#e2e8f0' }}>|</span>
                                                 <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <MapPin size={12} /> {act.location}
+                                                    <MapPin size={12} /> {getTranslatedLocationName(act.location)}
                                                 </span>
                                             </>
                                         )}
@@ -222,13 +322,13 @@ const ActivityLog: React.FC = () => {
                                             <>
                                                 <span style={{ color: '#e2e8f0' }}>|</span>
                                                 <span style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Building2 size={12} /> {act.department}
+                                                    <Building2 size={12} /> {getTranslatedDepartmentName(act.department)}
                                                 </span>
                                             </>
                                         )}
                                         <span style={{ color: '#e2e8f0' }}>|</span>
                                         <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
-                                            By: <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{act.performedBy}</span>
+                                            {t('activityLog.messages.by')}: <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{act.performedBy}</span>
                                         </span>
                                     </div>
                                 </div>

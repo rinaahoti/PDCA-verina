@@ -3,6 +3,7 @@ import {
     Plus, Edit2, Trash2, Search, Download, RefreshCw, Eye, FileText,
     X, Save, CheckCircle2, AlertCircle, Tag, MapPin, Building2, Calendar
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // --- TYPES ---
 
@@ -198,6 +199,7 @@ const templatesService = {
 // --- MAIN COMPONENT ---
 
 const TemplatesStandards: React.FC = () => {
+    const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'standardizations' | 'templates'>('standardizations');
     const [outcomes, setOutcomes] = useState<PDCAOutcome[]>([]);
     const [templates, setTemplates] = useState<Template[]>([]);
@@ -250,6 +252,77 @@ const TemplatesStandards: React.FC = () => {
     const categories = Array.from(new Set(outcomes.map(o => o.category)));
     const locations = Array.from(new Set(outcomes.map(o => o.location)));
 
+    // Translated Helpers
+    const getTranslatedDecision = (decision: string) => {
+        const map: Record<string, string> = {
+            'Standardize': 'templatesStandards.badges.standardize',
+            'Improve & Re-run': 'templatesStandards.badges.improveRerun',
+            'Close': 'templatesStandards.badges.close'
+        };
+        return map[decision] ? t(map[decision]) : decision;
+    };
+
+    const getTranslatedEffectiveness = (status: string) => {
+        const map: Record<string, string> = {
+            'Effective': 'templatesStandards.badges.effective',
+            'Partially Effective': 'templatesStandards.badges.partiallyEffective',
+            'Not Effective': 'templatesStandards.badges.notEffective'
+        };
+        return map[status] ? t(map[status]) : status;
+    };
+
+    const getTranslatedKPIStatus = (status: string) => {
+        const map: Record<string, string> = {
+            'Achieved': 'templatesStandards.badges.achieved',
+            'Partial': 'templatesStandards.badges.partial',
+            'Not Achieved': 'templatesStandards.badges.notAchieved'
+        };
+        return map[status] ? t(map[status]) : status;
+    };
+
+    const getTranslatedCategory = (cat: string) => {
+        const map: Record<string, string> = {
+            'Patient Safety': 'templatesStandards.categories.patientSafety',
+            'Medication Safety': 'templatesStandards.categories.medicationSafety'
+        };
+        return map[cat] ? t(map[cat]) : cat;
+    };
+
+    const getTranslatedLocationName = (name: string) => {
+        const map: Record<string, string> = {
+            'Basel': 'admin.universityHospitalBasel',
+            'Bern': 'admin.inselspitalBern',
+            'Zurich': 'admin.universityHospitalZurich',
+            'Geneva': 'admin.genevaUniversityHospitals',
+            'Lausanne': 'admin.chuvLausanne'
+        };
+        // Also map existing full names if they are stored that way? 
+        // Seed data uses short names like 'Basel'.
+        return map[name] ? t(map[name]) : name;
+    };
+
+    const getTranslatedTemplateKind = (kind: string) => {
+        const map: Record<string, string> = {
+            'standard': 'templatesStandards.badges.standard',
+            'template': 'templatesStandards.badges.template'
+        };
+        return map[kind] ? t(map[kind]) : kind;
+    };
+
+    const getTranslatedTemplateStatus = (status: string) => {
+        const map: Record<string, string> = {
+            'Draft': 'templatesStandards.badges.draft',
+            'Published': 'templatesStandards.badges.published',
+            'Archived': 'templatesStandards.badges.archived'
+        };
+        return map[status] ? t(map[status]) : status;
+    };
+
+
+    const getTranslatedStep = (step: string) => {
+        return t(`pdca.${step.toLowerCase()}`);
+    };
+
     // Handlers
     const handleExportJSON = () => {
         const data = { outcomes, templates };
@@ -262,7 +335,7 @@ const TemplatesStandards: React.FC = () => {
     };
 
     const handleRestoreDefaults = () => {
-        if (confirm('Restore default master data? This will reset all outcomes and templates.')) {
+        if (confirm(t('templatesStandards.messages.restoreConfirm'))) {
             outcomesService.reset();
             templatesService.reset();
         }
@@ -286,12 +359,12 @@ const TemplatesStandards: React.FC = () => {
         // Update outcome with standard ID
         outcomesService.save({ ...outcome, standardId: standard.id });
 
-        alert(`Standard ${standard.id} generated successfully!`);
+        alert(t('templatesStandards.messages.standardGenerated', { id: standard.id }));
     };
 
     const handleSaveOutcome = () => {
         if (!editingOutcome || !editingOutcome.ref || !editingOutcome.title) {
-            return alert('Ref and Title are required');
+            return alert(t('templatesStandards.messages.validationError'));
         }
 
         const outcome: PDCAOutcome = {
@@ -323,22 +396,22 @@ const TemplatesStandards: React.FC = () => {
             {/* HEADER */}
             <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>Templates & Standards</h1>
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>PDCA outcomes → standardization records and generated standards</div>
+                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('templatesStandards.pageTitle')}</h1>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('templatesStandards.subtitle')}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button onClick={handleExportJSON} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                        <Download size={16} /> Export JSON
+                        <Download size={16} /> {t('templatesStandards.exportJson')}
                     </button>
                     <button onClick={handleRestoreDefaults} className="btn btn-outline" style={{ display: 'flex', gap: '8px', color: '#dc2626', borderColor: '#fee2e2' }}>
-                        <RefreshCw size={16} /> Restore Default Master Data
+                        <RefreshCw size={16} /> {t('templatesStandards.restoreDefaults')}
                     </button>
                     <button
                         onClick={() => { setEditingOutcome({}); setOutcomeModalOpen(true); }}
                         className="btn"
                         style={{ display: 'flex', gap: '8px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
                     >
-                        <Plus size={16} /> New PDCA Outcome
+                        <Plus size={16} /> {t('templatesStandards.newOutcome')}
                     </button>
                 </div>
             </div>
@@ -350,7 +423,7 @@ const TemplatesStandards: React.FC = () => {
                         <FileText size={20} color="#64748B" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>PDCA OUTCOMES</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.pdcaOutcomes')}</div>
                         <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--color-text)' }}>{totalOutcomes}</div>
                     </div>
                 </div>
@@ -360,7 +433,7 @@ const TemplatesStandards: React.FC = () => {
                         <CheckCircle2 size={20} color="#22C55E" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STANDARDIZED</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.standardized')}</div>
                         <div style={{ fontSize: '24px', fontWeight: 800, color: '#22C55E' }}>{standardized}</div>
                     </div>
                 </div>
@@ -370,7 +443,7 @@ const TemplatesStandards: React.FC = () => {
                         <AlertCircle size={20} color="#F59E0B" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>NOT STANDARDIZED</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.notStandardized')}</div>
                         <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B' }}>{notStandardized}</div>
                     </div>
                 </div>
@@ -380,7 +453,7 @@ const TemplatesStandards: React.FC = () => {
                         <FileText size={20} color="#3B82F6" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>STANDARDS</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.standards')}</div>
                         <div style={{ fontSize: '24px', fontWeight: 800, color: '#3B82F6' }}>{totalStandards}</div>
                     </div>
                 </div>
@@ -405,7 +478,7 @@ const TemplatesStandards: React.FC = () => {
                             transition: 'all 0.2s'
                         }}
                     >
-                        Standardizations
+                        {t('templatesStandards.tabStandardizations')}
                     </button>
                     <button
                         onClick={() => setActiveTab('templates')}
@@ -422,7 +495,7 @@ const TemplatesStandards: React.FC = () => {
                             transition: 'all 0.2s'
                         }}
                     >
-                        Templates
+                        {t('templatesStandards.tabTemplates')}
                     </button>
                 </div>
 
@@ -433,7 +506,7 @@ const TemplatesStandards: React.FC = () => {
                             <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="text"
-                                placeholder="Search outcomes..."
+                                placeholder={t('templatesStandards.searchPlaceholder')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 style={{ width: '100%', padding: '10px 16px 10px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '14px' }}
@@ -444,26 +517,26 @@ const TemplatesStandards: React.FC = () => {
                             onChange={(e) => setCategoryFilter(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
                         >
-                            <option>All Categories</option>
-                            {categories.map(c => <option key={c}>{c}</option>)}
+                            <option value="All Categories">{t('templatesStandards.filters.allCategories')}</option>
+                            {categories.map(c => <option key={c} value={c}>{getTranslatedCategory(c)}</option>)}
                         </select>
                         <select
                             value={locationFilter}
                             onChange={(e) => setLocationFilter(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
                         >
-                            <option>All Locations</option>
-                            {locations.map(l => <option key={l}>{l}</option>)}
+                            <option value="All Locations">{t('templatesStandards.filters.allLocations')}</option>
+                            {locations.map(l => <option key={l} value={l}>{getTranslatedLocationName(l)}</option>)}
                         </select>
                         <select
                             value={decisionFilter}
                             onChange={(e) => setDecisionFilter(e.target.value)}
                             style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
                         >
-                            <option>All Decisions</option>
-                            <option>Standardize</option>
-                            <option>Improve & Re-run</option>
-                            <option>Close</option>
+                            <option value="All Decisions">{t('templatesStandards.filters.allDecisions')}</option>
+                            <option value="Standardize">{t('templatesStandards.badges.standardize')}</option>
+                            <option value="Improve & Re-run">{t('templatesStandards.badges.improveRerun')}</option>
+                            <option value="Close">{t('templatesStandards.badges.close')}</option>
                         </select>
                     </div>
                 )}
@@ -474,20 +547,20 @@ const TemplatesStandards: React.FC = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                 <tr>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Topic Ref</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Title</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Outcome</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>KPI Summary</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Scope</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Why Not</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Standard ID</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Date</th>
-                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Actions</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.topicRef')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.title')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.outcome')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kpiSummary')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.scope')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.whyNot')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.standardId')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.date')}</th>
+                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredOutcomes.length === 0 ? (
-                                    <tr><td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No outcomes found.</td></tr>
+                                    <tr><td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noOutcomes')}</td></tr>
                                 ) : (
                                     filteredOutcomes.map(outcome => {
                                         const achievedKPIs = outcome.kpi.filter(k => k.status === 'Achieved').length;
@@ -499,7 +572,7 @@ const TemplatesStandards: React.FC = () => {
                                                 <td style={{ padding: '1rem' }}>
                                                     <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>{outcome.title}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748b' }}>
-                                                        {outcome.owner} · {outcome.category} · {outcome.location}
+                                                        {outcome.owner} · {getTranslatedCategory(outcome.category)} · {getTranslatedLocationName(outcome.location)}
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem' }}>
@@ -514,7 +587,7 @@ const TemplatesStandards: React.FC = () => {
                                                             background: outcome.decision === 'Standardize' ? '#dcfce7' : outcome.decision === 'Improve & Re-run' ? '#fef3c7' : '#fee2e2',
                                                             color: outcome.decision === 'Standardize' ? '#166534' : outcome.decision === 'Improve & Re-run' ? '#92400e' : '#991b1b'
                                                         }}>
-                                                            {outcome.decision}
+                                                            {getTranslatedDecision(outcome.decision)}
                                                         </span>
                                                         <span style={{
                                                             padding: '2px 8px',
@@ -526,11 +599,11 @@ const TemplatesStandards: React.FC = () => {
                                                             background: outcome.effectiveness === 'Effective' ? '#dcfce7' : outcome.effectiveness === 'Partially Effective' ? '#fef3c7' : '#fee2e2',
                                                             color: outcome.effectiveness === 'Effective' ? '#166534' : outcome.effectiveness === 'Partially Effective' ? '#92400e' : '#991b1b'
                                                         }}>
-                                                            {outcome.effectiveness}
+                                                            {getTranslatedEffectiveness(outcome.effectiveness)}
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} Achieved</td>
+                                                <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} {t('templatesStandards.badges.achieved')}</td>
                                                 <td style={{ padding: '1rem' }}>
                                                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                                         {outcome.scope.slice(0, 2).map((s, i) => (
@@ -552,7 +625,7 @@ const TemplatesStandards: React.FC = () => {
                                                     {outcome.standardId || '—'}
                                                 </td>
                                                 <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>
-                                                    {new Date(outcome.createdAt).toLocaleDateString()}
+                                                    {new Date(outcome.createdAt).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB')}
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
@@ -560,6 +633,7 @@ const TemplatesStandards: React.FC = () => {
                                                             onClick={() => { setViewingOutcome(outcome); setViewModalOpen(true); }}
                                                             className="btn btn-outline"
                                                             style={{ padding: '4px 8px' }}
+                                                            title={t('common.view')}
                                                         >
                                                             <Eye size={13} />
                                                         </button>
@@ -567,6 +641,7 @@ const TemplatesStandards: React.FC = () => {
                                                             onClick={() => { setEditingOutcome(outcome); setOutcomeModalOpen(true); }}
                                                             className="btn btn-outline"
                                                             style={{ padding: '4px 8px' }}
+                                                            title={t('common.edit')}
                                                         >
                                                             <Edit2 size={13} />
                                                         </button>
@@ -576,7 +651,7 @@ const TemplatesStandards: React.FC = () => {
                                                                 className="btn"
                                                                 style={{ padding: '4px 8px', fontSize: '11px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
                                                             >
-                                                                Generate
+                                                                {t('templatesStandards.actions.generate')}
                                                             </button>
                                                         )}
                                                     </div>
@@ -596,18 +671,18 @@ const TemplatesStandards: React.FC = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                 <tr>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>ID</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Title</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Kind</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Category</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Step</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Status</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>Source</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.id')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.title')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kind')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.category')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.step')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.status')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.source')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {templates.length === 0 ? (
-                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No templates found.</td></tr>
+                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noTemplates')}</td></tr>
                                 ) : (
                                     templates.map(template => (
                                         <tr key={template.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -622,10 +697,10 @@ const TemplatesStandards: React.FC = () => {
                                                     background: template.kind === 'standard' ? '#dbeafe' : '#f3e8ff',
                                                     color: template.kind === 'standard' ? '#1e40af' : '#7e22ce'
                                                 }}>
-                                                    {template.kind}
+                                                    {getTranslatedTemplateKind(template.kind)}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '1rem', color: '#64748b' }}>{template.category}</td>
+                                            <td style={{ padding: '1rem', color: '#64748b' }}>{getTranslatedCategory(template.category)}</td>
                                             <td style={{ padding: '1rem' }}>
                                                 <span style={{
                                                     padding: '2px 8px',
@@ -635,7 +710,7 @@ const TemplatesStandards: React.FC = () => {
                                                     background: '#f1f5f9',
                                                     color: '#64748b'
                                                 }}>
-                                                    {template.step}
+                                                    {getTranslatedStep(template.step)}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '1rem' }}>
@@ -647,7 +722,7 @@ const TemplatesStandards: React.FC = () => {
                                                     background: template.status === 'Published' ? '#dcfce7' : template.status === 'Draft' ? '#fef3c7' : '#fee2e2',
                                                     color: template.status === 'Published' ? '#166534' : template.status === 'Draft' ? '#92400e' : '#991b1b'
                                                 }}>
-                                                    {template.status}
+                                                    {getTranslatedTemplateStatus(template.status)}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>{template.source}</td>
@@ -665,57 +740,57 @@ const TemplatesStandards: React.FC = () => {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div className="card" style={{ width: '700px', maxHeight: '80vh', overflow: 'auto', padding: 0 }}>
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
-                            <h3 style={{ margin: 0 }}>Outcome Details</h3>
+                            <h3 style={{ margin: 0 }}>{t('templatesStandards.actions.outcomeDetails')}</h3>
                             <button onClick={() => { setViewModalOpen(false); setViewingOutcome(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
                                 <X size={20} />
                             </button>
                         </div>
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                             <div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Topic Ref</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.topicRef')}</div>
                                 <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{viewingOutcome.ref}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Title</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.title')}</div>
                                 <div style={{ fontWeight: 600 }}>{viewingOutcome.title}</div>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Owner</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.owner')}</div>
                                     <div>{viewingOutcome.owner}</div>
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Category</div>
-                                    <div>{viewingOutcome.category}</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.category')}</div>
+                                    <div>{getTranslatedCategory(viewingOutcome.category)}</div>
                                 </div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Description</div>
-                                <div>{viewingOutcome.description}</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.description')}</div>
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{viewingOutcome.description}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Lessons Learned</div>
-                                <div>{viewingOutcome.lessons}</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.lessonsLearned')}</div>
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{viewingOutcome.lessons}</div>
                             </div>
                             {viewingOutcome.whyNot && (
                                 <div>
-                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Why Not Standardized</div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.whyNotStandardized')}</div>
                                     <div style={{ padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', color: '#92400e' }}>{viewingOutcome.whyNot}</div>
                                 </div>
                             )}
                             <div>
-                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>KPIs</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.kpis')}</div>
                                 {viewingOutcome.kpi.map((k, i) => (
                                     <div key={i} style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', marginBottom: '8px' }}>
                                         <div style={{ fontWeight: 600, marginBottom: '4px' }}>{k.name}</div>
                                         <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                            Target: {k.target}% | Actual: {k.actual}% | Status: <span style={{
+                                            {t('templatesStandards.modal.target')}: {k.target}% | {t('templatesStandards.modal.actual')}: {k.actual}% | {t('templatesStandards.modal.status')}: <span style={{
                                                 padding: '2px 6px',
                                                 borderRadius: '8px',
                                                 background: k.status === 'Achieved' ? '#dcfce7' : k.status === 'Partial' ? '#fef3c7' : '#fee2e2',
                                                 color: k.status === 'Achieved' ? '#166534' : k.status === 'Partial' ? '#92400e' : '#991b1b',
                                                 fontWeight: 600
-                                            }}>{k.status}</span>
+                                            }}>{getTranslatedKPIStatus(k.status)}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -730,14 +805,14 @@ const TemplatesStandards: React.FC = () => {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
                     <div className="card" style={{ width: '600px', padding: 0 }}>
                         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0 }}>{editingOutcome?.ref ? 'Edit Outcome' : 'New PDCA Outcome'}</h3>
+                            <h3 style={{ margin: 0 }}>{editingOutcome?.ref ? t('templatesStandards.actions.editOutcome') : t('templatesStandards.newOutcome')}</h3>
                             <button onClick={() => { setOutcomeModalOpen(false); setEditingOutcome(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
                                 <X size={20} />
                             </button>
                         </div>
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '60vh', overflowY: 'auto' }}>
                             <div className="form-group">
-                                <label>Topic Ref *</label>
+                                <label>{t('templatesStandards.modal.topicRef')} *</label>
                                 <input
                                     className="input"
                                     value={editingOutcome?.ref || ''}
@@ -746,7 +821,7 @@ const TemplatesStandards: React.FC = () => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>Title *</label>
+                                <label>{t('templatesStandards.modal.title')} *</label>
                                 <input
                                     className="input"
                                     value={editingOutcome?.title || ''}
@@ -755,7 +830,7 @@ const TemplatesStandards: React.FC = () => {
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group">
-                                    <label>Owner</label>
+                                    <label>{t('templatesStandards.modal.owner')}</label>
                                     <input
                                         className="input"
                                         value={editingOutcome?.owner || ''}
@@ -763,7 +838,7 @@ const TemplatesStandards: React.FC = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Category</label>
+                                    <label>{t('templatesStandards.modal.category')}</label>
                                     <input
                                         className="input"
                                         value={editingOutcome?.category || ''}
@@ -772,20 +847,20 @@ const TemplatesStandards: React.FC = () => {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label>Decision *</label>
+                                <label>{t('templatesStandards.modal.decision')} *</label>
                                 <select
                                     className="input"
                                     value={editingOutcome?.decision || 'Standardize'}
                                     onChange={e => setEditingOutcome({ ...editingOutcome, decision: e.target.value as DecisionType })}
                                 >
-                                    <option>Standardize</option>
-                                    <option>Improve & Re-run</option>
-                                    <option>Close</option>
+                                    <option value="Standardize">{t('templatesStandards.badges.standardize')}</option>
+                                    <option value="Improve & Re-run">{t('templatesStandards.badges.improveRerun')}</option>
+                                    <option value="Close">{t('templatesStandards.badges.close')}</option>
                                 </select>
                             </div>
                             {editingOutcome?.decision !== 'Standardize' && (
                                 <div className="form-group">
-                                    <label>Why Not Standardized *</label>
+                                    <label>{t('templatesStandards.modal.whyNotStandardized')} *</label>
                                     <textarea
                                         className="input"
                                         value={editingOutcome?.whyNot || ''}
@@ -798,7 +873,7 @@ const TemplatesStandards: React.FC = () => {
                         </div>
                         <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                             <button onClick={handleSaveOutcome} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>
-                                <Save size={16} /> Save Outcome
+                                <Save size={16} /> {t('templatesStandards.actions.saveOutcome')}
                             </button>
                         </div>
                     </div>

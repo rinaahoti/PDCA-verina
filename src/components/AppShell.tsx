@@ -3,6 +3,8 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, List, PieChart, HelpCircle, Plus, LogOut, ChevronRight, Menu, Shield, Building2, Settings, Bell, CheckCircle2, Activity, FileText } from 'lucide-react';
 import { User, Topic } from '../types';
 import { topicsService } from '../services';
+import { useLanguage } from '../contexts/LanguageContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface ShellProps {
     user: User;
@@ -12,6 +14,7 @@ interface ShellProps {
 export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useLanguage();
 
     return (
         <div className="app-shell">
@@ -26,52 +29,52 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                 <div style={{ padding: '0 1.5rem 1.5rem 1.5rem' }}>
                     <button
                         className="btn w-full"
-                        style={{ width: '100%', justifyContent: 'center', background: '#cbeee2', color: '#5FAE9E', border: 'none' }}
+                        style={{ width: '100%', justifyContent: 'center', background: '#b3d8d8', color: '#424b55', border: 'none' }}
                         onClick={() => user.role !== 'DEMO' && navigate('/app/cockpit?mode=create')}
                         disabled={user.role === 'DEMO'}
                     >
-                        <Plus size={18} /> New
+                        <Plus size={18} /> {t('nav.new')}
                     </button>
                 </div>
 
-                <div style={{ padding: '1rem 1.75rem', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '1px', marginTop: '1rem' }}>PDCA MANAGEMENT</div>
+                <div style={{ padding: '1rem 1.75rem', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '1px', marginTop: '1rem' }}>{t('nav.pdcaManagement')}</div>
                 <nav style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <NavLink to="/app/cockpit" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <LayoutDashboard size={20} /> Cockpit
+                            <LayoutDashboard size={20} /> {t('nav.cockpit')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
                     <NavLink to="/app/lists" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <List size={20} /> Lists
+                            <List size={20} /> {t('nav.lists')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
                     <NavLink to="/app/dashboard" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <PieChart size={20} /> Dashboard
+                            <PieChart size={20} /> {t('nav.dashboard')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
 
 
-                    <div style={{ padding: '1rem 1.75rem', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '1px', marginTop: '1rem', textTransform: 'uppercase' }}>Administration</div>
+                    <div style={{ padding: '1rem 1.75rem', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '1px', marginTop: '1rem', textTransform: 'uppercase' }}>{t('nav.administration')}</div>
                     <NavLink to="/app/admin" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <Settings size={20} /> Administration
+                            <Settings size={20} /> {t('nav.administration')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
                     <NavLink to="/app/activity-log" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <Activity size={20} /> Activity Log
+                            <Activity size={20} /> {t('nav.activityLog')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
                     <NavLink to="/app/templates-standards" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <FileText size={20} /> Templates & Standards
+                            <FileText size={20} /> {t('nav.templatesStandards')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
@@ -85,15 +88,16 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <main className="main-content">
                 <header className="topbar">
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                        Healthcare Governance / Clinical Improvement / <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>Quality Portal</span>
+                        {t('header.breadcrumb')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <LanguageSwitcher />
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontWeight: 600, fontSize: '14px' }}>{user.name}</div>
-                            <div className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary-dark)' }}>{user.role}</div>
+                            <div className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary-dark)' }}>{t('roles.' + user.role.toLowerCase())}</div>
                         </div>
                         <button className="btn btn-outline" onClick={() => { localStorage.removeItem('mso_v5_user'); window.location.href = '/login'; }}>
-                            <LogOut size={16} /> Sign Out
+                            <LogOut size={16} /> {t('header.signOut')}
                         </button>
                     </div>
                 </header>

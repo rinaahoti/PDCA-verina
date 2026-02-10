@@ -4,8 +4,10 @@ import { Topic, ToDo } from '../types';
 import { Search, Filter, X } from 'lucide-react';
 import { authService, topicsService } from '../services';
 import { getStatusMeta } from '../utils/statusUtils';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Lists: React.FC = () => {
+    const { t, language } = useLanguage();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [topics, setTopics] = useState<Topic[]>([]);
@@ -39,10 +41,10 @@ const Lists: React.FC = () => {
     return (
         <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 style={{ margin: 0 }}>Initiatives & Measures</h2>
+                <h2 style={{ margin: 0 }}>{t('lists.pageTitle')}</h2>
                 {hasActiveFilters && (
                     <button onClick={clearFilters} className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '12px' }}>
-                        <X size={14} /> Clear all filters
+                        <X size={14} /> {t('common.clearAllFilters')}
                     </button>
                 )}
             </div>
@@ -52,7 +54,7 @@ const Lists: React.FC = () => {
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
                     <input
                         style={{ paddingLeft: '40px' }}
-                        placeholder="Search topics..."
+                        placeholder={t('common.searchTopics')}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
@@ -68,11 +70,11 @@ const Lists: React.FC = () => {
                             return prev;
                         })}
                     >
-                        <option value="ALL">All Steps</option>
-                        <option value="PLAN">PLAN</option>
-                        <option value="DO">DO</option>
-                        <option value="CHECK">CHECK</option>
-                        <option value="ACT">ACT</option>
+                        <option value="ALL">{t('lists.allSteps')}</option>
+                        <option value="PLAN">{t('pdca.plan')}</option>
+                        <option value="DO">{t('pdca.do')}</option>
+                        <option value="CHECK">{t('pdca.check')}</option>
+                        <option value="ACT">{t('pdca.act')}</option>
                     </select>
 
                     <button
@@ -84,7 +86,7 @@ const Lists: React.FC = () => {
                         })}
                         style={{ padding: '0 1rem', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <Filter size={16} /> My Topics
+                        <Filter size={16} /> {t('lists.myTopics')}
                     </button>
                 </div>
             </div>
@@ -92,26 +94,26 @@ const Lists: React.FC = () => {
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Status</th>
-                        <th>Title</th>
-                        <th>Step</th>
-                        <th>Due Date</th>
+                        <th>{t('common.id')}</th>
+                        <th>{t('common.status')}</th>
+                        <th>{t('common.title')}</th>
+                        <th>{t('common.step')}</th>
+                        <th>{t('common.dueDate')}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {filtered.map((t: Topic) => (
-                        <tr key={t.id} onClick={() => navigate(`/app/topic/${t.id}`)} style={{ cursor: 'pointer' }}>
-                            <td>{t.id}</td>
+                    {filtered.map((topic: Topic) => (
+                        <tr key={topic.id} onClick={() => navigate(`/app/topic/${topic.id}`)} style={{ cursor: 'pointer' }}>
+                            <td>{topic.id}</td>
                             <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span className={`status-dot ${getStatusMeta(t.status, t.dueDate).class}`}></span>
-                                    <span style={{ fontSize: '12px' }}>{getStatusMeta(t.status, t.dueDate).label}</span>
+                                    <span className={`status-dot ${getStatusMeta(topic.status, topic.dueDate, undefined, t).class}`}></span>
+                                    <span style={{ fontSize: '12px' }}>{getStatusMeta(topic.status, topic.dueDate, undefined, t).label}</span>
                                 </div>
                             </td>
-                            <td style={{ fontWeight: 500 }}>{t.title}</td>
-                            <td>{t.step}</td>
-                            <td>{new Date(t.dueDate).toLocaleDateString('de-DE')}</td>
+                            <td style={{ fontWeight: 500 }}>{topic.title}</td>
+                            <td>{t(`pdca.${topic.step.toLowerCase()}`)}</td>
+                            <td>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
                         </tr>
                     ))}
                 </tbody>

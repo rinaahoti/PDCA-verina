@@ -8,25 +8,28 @@ export interface StatusMeta {
 
 /** 4-color system: GREEN=On Track, YELLOW=Due Soon, RED=Overdue/Critical, DARK GRAY=Done. Done overrides all. */
 /** 4-color system: GREEN=On Track, ORANGE=Due Soon, RED=Overdue/Critical, DARK GRAY=Done. Done overrides all. */
-export const getStatusMeta = (status: string, dueDate?: string, completed?: boolean): StatusMeta => {
+export const getStatusMeta = (status: string, dueDate?: string, completed?: boolean, t?: (key: string) => string): StatusMeta => {
+    // Helper to translate or return label
+    const tr = (key: string, defaultLabel: string) => t ? t(`status.${key}`) : defaultLabel;
+
     // Rule 1: DONE always overrides everything
     if (completed === true || status === 'Done' || status === 'Completed') {
         return {
             color: '#64748b', // Grey
-            label: 'Done',
+            label: tr('done', 'Done'),
             class: 'status-done'
         };
     }
 
     // Manual Overrides
-    if (status === 'Critical') return { color: '#ef4444', label: 'Critical', class: 'status-critical' };
-    if (status === 'Warning') return { color: '#f97316', label: 'Warning', class: 'status-warning' };
-    if (status === 'On Track') return { color: '#22c55e', label: 'On Track', class: 'status-ontrack' };
+    if (status === 'Critical') return { color: '#ef4444', label: tr('critical', 'Critical'), class: 'status-critical' };
+    if (status === 'Warning') return { color: '#f97316', label: tr('warning', 'Warning'), class: 'status-warning' };
+    if (status === 'On Track' || status === 'Monitoring') return { color: '#22c55e', label: tr(status === 'Monitoring' ? 'monitoring' : 'onTrack', status), class: 'status-ontrack' };
 
     if (!dueDate) {
         return {
             color: '#22c55e', // Green
-            label: 'On Track',
+            label: tr('onTrack', 'On Track'),
             class: 'status-ontrack'
         };
     }
@@ -43,7 +46,7 @@ export const getStatusMeta = (status: string, dueDate?: string, completed?: bool
     if (due < now) {
         return {
             color: '#ef4444', // Red
-            label: 'Overdue',
+            label: tr('overdue', 'Overdue'),
             class: 'status-critical'
         };
     }
@@ -52,7 +55,7 @@ export const getStatusMeta = (status: string, dueDate?: string, completed?: bool
     if (due <= thresholdDate) {
         return {
             color: '#f97316', // Orange
-            label: 'Due Soon',
+            label: tr('dueSoon', 'Due Soon'),
             class: 'status-warning'
         };
     }
@@ -60,7 +63,7 @@ export const getStatusMeta = (status: string, dueDate?: string, completed?: bool
     // Rule 4: On Track
     return {
         color: '#22c55e', // Green
-        label: 'On Track',
+        label: tr('onTrack', 'On Track'),
         class: 'status-ontrack'
     };
 };

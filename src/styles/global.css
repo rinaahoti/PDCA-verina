@@ -67,17 +67,17 @@ body {
 }
 
 .sidebar a.active-nav {
-    color: #5FAE9E;
-    background: #cbeee2;
+    color: #424b55;
+    background: #b3d8d8;
     border-left-color: #5FAE9E;
 }
 
 .sidebar a.active-nav svg {
-    color: #5FAE9E;
+    color: #424b55;
 }
 
 .sidebar a.active-nav .nav-chevron {
-    color: #5FAE9E;
+    color: #424b55;
 }
 
 .main-content {
@@ -119,8 +119,8 @@ body {
 }
 
 .btn-primary {
-    background: var(--color-primary);
-    color: white;
+    background: #b3d8d8;
+    color: #424b55;
 }
 
 .btn-primary:hover {
@@ -128,8 +128,9 @@ body {
 }
 
 .btn-outline {
-    border-color: var(--color-border);
-    background: white;
+    border: none;
+    background: #b3d8d8;
+    color: #424b55;
 }
 
 .btn-outline:hover {
@@ -280,12 +281,12 @@ td {
     align-items: center;
     justify-content: center;
     padding: 0.5rem 1.25rem;
-    background: white;
-    border: 1px solid var(--color-border);
+    background: #b3d8d8;
+    border: 1px solid #424b55;
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
-    color: var(--color-text-muted);
+    color: #424b55;
     gap: 4px;
     border-radius: 6px;
 }
@@ -295,9 +296,9 @@ td {
 }
 
 .action-btn.back {
-    background: var(--color-primary);
-    color: white;
-    border-color: var(--color-primary);
+    background: #b3d8d8;
+    color: #424b55;
+    border-color: #424b55;
     width: 100px;
     flex-direction: row;
     gap: 8px;

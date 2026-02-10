@@ -56,7 +56,7 @@ export interface Organization {
 }
 
 export type Step = 'PLAN' | 'DO' | 'CHECK' | 'ACT';
-export type Status = 'Critical' | 'Warning' | 'On Track' | 'Done';
+export type Status = 'Critical' | 'Warning' | 'On Track' | 'Done' | 'Monitoring';
 export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
 export type Severity = 'Low' | 'Medium' | 'High' | 'Critical' | 'Business Critical';
 export type Category = 'Clinical' | 'Nursing' | 'Quality' | 'Compliance' | 'Patient Safety';
@@ -115,7 +115,9 @@ export interface Topic {
     id: string;
     title: string;
     ownerId: string;
+    ownerName?: string;
     responsibleId: string;
+    responsibleName?: string;
     step: Step;
     dueDate: string;
     status: Status;
@@ -151,6 +153,8 @@ export interface Topic {
             dueDate: string;
             teamsMeeting?: string;
             teamsMeetingLink?: string;
+            meetingType?: 'In-Office' | 'Online';
+            meetingLocation?: string;
             status: 'Open' | 'In Progress' | 'Done';
         }[];
         completedAt?: string;

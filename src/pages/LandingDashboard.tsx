@@ -1,9 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, FileCheck, Lightbulb, Bell, ClipboardList } from 'lucide-react';
+import { FileCheck, Lightbulb } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 const LandingDashboard: React.FC = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
 
     const handlePDCAOpen = () => {
         navigate('/login');
@@ -25,72 +28,29 @@ const LandingDashboard: React.FC = () => {
                     <img src="/logoo.png" alt="VIRENA Logo" style={{ width: '32px', height: '32px', display: 'block' }} />
                     <span>VIRENA</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <Bell size={20} color="#78716C" style={{ cursor: 'pointer' }} />
-                    <div style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: '#5FAE9E',
-                        cursor: 'pointer'
-                    }}></div>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        cursor: 'pointer',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '6px',
-                        background: '#F9FAFB'
-                    }}>
-                        <div style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            background: '#E0E7FF',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            color: '#4F46E5'
-                        }}>U</div>
-                        <span style={{ fontSize: '14px', color: '#78716C' }}>User</span>
-                    </div>
-                </div>
+                <LanguageSwitcher />
             </div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, padding: '2rem', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
-                {/* Breadcrumb */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    marginBottom: '2rem',
-                    color: '#78716C',
-                    fontSize: '14px'
-                }}>
-                    <Home size={16} />
-                    <span>Startseite</span>
-                </div>
-
+            <div style={{ flex: 1, padding: '7rem 2rem 2rem 2rem', maxWidth: '1400px', width: '100%', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {/* Three Tiles */}
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '2rem',
-                    marginBottom: '3rem'
+                    gap: '2.5rem',
+                    width: '100%',
+                    maxWidth: '1300px'
                 }}>
                     {/* PDCA Tile */}
                     <div className="card" style={{
-                        padding: '2.5rem 2rem',
+                        padding: '4.5rem 3.5rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         textAlign: 'center',
                         transition: 'all 0.3s ease',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minHeight: '380px'
                     }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -102,55 +62,56 @@ const LandingDashboard: React.FC = () => {
                         }}
                     >
                         <div style={{
-                            width: '64px',
-                            height: '64px',
+                            width: '96px',
+                            height: '96px',
                             borderRadius: '50%',
                             background: '#F0F9FF',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            marginBottom: '1.5rem'
+                            marginBottom: '2rem'
                         }}>
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5FAE9E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#5FAE9E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <circle cx="12" cy="12" r="10" />
                                 <path d="M12 6v6l4 2" />
                             </svg>
                         </div>
-                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '18px', fontWeight: 600, color: '#1C1917' }}>PDCA</h3>
+                        <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.pdca')}</h3>
                         <button
                             onClick={handlePDCAOpen}
                             style={{
                                 width: '100%',
-                                padding: '0.75rem',
-                                background: '#5FAE9E',
-                                color: 'white',
+                                padding: '1rem',
+                                background: '#5eae9e',
+                                color: '#fff',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontSize: '14px',
+                                fontSize: '16px',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease'
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#4A9A8A';
+                                e.currentTarget.style.background = '#5eae9e';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#5FAE9E';
+                                e.currentTarget.style.background = '#5eae9e';
                             }}
                         >
-                            Open
+                            {t('landing.open')}
                         </button>
                     </div>
 
                     {/* Audit Tile */}
                     <div className="card" style={{
-                        padding: '2.5rem 2rem',
+                        padding: '4.5rem 3.5rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         textAlign: 'center',
                         transition: 'all 0.3s ease',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minHeight: '380px'
                     }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -162,18 +123,18 @@ const LandingDashboard: React.FC = () => {
                         }}
                     >
                         <div style={{
-                            width: '64px',
-                            height: '64px',
+                            width: '96px',
+                            height: '96px',
                             borderRadius: '50%',
                             background: '#F0F9FF',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            marginBottom: '1.5rem'
+                            marginBottom: '2rem'
                         }}>
-                            <FileCheck size={32} color="#5FAE9E" strokeWidth={2} />
+                            <FileCheck size={48} color="#5FAE9E" strokeWidth={2} />
                         </div>
-                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '18px', fontWeight: 600, color: '#1C1917' }}>Audit</h3>
+                        <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.audit')}</h3>
                         <button
                             onClick={(e) => {
                                 e.preventDefault();
@@ -182,30 +143,31 @@ const LandingDashboard: React.FC = () => {
                             }}
                             style={{
                                 width: '100%',
-                                padding: '0.75rem',
-                                background: '#5FAE9E',
-                                color: 'white',
+                                padding: '1rem',
+                                background: '#5eae9e',
+                                color: '#fff',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontSize: '14px',
+                                fontSize: '16px',
                                 fontWeight: 600,
                                 cursor: 'not-allowed',
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Open
+                            {t('landing.open')}
                         </button>
                     </div>
 
                     {/* Ideen Tile */}
                     <div className="card" style={{
-                        padding: '2.5rem 2rem',
+                        padding: '4.5rem 3.5rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         textAlign: 'center',
                         transition: 'all 0.3s ease',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minHeight: '380px'
                     }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -217,18 +179,18 @@ const LandingDashboard: React.FC = () => {
                         }}
                     >
                         <div style={{
-                            width: '64px',
-                            height: '64px',
+                            width: '96px',
+                            height: '96px',
                             borderRadius: '50%',
                             background: '#F0F9FF',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            marginBottom: '1.5rem'
+                            marginBottom: '2rem'
                         }}>
-                            <Lightbulb size={32} color="#5FAE9E" strokeWidth={2} />
+                            <Lightbulb size={48} color="#5FAE9E" strokeWidth={2} />
                         </div>
-                        <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '18px', fontWeight: 600, color: '#1C1917' }}>Ideen</h3>
+                        <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.ideen')}</h3>
                         <button
                             onClick={(e) => {
                                 e.preventDefault();
@@ -237,54 +199,19 @@ const LandingDashboard: React.FC = () => {
                             }}
                             style={{
                                 width: '100%',
-                                padding: '0.75rem',
-                                background: '#5FAE9E',
-                                color: 'white',
+                                padding: '1rem',
+                                background: '#5eae9e',
+                                color: '#fff',
                                 border: 'none',
                                 borderRadius: '8px',
-                                fontSize: '14px',
+                                fontSize: '16px',
                                 fontWeight: 600,
                                 cursor: 'not-allowed',
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Open
+                            {t('landing.open')}
                         </button>
-                    </div>
-                </div>
-
-                {/* Bottom Panels */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                    {/* Neuigkeiten */}
-                    <div className="card" style={{ padding: '1.5rem' }}>
-                        <h3 style={{
-                            margin: '0 0 1rem 0',
-                            fontSize: '16px',
-                            fontWeight: 600,
-                            color: '#1C1917'
-                        }}>Neuigkeiten</h3>
-                        <p style={{
-                            margin: 0,
-                            color: '#78716C',
-                            fontSize: '14px',
-                            fontStyle: 'italic'
-                        }}>Keine aktuellen Nachrichten.</p>
-                    </div>
-
-                    {/* Meine Aufgaben */}
-                    <div className="card" style={{ padding: '1.5rem' }}>
-                        <h3 style={{
-                            margin: '0 0 1rem 0',
-                            fontSize: '16px',
-                            fontWeight: 600,
-                            color: '#1C1917'
-                        }}>Meine Aufgaben</h3>
-                        <p style={{
-                            margin: 0,
-                            color: '#78716C',
-                            fontSize: '14px',
-                            fontStyle: 'italic'
-                        }}>Keine offenen Aufgaben.</p>
                     </div>
                 </div>
             </div>

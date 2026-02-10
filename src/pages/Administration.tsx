@@ -6,8 +6,41 @@ import {
     Search, AlertCircle, Save, X, RefreshCw,
     ChevronDown, ChevronRight
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Administration: React.FC = () => {
+    const { t } = useLanguage();
+
+    // Helper to translate known location names
+    const getTranslatedLocationName = (name: string) => {
+        const map: Record<string, string> = {
+            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
+            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
+            'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
+            'CHUV Lausanne (VD)': 'admin.chuvLausanne'
+        };
+        return map[name] ? t(map[name]) : name;
+    };
+
+    // Helper to translate known department names
+    const getTranslatedDepartmentName = (name: string) => {
+        const map: Record<string, string> = {
+            'Quality & Patient Safety': 'admin.qualityPatientSafety',
+            'Surgery Department': 'admin.surgeryDepartment',
+            'Main Pharmacy': 'admin.mainPharmacy',
+            'Infectious Diseases': 'admin.infectiousDiseases',
+            'Emergency Medicine': 'admin.emergencyMedicine'
+        };
+        return map[name] ? t(map[name]) : name;
+    };
+
+    // Helper to translate roles
+    const getTranslatedRole = (role: string) => {
+        const lowerRole = role.toLowerCase();
+        return t(`admin.roles.${lowerRole}`) || role;
+    };
+
     const [activeTab, setActiveTab] = useState<'locations' | 'departments' | 'users'>('locations');
     const [locations, setLocations] = useState<Location[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -51,7 +84,7 @@ const Administration: React.FC = () => {
 
     // Locations
     const handleSaveLocation = () => {
-        if (!editingLoc.name) return alert('Name is required');
+        if (!editingLoc.name) return alert(t('admin.validation.nameRequired'));
         const loc: Location = {
             id: editingLoc.id || `LOC-${Date.now()}`,
             name: editingLoc.name!,
@@ -68,7 +101,7 @@ const Administration: React.FC = () => {
     };
     const handleDeleteLocation = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation(); // Prevent drawer opening
-        if (confirm('Delete this location?')) {
+        if (confirm(t('admin.confirm.deleteLocation'))) {
             try {
                 adminService.deleteLocation(id);
                 if (selectedLocation?.id === id) setSelectedLocation(null);
@@ -80,7 +113,7 @@ const Administration: React.FC = () => {
 
     // Departments
     const handleSaveDepartment = () => {
-        if (!editingDep.name || !editingDep.locationId) return alert('Name and Location are required');
+        if (!editingDep.name || !editingDep.locationId) return alert(t('admin.validation.nameLocationRequired'));
         const dep: Department = {
             id: editingDep.id || `DEP-${Date.now()}`,
             name: editingDep.name!,
@@ -91,7 +124,7 @@ const Administration: React.FC = () => {
     };
     const handleDeleteDepartment = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
-        if (confirm('Delete this department?')) {
+        if (confirm(t('admin.confirm.deleteDepartment'))) {
             try {
                 adminService.deleteDepartment(id);
             } catch (err: any) {
@@ -102,7 +135,7 @@ const Administration: React.FC = () => {
 
     // Users
     const handleSaveUser = () => {
-        if (!editingUser.fullName || !editingUser.email || !editingUser.locationId) return alert('Name, Email and Location are required');
+        if (!editingUser.fullName || !editingUser.email || !editingUser.locationId) return alert(t('admin.validation.nameEmailLocationRequired'));
         const usr: AppUser = {
             id: editingUser.id || `USR-${Date.now()}`,
             fullName: editingUser.fullName!,
@@ -116,7 +149,7 @@ const Administration: React.FC = () => {
     };
     const handleDeleteUser = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
-        if (confirm('Delete this user?')) {
+        if (confirm(t('admin.confirm.deleteUser'))) {
             try {
                 adminService.deleteUser(id);
             } catch (err: any) {
@@ -147,11 +180,11 @@ const Administration: React.FC = () => {
         <div style={{ maxWidth: '1600px', margin: '0 auto', paddingBottom: '4rem', position: 'relative' }}>
             <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>Administration & Settings</h1>
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>Manage Locations, Departments, and Users</div>
+                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('admin.pageTitle')}</h1>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('admin.subtitle')}</div>
                 </div>
                 <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                    <RefreshCw size={16} /> Restore Default Master Data
+                    <RefreshCw size={16} /> {t('admin.restoreDefaultData')}
                 </button>
             </div>
 
@@ -169,7 +202,7 @@ const Administration: React.FC = () => {
                         cursor: 'pointer'
                     }}
                 >
-                    Hospitals / Locations
+                    {t('admin.tabLocations')}
                 </button>
                 <button
                     onClick={() => setActiveTab('departments')}
@@ -183,7 +216,7 @@ const Administration: React.FC = () => {
                         cursor: 'pointer'
                     }}
                 >
-                    Departments
+                    {t('admin.tabDepartments')}
                 </button>
                 <button
                     onClick={() => setActiveTab('users')}
@@ -197,7 +230,7 @@ const Administration: React.FC = () => {
                         cursor: 'pointer'
                     }}
                 >
-                    Users & Roles
+                    {t('admin.tabUsers')}
                 </button>
             </div>
 
@@ -207,23 +240,23 @@ const Administration: React.FC = () => {
                 {activeTab === 'locations' && (
                     <div>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Locations</h3>
-                            <button className="btn" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
-                                <Plus size={16} /> Add Location
+                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('admin.locations')}</h3>
+                            <button className="btn" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                                <Plus size={16} /> {t('admin.addLocation')}
                             </button>
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                             <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                 <tr>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>Name</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>City</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>Country</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>Code</th>
-                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '12px' }}>Actions</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>{t('common.name')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>{t('common.city')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>{t('common.country')}</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '12px' }}>{t('common.code')}</th>
+                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '12px' }}>{t('common.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {locations.length === 0 ? <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>No locations found.</td></tr> :
+                                {locations.length === 0 ? <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>{t('admin.noLocationsFound')}</td></tr> :
                                     locations.map(loc => (
                                         <tr
                                             key={loc.id}
@@ -231,9 +264,9 @@ const Administration: React.FC = () => {
                                             onClick={() => setSelectedLocation(loc)}
                                             className="hover-row"
                                         >
-                                            <td style={{ padding: '1rem', fontWeight: 600, color: '#1e293b' }}>{loc.name}</td>
+                                            <td style={{ padding: '1rem', fontWeight: 600, color: '#1e293b' }}>{getTranslatedLocationName(loc.name)}</td>
                                             <td style={{ padding: '1rem' }}>{loc.city || '-'}</td>
-                                            <td style={{ padding: '1rem' }}>{loc.country || '-'}</td>
+                                            <td style={{ padding: '1rem' }}>{loc.country === 'Switzerland' ? t('common.switzerland') : (loc.country || '-')}</td>
                                             <td style={{ padding: '1rem' }}>{loc.code || '-'}</td>
                                             <td style={{ padding: '1rem', textAlign: 'right' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }} onClick={e => e.stopPropagation()}>
@@ -254,36 +287,36 @@ const Administration: React.FC = () => {
                         {locations.length === 0 ? (
                             <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
                                 <Building2 size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
-                                <p>No locations found. Add a location first to manage departments.</p>
+                                <p>{t('admin.noLocationsAddFirst')}</p>
                             </div>
                         ) : (
                             locations.map(loc => {
                                 const locDeps = departments.filter(d => d.locationId === loc.id);
                                 const isExpanded = expandedLocs[loc.id] !== false;
                                 return (
-                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid #5FAE9E' : '1px solid var(--color-border)', marginBottom: 0 }}>
+                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--color-border)', marginBottom: 0 }}>
                                         <div
                                             onClick={() => toggleLoc(loc.id)}
                                             style={{
                                                 padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#cbeee2' : 'var(--color-bg)',
+                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#b3d8d8' : 'var(--color-bg)',
                                                 borderBottom: isExpanded ? '1px solid var(--color-border)' : 'none'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#5FAE9E' }} /> : <ChevronRight size={20} />}
+                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#424b55' }} /> : <ChevronRight size={20} />}
                                                 <div>
-                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#5FAE9E' : 'var(--color-text)' }}>{loc.name}</span>
-                                                    {isExpanded && <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--color-text-muted)' }}>{locDeps.length} Departments</span>}
+                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#424b55' : 'var(--color-text)' }}>{getTranslatedLocationName(loc.name)}</span>
+                                                    {isExpanded && <span style={{ marginLeft: '12px', fontSize: '12px', color: 'var(--color-text-muted)' }}>{locDeps.length} {t('admin.departments')}</span>}
                                                 </div>
                                             </div>
                                             {isExpanded && (
                                                 <button
                                                     className="btn"
-                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}
                                                     onClick={(e) => { e.stopPropagation(); onAddDepartment(loc.id); }}
                                                 >
-                                                    <Plus size={14} /> Add Department
+                                                    <Plus size={14} /> {t('admin.addDepartment')}
                                                 </button>
                                             )}
                                         </div>
@@ -291,26 +324,26 @@ const Administration: React.FC = () => {
                                             <div style={{ padding: '0.5rem' }}>
                                                 {locDeps.length === 0 ? (
                                                     <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', background: '#ffffff' }}>
-                                                        No departments for <strong>{loc.name}</strong>.
+                                                        {t('admin.noDepartmentsFor')} <strong>{getTranslatedLocationName(loc.name)}</strong>.
                                                         <div style={{ marginTop: '0.5rem' }}>
-                                                            <button onClick={() => onAddDepartment(loc.id)} className="btn btn-outline" style={{ fontSize: '12px' }}>Add Department</button>
+                                                            <button onClick={() => onAddDepartment(loc.id)} className="btn btn-outline" style={{ fontSize: '12px' }}>{t('admin.addDepartment')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
                                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                                                         <thead style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: '12px' }}>
                                                             <tr>
-                                                                <th style={{ padding: '0.75rem 1rem' }}>Department Name</th>
-                                                                <th style={{ padding: '0.75rem 1rem' }}>Users</th>
-                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                                                                <th style={{ padding: '0.75rem 1rem' }}>{t('admin.departmentName')}</th>
+                                                                <th style={{ padding: '0.75rem 1rem' }}>{t('common.users')}</th>
+                                                                <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{t('common.actions')}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {locDeps.map(dep => (
                                                                 <tr key={dep.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{dep.name}</td>
+                                                                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{getTranslatedDepartmentName(dep.name)}</td>
                                                                     <td style={{ padding: '0.75rem 1rem', color: '#64748b' }}>
-                                                                        {users.filter(u => u.departmentId === dep.id).length} Users
+                                                                        {users.filter(u => u.departmentId === dep.id).length} {t('common.users')}
                                                                     </td>
                                                                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -338,7 +371,7 @@ const Administration: React.FC = () => {
                         {locations.length === 0 ? (
                             <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
                                 <Users size={48} style={{ margin: '0 auto 1rem', opacity: 0.2 }} />
-                                <p>No locations found. Add a location first to manage users.</p>
+                                <p>{t('admin.noLocationsAddUserFirst')}</p>
                             </div>
                         ) : (
                             locations.map(loc => {
@@ -349,29 +382,29 @@ const Administration: React.FC = () => {
                                 const filteredUsers = locUsers.filter(u => currentFilter === 'All' || u.role === currentFilter);
 
                                 return (
-                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: isExpanded ? '1px solid #5FAE9E' : '1px solid var(--color-border)', marginBottom: 0 }}>
+                                    <div key={loc.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--color-border)', marginBottom: 0 }}>
                                         <div
                                             onClick={() => toggleLoc(loc.id)}
                                             style={{
                                                 padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between',
-                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#cbeee2' : 'var(--color-bg)',
+                                                alignItems: 'center', cursor: 'pointer', background: isExpanded ? '#b3d8d8' : 'var(--color-bg)',
                                                 borderBottom: isExpanded ? '1px solid var(--color-border)' : 'none'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#5FAE9E' }} /> : <ChevronRight size={20} />}
+                                                {isExpanded ? <ChevronDown size={20} style={{ color: '#424b55' }} /> : <ChevronRight size={20} />}
                                                 <div>
-                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#5FAE9E' : 'var(--color-text)' }}>{loc.name}</span>
+                                                    <span style={{ fontWeight: 700, fontSize: '1.05rem', color: isExpanded ? '#424b55' : 'var(--color-text)' }}>{getTranslatedLocationName(loc.name)}</span>
 
                                                 </div>
                                             </div>
                                             {isExpanded && (
                                                 <button
                                                     className="btn"
-                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}
                                                     onClick={(e) => { e.stopPropagation(); onAddUser(loc.id); }}
                                                 >
-                                                    <Plus size={14} /> Add User
+                                                    <Plus size={14} /> {t('admin.addUser')}
                                                 </button>
                                             )}
                                         </div>
@@ -392,16 +425,16 @@ const Administration: React.FC = () => {
                                                                 transition: 'all 0.2s'
                                                             }}
                                                         >
-                                                            {role} ({role === 'All' ? locUsers.length : locUsers.filter(u => u.role === role).length})
+                                                            {getTranslatedRole(role)} ({role === 'All' ? locUsers.length : locUsers.filter(u => u.role === role).length})
                                                         </button>
                                                     ))}
                                                 </div>
 
                                                 {locUsers.length === 0 ? (
                                                     <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', background: '#ffffff', borderRadius: '8px', border: '1px dashed #e2e8f0' }}>
-                                                        No users assigned to <strong>{loc.name}</strong>.
+                                                        {t('admin.noUsersAssigned')} <strong>{getTranslatedLocationName(loc.name)}</strong>.
                                                         <div style={{ marginTop: '0.5rem' }}>
-                                                            <button onClick={() => onAddUser(loc.id)} className="btn btn-outline" style={{ fontSize: '12px' }}>Add User</button>
+                                                            <button onClick={() => onAddUser(loc.id)} className="btn btn-outline" style={{ fontSize: '12px' }}>{t('admin.addUser')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -409,15 +442,15 @@ const Administration: React.FC = () => {
                                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                                             <thead style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9', textAlign: 'left', color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>
                                                                 <tr>
-                                                                    <th style={{ padding: '0.75rem 1rem' }}>User</th>
-                                                                    <th style={{ padding: '0.75rem 1rem' }}>Role</th>
-                                                                    <th style={{ padding: '0.75rem 1rem' }}>Department</th>
-                                                                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                                                                    <th style={{ padding: '0.75rem 1rem' }}>{t('common.user')}</th>
+                                                                    <th style={{ padding: '0.75rem 1rem' }}>{t('common.role')}</th>
+                                                                    <th style={{ padding: '0.75rem 1rem' }}>{t('admin.department')}</th>
+                                                                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{t('common.actions')}</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 {filteredUsers.length === 0 ? (
-                                                                    <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>No users match this filter.</td></tr>
+                                                                    <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>{t('admin.noUsersMatchFilter')}</td></tr>
                                                                 ) : (
                                                                     filteredUsers.map(user => (
                                                                         <tr key={user.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -430,9 +463,9 @@ const Administration: React.FC = () => {
                                                                                     padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600,
                                                                                     background: user.role === 'Admin' ? '#f3e8ff' : user.role === 'Owner' ? '#dbeafe' : user.role === 'Assigned' ? '#dcfce7' : '#f1f5f9',
                                                                                     color: user.role === 'Admin' ? '#7e22ce' : user.role === 'Owner' ? '#1e40af' : user.role === 'Assigned' ? '#15803d' : '#475569'
-                                                                                }}>{user.role}</span>
+                                                                                }}>{getTranslatedRole(user.role)}</span>
                                                                             </td>
-                                                                            <td style={{ padding: '0.75rem 1rem' }}>{user.departmentName || '-'}</td>
+                                                                            <td style={{ padding: '0.75rem 1rem' }}>{user.departmentName ? getTranslatedDepartmentName(user.departmentName) : '-'}</td>
                                                                             <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                                                                     <button onClick={() => { setEditingUser(user); setUserModalOpen(true); }} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
@@ -463,10 +496,10 @@ const Administration: React.FC = () => {
                 const filteredDrawerUsers = locationUsers.filter(u => drawerUserRoleFilter === 'All' || u.role === drawerUserRoleFilter);
 
                 const stats = [
-                    { label: 'Total Users', value: locationUsers.length, color: '#3b82f6' },
-                    { label: 'Departments', value: locationDeps.length, color: '#8b5cf6' },
-                    { label: 'Admins', value: locationUsers.filter(u => u.role === 'Admin').length, color: '#f59e0b' },
-                    { label: 'Assigned', value: locationUsers.filter(u => u.role === 'Assigned').length, color: '#10b981' }
+                    { label: t('admin.totalUsers'), value: locationUsers.length, color: '#3b82f6' },
+                    { label: t('admin.departmentsCount'), value: locationDeps.length, color: '#8b5cf6' },
+                    { label: t('admin.adminsCount'), value: locationUsers.filter(u => u.role === 'Admin').length, color: '#f59e0b' },
+                    { label: t('admin.assignedCount'), value: locationUsers.filter(u => u.role === 'Assigned').length, color: '#10b981' }
                 ];
 
                 return (
@@ -482,9 +515,9 @@ const Administration: React.FC = () => {
                             {/* Drawer Header */}
                             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', position: 'sticky', top: 0, zIndex: 10 }}>
                                 <div>
-                                    <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>Location Details</h2>
+                                    <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>{t('admin.locationDetails')}</h2>
                                     <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <MapPin size={14} /> {selectedLocation.name} {selectedLocation.city && `· ${selectedLocation.city}`}
+                                        <MapPin size={14} /> {getTranslatedLocationName(selectedLocation.name)} {selectedLocation.city && `· ${selectedLocation.city}`}
                                     </div>
                                 </div>
                                 <button onClick={() => setSelectedLocation(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
@@ -509,32 +542,32 @@ const Administration: React.FC = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <Building2 size={18} style={{ color: '#64748b' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>Departments</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{t('admin.departments')}</h3>
                                         </div>
-                                        <button onClick={() => onAddDepartment()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
-                                            <Plus size={14} /> Add Department
+                                        <button onClick={() => onAddDepartment()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                                            <Plus size={14} /> {t('admin.addDepartment')}
                                         </button>
                                     </div>
 
                                     {locationDeps.length === 0 ? (
                                         <div style={{ padding: '3rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0' }}>
-                                            <div style={{ color: '#94a3b8', marginBottom: '1rem' }}>No departments for this location yet.</div>
-                                            <button onClick={() => onAddDepartment()} className="btn btn-outline" style={{ fontSize: '13px' }}>Create First Department</button>
+                                            <div style={{ color: '#94a3b8', marginBottom: '1rem' }}>{t('admin.noDepartmentsForLocation')}</div>
+                                            <button onClick={() => onAddDepartment()} className="btn btn-outline" style={{ fontSize: '13px' }}>{t('admin.createFirstDepartment')}</button>
                                         </div>
                                     ) : (
                                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                                                 <thead style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                                                     <tr style={{ textAlign: 'left', color: '#64748b', fontSize: '12px' }}>
-                                                        <th style={{ padding: '0.75rem 1rem' }}>Department Name</th>
-                                                        <th style={{ padding: '0.75rem 1rem' }}>Users</th>
-                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                                                        <th style={{ padding: '0.75rem 1rem' }}>{t('admin.departmentName')}</th>
+                                                        <th style={{ padding: '0.75rem 1rem' }}>{t('admin.usersCount')}</th>
+                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{t('common.actions')}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {locationDeps.map(dep => (
                                                         <tr key={dep.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                            <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: '#1e293b' }}>{dep.name}</td>
+                                                            <td style={{ padding: '0.875rem 1rem', fontWeight: 600, color: '#1e293b' }}>{getTranslatedDepartmentName(dep.name)}</td>
                                                             <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                     <Users size={14} /> {users.filter(u => u.departmentId === dep.id).length}
@@ -559,10 +592,10 @@ const Administration: React.FC = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <Users size={18} style={{ color: '#64748b' }} />
-                                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>Users</h3>
+                                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{t('admin.tabUsers')}</h3>
                                         </div>
-                                        <button onClick={() => onAddUser()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}>
-                                            <Plus size={14} /> Add User
+                                        <button onClick={() => onAddUser()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                                            <Plus size={14} /> {t('admin.addUser')}
                                         </button>
                                     </div>
 
@@ -585,30 +618,30 @@ const Administration: React.FC = () => {
                                                     transition: 'all 0.2s'
                                                 }}
                                             >
-                                                {role}{role !== 'All' ? ` (${locationUsers.filter(u => u.role === role).length})` : ` (${locationUsers.length})`}
+                                                {getTranslatedRole(role)}{role !== 'All' ? ` (${locationUsers.filter(u => u.role === role).length})` : ` (${locationUsers.length})`}
                                             </button>
                                         ))}
                                     </div>
 
                                     {locationUsers.length === 0 ? (
                                         <div style={{ padding: '3rem 2rem', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0' }}>
-                                            <div style={{ color: '#94a3b8', marginBottom: '1rem' }}>No users assigned to this location yet.</div>
-                                            <button onClick={() => onAddUser()} className="btn btn-outline" style={{ fontSize: '13px' }}>Invite First User</button>
+                                            <div style={{ color: '#94a3b8', marginBottom: '1rem' }}>{t('admin.noUsersAssigned')} {t('common.location').toLowerCase()}.</div>
+                                            <button onClick={() => onAddUser()} className="btn btn-outline" style={{ fontSize: '13px' }}>{t('admin.inviteFirstUser')}</button>
                                         </div>
                                     ) : (
                                         <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                                 <thead style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', background: '#f8fafc' }}>
-                                                    <tr style={{ color: '#64748b', fontSize: '11px', textTransform: 'uppercase' }}>
-                                                        <th style={{ padding: '0.75rem 1rem' }}>Name & Email</th>
-                                                        <th style={{ padding: '0.75rem 1rem' }}>Role</th>
-                                                        <th style={{ padding: '0.75rem 1rem' }}>Dept</th>
-                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                                                    <tr>
+                                                        <th style={{ padding: '0.75rem 1rem' }}>{t('admin.fullName')} & {t('admin.email')}</th>
+                                                        <th style={{ padding: '0.75rem 1rem' }}>{t('common.role')}</th>
+                                                        <th style={{ padding: '0.75rem 1rem' }}>{t('admin.department')}</th>
+                                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>{t('common.actions')}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {filteredDrawerUsers.length === 0 ? (
-                                                        <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>No users match this role filter.</td></tr>
+                                                        <tr><td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>{t('admin.noUsersMatchFilter')}</td></tr>
                                                     ) : (
                                                         filteredDrawerUsers.map(user => (
                                                             <tr key={user.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -621,9 +654,9 @@ const Administration: React.FC = () => {
                                                                         padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600,
                                                                         background: user.role === 'Admin' ? '#f3e8ff' : user.role === 'Owner' ? '#dbeafe' : user.role === 'Assigned' ? '#dcfce7' : '#f1f5f9',
                                                                         color: user.role === 'Admin' ? '#7e22ce' : user.role === 'Owner' ? '#1e40af' : user.role === 'Assigned' ? '#15803d' : '#475569'
-                                                                    }}>{user.role}</span>
+                                                                    }}>{getTranslatedRole(user.role)}</span>
                                                                 </td>
-                                                                <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>{user.departmentName || '-'}</td>
+                                                                <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>{user.departmentName ? getTranslatedDepartmentName(user.departmentName) : '-'}</td>
                                                                 <td style={{ padding: '0.875rem 1rem', textAlign: 'right' }}>
                                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                                                                         <button onClick={() => { setEditingUser(user); setUserModalOpen(true); }} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
@@ -651,31 +684,31 @@ const Administration: React.FC = () => {
                 <div style={modalOverlayStyle}>
                     <div className="card" style={{ width: '500px', padding: 0 }}>
                         <div style={modalHeaderStyle}>
-                            <h3>{editingLoc.id ? 'Edit Location' : 'Add Location'}</h3>
+                            <h3>{editingLoc.id ? t('admin.editLocation') : t('admin.addLocation')}</h3>
                             <button onClick={() => setLocModalOpen(false)} style={closeBtnStyle}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
-                                <label>Name *</label>
-                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder="e.g. University Hospital Zurich" />
+                                <label>{t('common.name')} *</label>
+                                <input className="input" value={editingLoc.name || ''} onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })} placeholder={t('admin.locationPlaceholder')} />
                             </div>
                             <div className="form-group">
-                                <label>City</label>
+                                <label>{t('common.city')}</label>
                                 <input className="input" value={editingLoc.city || ''} onChange={e => setEditingLoc({ ...editingLoc, city: e.target.value })} />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group">
-                                    <label>Country</label>
+                                    <label>{t('common.country')}</label>
                                     <input className="input" value={editingLoc.country || ''} onChange={e => setEditingLoc({ ...editingLoc, country: e.target.value })} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Code</label>
+                                    <label>{t('common.code')}</label>
                                     <input className="input" value={editingLoc.code || ''} onChange={e => setEditingLoc({ ...editingLoc, code: e.target.value })} />
                                 </div>
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveLocation} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save Location</button>
+                            <button onClick={handleSaveLocation} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>{t('admin.saveLocation')}</button>
                         </div>
                     </div>
                 </div>
@@ -686,16 +719,16 @@ const Administration: React.FC = () => {
                 <div style={modalOverlayStyle}>
                     <div className="card" style={{ width: '500px', padding: 0 }}>
                         <div style={modalHeaderStyle}>
-                            <h3>{editingDep.id ? 'Edit Department' : 'Add Department'}</h3>
+                            <h3>{editingDep.id ? t('admin.editDepartment') : t('admin.addDepartment')}</h3>
                             <button onClick={() => { setDepModalOpen(false); setLockLocationId(null); }} style={closeBtnStyle}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
-                                <label>Department Name *</label>
-                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder="e.g. Cardiology" />
+                                <label>{t('admin.departmentName')} *</label>
+                                <input className="input" value={editingDep.name || ''} onChange={e => setEditingDep({ ...editingDep, name: e.target.value })} placeholder={t('admin.departmentPlaceholder')} />
                             </div>
                             <div className="form-group">
-                                <label>Location *</label>
+                                <label>{t('common.location')} *</label>
                                 <select
                                     className="input"
                                     value={editingDep.locationId || ''}
@@ -703,13 +736,13 @@ const Administration: React.FC = () => {
                                     disabled={!!(selectedLocation || lockLocationId) && !editingDep.id} // Lock if adding from context
                                     style={{ background: (!!(selectedLocation || lockLocationId) && !editingDep.id) ? '#f1f5f9' : 'white' }}
                                 >
-                                    <option value="">Select Location...</option>
+                                    <option value="">{t('admin.selectLocation')}</option>
                                     {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                 </select>
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveDepartment} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save Department</button>
+                            <button onClick={handleSaveDepartment} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>{t('admin.saveDepartment')}</button>
                         </div>
                     </div>
                 </div>
@@ -720,29 +753,29 @@ const Administration: React.FC = () => {
                 <div style={modalOverlayStyle}>
                     <div className="card" style={{ width: '500px', padding: 0 }}>
                         <div style={modalHeaderStyle}>
-                            <h3>{editingUser.id ? 'Edit User' : 'Add User'}</h3>
+                            <h3>{editingUser.id ? t('admin.editUser') : t('admin.addUser')}</h3>
                             <button onClick={() => { setUserModalOpen(false); setLockLocationId(null); }} style={closeBtnStyle}><X size={20} /></button>
                         </div>
                         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <div className="form-group">
-                                <label>Full Name *</label>
+                                <label>{t('admin.fullName')} *</label>
                                 <input className="input" value={editingUser.fullName || ''} onChange={e => setEditingUser({ ...editingUser, fullName: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label>Email *</label>
+                                <label>{t('admin.email')} *</label>
                                 <input className="input" value={editingUser.email || ''} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label>Role *</label>
+                                <label>{t('common.role')} *</label>
                                 <select className="input" value={editingUser.role || 'Viewer'} onChange={e => setEditingUser({ ...editingUser, role: e.target.value as any })}>
-                                    <option value="Admin">Admin</option>
-                                    <option value="Owner">Owner</option>
-                                    <option value="Assigned">Assigned</option>
-                                    <option value="Viewer">Viewer</option>
+                                    <option value="Admin">{t('admin.roles.admin')}</option>
+                                    <option value="Owner">{t('admin.roles.owner')}</option>
+                                    <option value="Assigned">{t('admin.roles.assigned')}</option>
+                                    <option value="Viewer">{t('admin.roles.viewer')}</option>
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Location *</label>
+                                <label>{t('common.location')} *</label>
                                 <select
                                     className="input"
                                     value={editingUser.locationId || ''}
@@ -750,14 +783,14 @@ const Administration: React.FC = () => {
                                     disabled={!!(selectedLocation || lockLocationId) && !editingUser.id} // Lock if adding from context
                                     style={{ background: (!!(selectedLocation || lockLocationId) && !editingUser.id) ? 'var(--color-bg)' : 'white' }}
                                 >
-                                    <option value="">Select Location...</option>
+                                    <option value="">{t('admin.selectLocation')}</option>
                                     {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Department</label>
+                                <label>{t('admin.department')}</label>
                                 <select className="input" value={editingUser.departmentId || ''} onChange={e => setEditingUser({ ...editingUser, departmentId: e.target.value })}>
-                                    <option value="">Select Department...</option>
+                                    <option value="">{t('admin.selectDepartment')}</option>
                                     {departments
                                         .filter(d => !editingUser.locationId || d.locationId === editingUser.locationId)
                                         .map(d => <option key={d.id} value={d.id}>{d.name}</option>)
@@ -766,7 +799,7 @@ const Administration: React.FC = () => {
                             </div>
                         </div>
                         <div style={modalFooterStyle}>
-                            <button onClick={handleSaveUser} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>Save User</button>
+                            <button onClick={handleSaveUser} className="btn" style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none' }}>{t('admin.saveUser')}</button>
                         </div>
                     </div>
                 </div>
