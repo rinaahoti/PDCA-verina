@@ -258,6 +258,20 @@ export default function Dashboard() {
         const userUpdatedMatch = message.match(/^User (.*?) updated$/);
         if (userUpdatedMatch) return t('activityLog.messages.userEdited', { name: userUpdatedMatch[1] });
 
+        // New Clinical Staff
+        if (message.includes('New clinical staff registered')) return t('activityLog.messages.newClinicalStaff');
+
+        // Site Visit Scheduled
+        if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
+
+        // Topic Moved Check
+        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/);
+        if (topicCheck) return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(topicCheck[2]) });
+
+        // Department Created with Name
+        const deptCreatedNamed = message.match(/^Department created: (.*)$/);
+        if (deptCreatedNamed) return t('activityLog.messages.deptCreated', { name: getTranslatedDepartmentName(deptCreatedNamed[1]) });
+
         // User Deleted
         const userDeletedMatch = message.match(/^User (.*?) deleted$/);
         if (userDeletedMatch) return t('activityLog.messages.userDeleted', { name: userDeletedMatch[1] });
@@ -518,7 +532,7 @@ export default function Dashboard() {
                         <AlertTriangle size={20} color="#F59E0B" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.warning')}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('status.warning')}</div>
                         <div style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#F59E0B' }}>{statsByStatusMetric['status-warning']}</div>
                     </div>
                 </div>
@@ -528,7 +542,7 @@ export default function Dashboard() {
                         <AlertTriangle size={20} color="#EF4444" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.critical')}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('status.critical')}</div>
                         <div style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#EF4444' }}>{statsByStatusMetric['status-critical']}</div>
                     </div>
                 </div>
@@ -538,7 +552,7 @@ export default function Dashboard() {
                         <CheckCircle size={20} color="#3B82F6" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.done')}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('status.done')}</div>
                         <div style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#3B82F6' }}>{statsByStatusMetric['status-done']}</div>
                     </div>
                 </div>
@@ -758,7 +772,7 @@ export default function Dashboard() {
                                 justifyContent: 'center'
                             }}>
                                 <div style={{ fontSize: '20px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#3e4c5a' }}>{item.value}</div>
-                                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>{t(`dashboard.${item.label.toLowerCase()}`)}</div>
+                                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px', fontFamily: 'Inter, sans-serif' }}>{t(`status.${item.label.toLowerCase()}`)}</div>
                             </div>
                         ))}
                     </div>

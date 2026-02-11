@@ -126,7 +126,7 @@ export interface Topic {
     kpi: string;
     objective: string;
     // Audit Specific Fields
-    type?: 'Audit Finding' | 'General Topic'; // Discriminate between generic topics and audit findings
+    type?: string; //'Audit Finding' | 'General Topic'; // Discriminate between generic topics and audit findings
     rating?: 'Major' | 'Minor' | 'OFI';
     location?: string;
     locationId?: string;

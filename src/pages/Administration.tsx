@@ -38,7 +38,7 @@ const Administration: React.FC = () => {
     // Helper to translate roles
     const getTranslatedRole = (role: string) => {
         const lowerRole = role.toLowerCase();
-        return t(`admin.roles.${lowerRole}`) || role;
+        return t(`roles.${lowerRole}`) || role;
     };
 
     const [activeTab, setActiveTab] = useState<'locations' | 'departments' | 'users'>('locations');
@@ -768,10 +768,10 @@ const Administration: React.FC = () => {
                             <div className="form-group">
                                 <label>{t('common.role')} *</label>
                                 <select className="input" value={editingUser.role || 'Viewer'} onChange={e => setEditingUser({ ...editingUser, role: e.target.value as any })}>
-                                    <option value="Admin">{t('admin.roles.admin')}</option>
-                                    <option value="Owner">{t('admin.roles.owner')}</option>
-                                    <option value="Assigned">{t('admin.roles.assigned')}</option>
-                                    <option value="Viewer">{t('admin.roles.viewer')}</option>
+                                    <option value="Admin">{t('roles.admin')}</option>
+                                    <option value="Owner">{t('roles.owner')}</option>
+                                    <option value="Assigned">{t('roles.assigned')}</option>
+                                    <option value="Viewer">{t('roles.viewer')}</option>
                                 </select>
                             </div>
                             <div className="form-group">
@@ -784,7 +784,7 @@ const Administration: React.FC = () => {
                                     style={{ background: (!!(selectedLocation || lockLocationId) && !editingUser.id) ? 'var(--color-bg)' : 'white' }}
                                 >
                                     <option value="">{t('admin.selectLocation')}</option>
-                                    {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                    {locations.map(l => <option key={l.id} value={l.id}>{getTranslatedLocationName(l.name)}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">
@@ -793,7 +793,7 @@ const Administration: React.FC = () => {
                                     <option value="">{t('admin.selectDepartment')}</option>
                                     {departments
                                         .filter(d => !editingUser.locationId || d.locationId === editingUser.locationId)
-                                        .map(d => <option key={d.id} value={d.id}>{d.name}</option>)
+                                        .map(d => <option key={d.id} value={d.id}>{getTranslatedDepartmentName(d.name)}</option>)
                                     }
                                 </select>
                             </div>

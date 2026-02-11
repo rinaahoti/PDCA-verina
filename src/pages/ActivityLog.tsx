@@ -61,6 +61,21 @@ const ActivityLog: React.FC = () => {
         return map[name] ? t(map[name]) : name;
     };
 
+    // Helper to translate arbitrary text (Topics, Audits, etc.)
+    const getTranslatedText = (text: string) => {
+        const map: Record<string, string> = {
+            'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
+            'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
+            'New Clinical PDCA: Fall Prevention': 'Neues klinisches KVP: Sturzprävention',
+            'Fall Prevention': 'Sturzprävention',
+            'Pediatric crash cart missing items': 'Fehlende Gegenstände im pädiatrischen Notfallwagen',
+            'Internal Patient Safety Audit 2026': 'Internes Patientensicherheits-Audit 2026',
+            'Joint Commission Hospital Accreditation': 'Joint Commission Krankenhausakkreditierung'
+        };
+        return map[text] || text;
+    };
+
     // Helper to translate activity messages
     const translateActivityMessage = (message: string) => {
         // New Clinical Staff
@@ -70,11 +85,15 @@ const ActivityLog: React.FC = () => {
         if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
 
         // Topic Moved Check
-        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/);
-        if (topicCheck) return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(topicCheck[2]) });
+        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/) || message.match(/Topic moved to CHECK phase [-–] (.*)/);
+        if (topicCheck) {
+            // If Group 2 exists it is location, if only Group 1 exists (from second regex) it is location
+            const location = topicCheck[2] || topicCheck[1];
+            return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(location) });
+        }
 
         // Topic Moved Act
-        const topicAct = message.match(/PDCA topic moved to ACT phase [-–] (.*)/);
+        const topicAct = message.match(/PDCA topic moved to ACT phase [-–] (.*)/) || message.match(/KVP Topic moved to ACT phase [-–] (.*)/);
         if (topicAct) return t('activityLog.messages.topicMovedAct', { location: getTranslatedLocationName(topicAct[1]) });
 
         // Dept Created - Specific format "Department created: Name"
@@ -86,7 +105,7 @@ const ActivityLog: React.FC = () => {
         if (locAdded) return t('activityLog.messages.locAdded', { name: getTranslatedLocationName(locAdded[1]) });
 
         // Audit Completed
-        const auditComp = message.match(/Clinical audit completed [-–] (.*)/);
+        const auditComp = message.match(/Clinical audit completed [-–] (.*)/) || message.match(/Clinical Audit completed [-–] (.*)/);
         if (auditComp) return t('activityLog.messages.auditCompleted', { location: getTranslatedLocationName(auditComp[1]) });
 
         // Profile Updated
@@ -97,8 +116,8 @@ const ActivityLog: React.FC = () => {
         if (incident) return t('activityLog.messages.incidentReported', { location: getTranslatedLocationName(incident[1]) });
 
         // New Clinical PDCA
-        const newPdca = message.match(/New Clinical PDCA: (.*)/);
-        if (newPdca) return t('activityLog.messages.newClinicalPdca', { topic: newPdca[1] });
+        const newPdca = message.match(/New Clinical PDCA: (.*)/) || message.match(/Neues klinisches KVP: (.*)/);
+        if (newPdca) return t('activityLog.messages.newClinicalPdca', { topic: getTranslatedText(newPdca[1]) });
 
         // Original Topic Created
         const topicCreatedMatch = message.match(/^New PDCA Topic (.*?) created$/);
@@ -153,7 +172,8 @@ const ActivityLog: React.FC = () => {
             'Department': 'common.department',
             'Location': 'common.location',
             'Topic': 'activityLog.topic',
-            'Audit': 'activityLog.audit'
+            'Audit': 'activityLog.audit',
+            'Finding': 'common.findings'
         };
         return map[type] ? t(map[type]) : type;
     };
@@ -362,7 +382,8 @@ const ActivityLog: React.FC = () => {
                                             {getTranslatedEntityType(act.entityType)}: <strong style={{ color: 'var(--color-text)' }}>
                                                 {act.entityType === 'Location' ? getTranslatedLocationName(act.entityName) :
                                                     act.entityType === 'Department' ? getTranslatedDepartmentName(act.entityName) :
-                                                        act.entityName}
+                                                        (act.entityType === 'Topic' || act.entityType === 'Audit' || act.entityType === 'Finding') ? getTranslatedText(act.entityName) :
+                                                            act.entityName}
                                             </strong>
                                             {act.entityId && <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px', fontWeight: 500 }}>({act.entityId})</span>}
                                         </span>

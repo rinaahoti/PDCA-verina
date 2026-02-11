@@ -49,7 +49,66 @@ const TopicWorkspace: React.FC = () => {
         </button>
     );
 
-    const isAudit = topic.type === 'Audit Finding';
+    const getTranslatedText = (text: string) => {
+        const textMap: Record<string, string> = {
+            'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
+            'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
+            'New Clinical PDCA: Fall Prevention': 'Neues klinisches KVP: Sturzprävention',
+            'Audit Finding': 'Audit-Feststellung',
+
+            // Descriptions
+            'Current infection rate in Surgery Ward B is at 2.1%.': 'Die aktuelle Infektionsrate auf der Chirurgie-Station B beträgt 2,1%.',
+            'Three near-miss incidents reported in the last quarter regarding insulin dosages.': 'Im letzten Quartal wurden drei Beinahe-Zwischenfälle bei der Insulindosierung gemeldet.',
+            'Inconsistent training for new surgical staff and manual documentation gaps.': 'Inkonsistentes Training für neues OP-Personal und manuelle Dokumentationslücken.',
+            'Lack of automated verification system and look-alike packaging': 'Fehlendes automatisches Verifizierungssystem und ähnliche Verpackungen',
+            'Patient fall rate increased by 5% in Q3': 'Patientensturzrate im 3. Quartal um 5% gestiegen',
+            'Staff shortage and slipper floors': 'Personalmangel und rutschige Böden',
+            'The audit revealed that 30% of admissions lacked fall risk assessment.': 'Das Audit ergab, dass bei 30 % der Aufnahmen die Sturzrisikobewertung fehlte.',
+            'Admission process does not mandate assessment before bed assignment.': 'Der Aufnahmeprozess schreibt die Bewertung vor der Bettenzuweisung nicht zwingend vor.',
+
+            // Objectives
+            'Reduce infection rate to <1% by Q4': 'Senkung der Infektionsrate auf <1% bis Q4',
+            'Zero medication errors for Q1 2025': 'Null Medikationsfehler im 1. Quartal 2025',
+            'Implement digital sterile checklist': 'Implementierung der digitalen Steril-Checkliste',
+            'Conduct mandatory hygiene retraining': 'Durchführung obligatorischer Hygiene-Schulungen',
+            'Implement barcode scanning': 'Barcode-Scanning implementieren',
+            'Review packaging with pharmacy': 'Verpackungen mit der Apotheke überprüfen',
+            'Install non-slip mats': 'Rutschfeste Matten installieren',
+            'Hire 2 additional nurses': '2 zusätzliche Pflegekräfte einstellen',
+            'Update EHR admission template': 'EHR-Aufnahmevorlage aktualisieren',
+            'Train nursing staff on Morse Fall Scale': 'Schulung des Pflegepersonals zur Morse-Sturz-Skala',
+            'Improve surgical outcome and patient safety through sterile protocol optimization.': 'Verbesserung der chirurgischen Ergebnisse und der Patientensicherheit durch Optimierung steriler Protokolle.',
+            'Standardize double-check process for high-risk medication administration.': 'Standardisierung des Doppel-Check-Prozesses für die Abgabe von Hochrisiko-Medikamenten.',
+            'Ensure every patient receives a validated fall risk assessment within 2 hours of admission.': 'Sicherstellung, dass jeder Patient innerhalb von 2 Stunden nach der Aufnahme eine validierte Sturzrisikobewertung erhält.',
+
+            // Actions
+            'Validation audit': 'Validierungsaudit',
+            'Define new protocol': 'Neues Protokoll definieren',
+            'Purchase scanners': 'Scanner kaufen',
+            'Train staff': 'Personal schulen',
+
+            // KPIs
+            'Infection rate < 0.5%': 'Infektionsrate < 0,5 %',
+            'Zero high-risk medication errors': 'Null Hochrisiko-Medikationsfehler',
+            '100% compliance with fall risk assessment': '100% Einhaltung der Sturzrisikobewertung'
+        };
+        return textMap[text] || text;
+    };
+
+    const getTranslatedCategory = (cat: string) => {
+        const map: Record<string, string> = {
+            'Clinical': 'Klinisch',
+            'Quality': 'Qualität',
+            'Safety': 'Sicherheit',
+            'Process': 'Prozess',
+            'Administrative': 'Administrativ',
+            'Audit Finding': 'Audit-Feststellung'
+        };
+        return map[cat] || cat;
+    };
+
+    const isAudit = topic.type === 'Audit Finding' || topic.type === 'Audit-Feststellung';
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -65,7 +124,7 @@ const TopicWorkspace: React.FC = () => {
                 <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span>{topic.id}</span>
                     <span>|</span>
-                    <span>{topic.category}</span>
+                    <span>{getTranslatedCategory(topic.category)}</span>
                     {isAudit && (
                         <>
                             <span>|</span>
@@ -80,7 +139,7 @@ const TopicWorkspace: React.FC = () => {
                         </>
                     )}
                 </div>
-                <h1 style={{ margin: '0.5rem 0', fontSize: '1.75rem' }}>{topic.title}</h1>
+                <h1 style={{ margin: '0.5rem 0', fontSize: '1.75rem' }}>{getTranslatedText(topic.title)}</h1>
                 <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', fontSize: '14px', flexWrap: 'wrap' }}>
                     <div><span style={{ opacity: 0.7 }}>{t('common.owner')}:</span> <span style={{ fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</span></div>
                     <div><span style={{ opacity: 0.7 }}>{t('common.responsible')}:</span> <span style={{ fontWeight: 600 }}>{'Felix Worker'}</span></div>
@@ -111,19 +170,19 @@ const TopicWorkspace: React.FC = () => {
                             <h3 style={{ marginTop: 0 }}>{t('pdca.rootCauseAnalysis')} & {t('pdca.plan')}</h3>
                             <div style={{ marginBottom: '2rem' }}>
                                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.purpose')}</label>
-                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{topic.plan.description || t('pdca.noToBe')}</p>
+                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{getTranslatedText(topic.plan.description) || t('pdca.noToBe')}</p>
                             </div>
                             <div style={{ marginBottom: '2rem' }}>
                                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.rootCauseAnalysis')}</label>
                                 <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px', borderLeft: '4px solid var(--color-primary)' }}>
-                                    {topic.plan.rootCause || t('pdca.rootCausePlaceholder')}
+                                    {getTranslatedText(topic.plan.rootCause) || t('pdca.rootCausePlaceholder')}
                                 </div>
                             </div>
                             <div>
                                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.objective')}</label>
                                 <ul style={{ paddingLeft: '1.25rem' }}>
                                     {topic.plan.objectives && topic.plan.objectives.length > 0 ? topic.plan.objectives.map((obj, i) => (
-                                        <li key={i} style={{ marginBottom: '0.5rem', color: '#4a5568' }}>{obj}</li>
+                                        <li key={i} style={{ marginBottom: '0.5rem', color: '#4a5568' }}>{getTranslatedText(obj)}</li>
                                     )) : <li>{t('pdca.noActions')}</li>}
                                 </ul>
                             </div>
@@ -145,7 +204,7 @@ const TopicWorkspace: React.FC = () => {
                                 <tbody>
                                     {topic.do.actions.length > 0 ? topic.do.actions.map(action => (
                                         <tr key={action.id}>
-                                            <td style={{ fontWeight: 600 }}>{action.title}</td>
+                                            <td style={{ fontWeight: 600 }}>{getTranslatedText(action.title)} ({t('pdca.implementationDetails')}: {action.description === 'Validation audit' ? 'Validierungsaudit' : action.description})</td>
                                             <td>{action.assignments.map(a => a.userName).join(', ')}</td>
                                             <td>{new Date(action.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
                                             <td>
@@ -174,16 +233,16 @@ const TopicWorkspace: React.FC = () => {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                                 <div className="card" style={{ background: 'var(--color-primary-light)', borderColor: 'var(--color-primary)' }}>
                                     <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-dark)' }}>{t('common.kpi')}</h4>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{topic.kpi}</div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{getTranslatedText(topic.kpi)}</div>
                                 </div>
                                 <div className="card" style={{ background: 'var(--color-primary-light)', borderColor: 'var(--color-primary)', opacity: 0.9 }}>
                                     <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-dark)' }}>{t('pdca.objective')}</h4>
-                                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary-dark)' }}>{topic.objective}</div>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary-dark)' }}>{getTranslatedText(topic.objective)}</div>
                                 </div>
                             </div>
                             <div style={{ marginTop: '1.5rem' }}>
                                 <label style={{ fontWeight: 700 }}>{t('pdca.effectivenessReview')}</label>
-                                <p style={{ color: '#4a5568' }}>{topic.check.effectivenessReview || t('common.loading')}</p>
+                                <p style={{ color: '#4a5568' }}>{getTranslatedText(topic.check.effectivenessReview) || t('common.loading')}</p>
                             </div>
                         </div>
                     )}
