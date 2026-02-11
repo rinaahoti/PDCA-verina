@@ -123,6 +123,14 @@ const Cockpit: React.FC = () => {
         return kpiMap[kpi] || kpi;
     };
 
+    const getTranslatedTaskTitle = (title: string) => {
+        const taskMap: Record<string, string> = {
+            'Audit Sterile Field Documentation': 'Audit der Dokumentation des sterilen Feldes',
+            'Validate Barcode Scanner Calibration': 'Validierung der Kalibrierung des Barcode-Scanners'
+        };
+        return taskMap[title] || title;
+    };
+
     const myToDos = todos.filter((t: ToDo) => t.status !== 'Critical');
 
     // Derived: My Assigned Actions from Topics
@@ -1578,8 +1586,8 @@ const Cockpit: React.FC = () => {
                                                 <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(todo.status, todo.dueDate, undefined, t).label}</span>
                                             </div>
                                         </td>
-                                        <td style={{ fontWeight: 600, color: '#1a202c' }}>{todo.title}</td>
-                                        <td style={{ color: '#4a5568', fontSize: '13px' }}>{todo.topicTitle}</td>
+                                        <td style={{ fontWeight: 600, color: '#1a202c' }}>{getTranslatedTaskTitle(todo.title)}</td>
+                                        <td style={{ color: '#4a5568', fontSize: '13px' }}>{getTranslatedTopicTitle(todo.topicTitle)}</td>
                                         <td><span className="badge" style={{ background: '#f1f5f9', color: '#475569' }}>{t(`phases.${todo.step.toLowerCase()}`)}</span></td>
                                         <td style={{ color: todo.status === 'Critical' ? 'var(--color-status-red)' : 'inherit', fontWeight: todo.status === 'Critical' ? 600 : 400 }}>
                                             {new Date(todo.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}

@@ -416,7 +416,8 @@
         "monitoring": "Überwachung",
         "warning": "Warnung",
         "critical": "Kritisch",
-        "done": "Erledigt"
+        "done": "Erledigt",
+        "pending": "Ausstehend"
     },
     "templatesStandards": {
         "pageTitle": "Vorlagen & Standards",
