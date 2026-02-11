@@ -36,6 +36,15 @@ const Lists: React.FC = () => {
 
     const hasActiveFilters = filterOwner || filterStep !== 'ALL' || search;
 
+    const getTranslatedTitle = (title: string) => {
+        const titleMap: Record<string, string> = {
+            'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
+            'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls'
+        };
+        return titleMap[title] || title;
+    };
+
     return (
         <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -109,7 +118,7 @@ const Lists: React.FC = () => {
                                     <span style={{ fontSize: '12px' }}>{getStatusLabel(t, topic.status)}</span>
                                 </div>
                             </td>
-                            <td style={{ fontWeight: 500 }}>{topic.title}</td>
+                            <td style={{ fontWeight: 500 }}>{getTranslatedTitle(topic.title)}</td>
                             <td>{t(`pdca.${topic.step.toLowerCase()}`)}</td>
                             <td>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
                         </tr>
