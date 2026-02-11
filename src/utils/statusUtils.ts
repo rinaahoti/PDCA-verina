@@ -1,82 +1,170 @@
-import { organizationService } from '../services';
+import { Status, Step } from '../types';
 
-export interface StatusMeta {
-    color: string;
-    label: string;
-    class: string;
-}
+export const getStatusColor = (status: Status | string, deadline?: string): string => {
+    // Normalize input
+    const normalized = normalizeStatus(status);
 
-/** 4-color system: GREEN=On Track, YELLOW=Due Soon, RED=Overdue/Critical, DARK GRAY=Done. Done overrides all. */
-/** 4-color system: GREEN=On Track, ORANGE=Due Soon, RED=Overdue/Critical, DARK GRAY=Done. Done overrides all. */
-export const getStatusMeta = (status: string, dueDate?: string, completed?: boolean, t?: (key: string) => string): StatusMeta => {
-    // Helper to translate or return label
-    const tr = (key: string, defaultLabel: string) => t ? t(`status.${key}`) : defaultLabel;
-
-    // Rule 1: DONE always overrides everything
-    if (completed === true || status === 'Done' || status === 'Completed') {
-        return {
-            color: '#64748b', // Grey
-            label: tr('done', 'Done'),
-            class: 'status-done'
-        };
+    // Explicit Status Logic
+    switch (normalized) {
+        case 'Critical':
+            return 'var(--color-status-red)';
+        case 'Warning':
+            return 'var(--color-status-yellow)';
+        case 'Monitoring':
+            return 'var(--color-status-green)';
+        case 'Done':
+            return 'var(--color-status-done)';
     }
 
-    // Manual Overrides
-    if (status === 'Critical') return { color: '#ef4444', label: tr('critical', 'Critical'), class: 'status-critical' };
-    if (status === 'Warning') return { color: '#f97316', label: tr('warning', 'Warning'), class: 'status-warning' };
-    if (status === 'On Track' || status === 'Monitoring') return { color: '#22c55e', label: tr(status === 'Monitoring' ? 'monitoring' : 'onTrack', status), class: 'status-ontrack' };
+    // Fallback: Deadline Logic if provided and status is not one of the above
+    if (deadline) {
+        const now = new Date();
+        const due = new Date(deadline);
+        if (!isNaN(due.getTime())) {
+            const diff = due.getTime() - now.getTime();
+            const days = diff / (1000 * 3600 * 24);
 
-    if (!dueDate) {
-        return {
-            color: '#22c55e', // Green
-            label: tr('onTrack', 'On Track'),
-            class: 'status-ontrack'
-        };
+            if (days < 0) return 'var(--color-status-red)'; // Critical
+            if (days <= 7) return 'var(--color-status-yellow)'; // Warning (transferred from Due Soon)
+            return 'var(--color-status-green)'; // Monitoring
+        }
     }
 
-    const now = new Date();
-    const due = new Date(dueDate);
-    due.setHours(23, 59, 59, 999); // End of day
+    return 'var(--color-status-green)'; // Default to Monitoring
+};
 
-    const governance = organizationService.getGovernance();
-    const thresholdDate = new Date();
-    thresholdDate.setDate(now.getDate() + (governance.dueSoonThreshold || 7));
+export const getStatusBgColor = (status: Status | string, deadline?: string): string => {
+    // Normalize input
+    const normalized = normalizeStatus(status);
 
-    // Rule 3: Overdue
-    if (due < now) {
-        return {
-            color: '#ef4444', // Red
-            label: tr('overdue', 'Overdue'),
-            class: 'status-critical'
-        };
+    switch (normalized) {
+        case 'Critical':
+            return '#FEF2F2'; // red-50
+        case 'Warning':
+            return '#FFFBEB'; // amber-50
+        case 'Monitoring':
+            return '#ECFDF5'; // emerald-50
+        case 'Done':
+            return '#F1F5F9'; // slate-100
     }
 
-    // Rule 2: Due Soon (Near Alert)
-    if (due <= thresholdDate) {
-        return {
-            color: '#f97316', // Orange
-            label: tr('dueSoon', 'Due Soon'),
-            class: 'status-warning'
-        };
+    // Fallback Deadline Logic
+    if (deadline) {
+        const now = new Date();
+        const due = new Date(deadline);
+        if (!isNaN(due.getTime())) {
+            const diff = due.getTime() - now.getTime();
+            const days = diff / (1000 * 3600 * 24);
+
+            if (days < 0) return '#FEF2F2';
+            if (days <= 7) return '#FFFBEB';
+            return '#ECFDF5';
+        }
     }
 
-    // Rule 4: On Track
+    return '#ECFDF5'; // Default to Monitoring BG
+};
+
+export const getStatusStyles = (status: Status | string, deadline?: string) => {
+    const color = getStatusColor(status, deadline);
+    const bg = getStatusBgColor(status, deadline);
+
     return {
-        color: '#22c55e', // Green
-        label: tr('onTrack', 'On Track'),
-        class: 'status-ontrack'
+        backgroundColor: bg,
+        color: color,
+        border: `1px solid ${color}40`,
     };
 };
 
-/** Inline styles for status badges (background + color). Use with meta.class for consistency. */
-export const getStatusBadgeStyles: Record<string, { background: string; color: string }> = {
-    'status-critical': { background: '#fee2e2', color: '#ef4444' }, // Red bg, Red text
-    'status-warning': { background: '#ffedd5', color: '#c2410c' }, // Orange bg, Dark Orange text
-    'status-ontrack': { background: '#dcfce7', color: '#15803d' }, // Green bg, Dark Green text
-    'status-done': { background: '#f1f5f9', color: '#64748b' } // Grey bg, Grey text
+export const getStatusLabel = (t: (key: string) => string, status: Status | string, deadline?: string): string => {
+    const normalized = normalizeStatus(status);
+
+    // If status is explicit, translate and return
+    if (['Critical', 'Warning', 'Monitoring', 'Done'].includes(normalized)) {
+        const key = normalized.toLowerCase();
+        const translated = t(`status.${key}`);
+        return translated !== `status.${key}` ? translated : normalized;
+    }
+
+    // Fallback Deadline Logic -> Must return one of the 4 allowed statuses
+    if (deadline) {
+        const now = new Date();
+        const due = new Date(deadline);
+        if (!isNaN(due.getTime())) {
+            const diff = due.getTime() - now.getTime();
+            const days = diff / (1000 * 3600 * 24);
+
+            if (days < 0) return t('status.critical') || 'Critical';
+            if (days <= 7) return t('status.warning') || 'Warning'; // Map Due Soon to Warning
+            return t('status.monitoring') || 'Monitoring';
+        }
+    }
+
+    return t('status.monitoring') || 'Monitoring';
 };
 
-export function getStatusBadgeStyle(status: string, dueDate?: string, completed?: boolean): { background: string; color: string } {
-    const meta = getStatusMeta(status, dueDate, completed);
-    return getStatusBadgeStyles[meta.class] ?? getStatusBadgeStyles['status-ontrack'];
-}
+// Normalize internal codes to standard Status
+export const normalizeStatus = (statusCode: string): Status | string => {
+    if (!statusCode) return '';
+    const code = statusCode.toLowerCase();
+
+    if (code.includes('monitoring') || code.includes('ontrack') || code === 'on track' || code === 'pdca.monitoring' || code === 'pdca.ontrack') {
+        return 'Monitoring';
+    }
+    if (code.includes('warning') || code === 'pdca.warning' || code === 'pdca.warningnearalert' || code === 'due soon' || code === 'duesoon') {
+        return 'Warning';
+    }
+    if (code.includes('critical') || code === 'pdca.critical' || code === 'pdca.criticalalert' || code === 'overdue') {
+        return 'Critical';
+    }
+    if (code === 'done') {
+        return 'Done';
+    }
+
+    return statusCode;
+};
+
+// --- Adaptation for Legacy Components ---
+
+export const getStatusBadgeStyle = (status: Status | string, deadline?: string) => {
+    const color = getStatusColor(status, deadline);
+    const bg = getStatusBgColor(status, deadline);
+
+    return {
+        backgroundColor: bg,
+        color: color,
+        border: '1px solid transparent'
+    };
+};
+
+export const getStatusMeta = (status: Status | Step | string, deadline?: string, isAct?: boolean, t?: (key: string) => string) => {
+    const color = getStatusColor(status as string, deadline);
+    const normalized = normalizeStatus(status as string);
+
+    let label = normalized;
+    if (t) {
+        const key = normalized.toLowerCase();
+        label = t(`status.${key}`);
+    }
+
+    // Fallback label logic for deadline if status isn't clear
+    if (!normalized && deadline) {
+        const now = new Date();
+        const due = new Date(deadline);
+        if (!isNaN(due.getTime())) {
+            const diff = due.getTime() - now.getTime();
+            const days = diff / (1000 * 3600 * 24);
+            if (days < 0) label = t ? t('status.critical') : 'Critical';
+            else if (days <= 7) label = t ? t('status.warning') : 'Warning';
+            else label = t ? t('status.monitoring') : 'Monitoring';
+        }
+    }
+
+    // Class mapping - restricted to the 4 core classes
+    let className = 'status-ontrack'; // For Monitoring
+    if (normalized === 'Critical') className = 'status-critical';
+    if (normalized === 'Warning') className = 'status-warning';
+    if (normalized === 'Done') className = 'status-done';
+
+    return { label, color, class: className };
+};

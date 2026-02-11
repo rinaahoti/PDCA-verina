@@ -6,7 +6,7 @@ import { activityService } from '../services/activityService';
 import { AuditFinding } from '../types';
 import { Location, AppUser, Department } from '../types/admin';
 import { ActivityEntry } from '../types/activity';
-import { getStatusMeta, getStatusBadgeStyle } from '../utils/statusUtils';
+import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel } from '../utils/statusUtils';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -288,17 +288,16 @@ export default function Dashboard() {
             if (locationParam !== 'All' && f.location !== locationParam) return false;
 
             if (statusParam !== 'All') {
-                const meta = getStatusMeta(f.status, f.deadline, f.status === 'ACT');
-                const label = meta.label;
+                const label = getStatusLabel(t, f.status, f.deadline);
 
-                // Match both English Keys (DB) and Potential Translated Values if any leak through
-                // But statusParam from dropdown acts as ID
-                if (statusParam === 'Critical' && (label === 'Overdue' || label === 'Critical')) return true;
-                if (statusParam === 'Warning' && (label === 'Due Soon' || label === 'Warning')) return true;
-                if (statusParam === 'On Track' && label === 'On Track') return true;
-                if (statusParam === 'Done' && (label === 'Done' || label === 'Completed')) return true;
-
+                // Exact match with allowed restricted statuses
                 if (label === statusParam) return true;
+
+                // Backward compatibility mapping for legacy filters if any
+                if (statusParam === 'Critical' && label === t('status.critical')) return true;
+                if (statusParam === 'Warning' && label === t('status.warning')) return true;
+                if (statusParam === 'Monitoring' && label === t('status.monitoring')) return true;
+                if (statusParam === 'Done' && label === t('status.done')) return true;
 
                 return false;
             }
@@ -509,7 +508,7 @@ export default function Dashboard() {
                         <TrendingUp size={20} color="#22C55E" strokeWidth={1.5} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.onTrack')}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.monitoring')}</div>
                         <div style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#22C55E' }}>{statsByStatusMetric['status-ontrack']}</div>
                     </div>
                 </div>
@@ -585,7 +584,7 @@ export default function Dashboard() {
                             label={t('dashboard.status')}
                             value={statusParam}
                             options={[
-                                { label: t('status.onTrack'), value: 'On Track' },
+                                { label: t('status.monitoring'), value: 'Monitoring' },
                                 { label: t('status.critical'), value: 'Critical' },
                                 { label: t('status.warning'), value: 'Warning' },
                                 { label: t('status.done'), value: 'Done' }
@@ -642,9 +641,9 @@ export default function Dashboard() {
                                 <svg viewBox="0 0 200 110" style={{ width: '100%', height: '100%', transform: 'rotate(0deg)' }}>
                                     {(() => {
                                         const data = [
-                                            { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444' }, // Red
-                                            { label: 'Warning', value: statsByStatus['status-warning'], color: '#F59E0B' }, // Orange
-                                            { label: 'On Track', value: statsByStatus['status-ontrack'], color: '#22C55E' } // Green
+                                            { label: 'Critical', value: statsByStatus['status-critical'], color: getStatusColor('Critical') }, // Red
+                                            { label: 'Warning', value: statsByStatus['status-warning'], color: getStatusColor('Warning') }, // Orange
+                                            { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: getStatusColor('Monitoring') } // Green
                                         ];
                                         const total = data.reduce((sum, item) => sum + item.value, 0);
                                         const radius = 80;
@@ -709,7 +708,7 @@ export default function Dashboard() {
                             {[
                                 { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444', bg: '#FEF2F2' },
                                 { label: 'Warning', value: statsByStatus['status-warning'], color: '#F59E0B', bg: '#FFF7ED' },
-                                { label: 'On Track', value: statsByStatus['status-ontrack'], color: '#22C55E', bg: '#F0FDF4' }
+                                { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: '#22C55E', bg: '#F0FDF4' }
                             ].map((item, i) => (
                                 <div key={i} style={{
                                     display: 'flex',
@@ -722,7 +721,7 @@ export default function Dashboard() {
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color }} />
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#3e4c5a' }}>{t(`status.${item.label === 'On Track' ? 'onTrack' : item.label.toLowerCase()}`)}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#3e4c5a' }}>{t(`status.${item.label.toLowerCase()}`)}</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '14px', fontWeight: 800, color: '#3e4c5a' }}>{item.value}</span>
@@ -747,7 +746,7 @@ export default function Dashboard() {
                         {[
                             { label: 'CRITICAL', value: statsByStatus['status-critical'] },
                             { label: 'WARNING', value: statsByStatus['status-warning'] },
-                            { label: 'ON TRACK', value: statsByStatus['status-ontrack'] }
+                            { label: 'MONITORING', value: statsByStatus['status-ontrack'] }
                         ].map((item, i) => (
                             <div key={i} style={{
                                 background: '#F8FAFC',

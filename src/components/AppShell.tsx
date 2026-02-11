@@ -39,9 +39,9 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
 
                 <div style={{ padding: '1rem 1.75rem', fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '1px', marginTop: '1rem' }}>{t('nav.pdcaManagement')}</div>
                 <nav style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <NavLink to="/app/cockpit" className={({ isActive }) => isActive ? 'active-nav' : ''}>
+                    <NavLink to="/app/dashboard" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <LayoutDashboard size={20} /> {t('nav.cockpit')}
+                            <PieChart size={20} /> {t('nav.dashboard')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
@@ -51,9 +51,9 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
-                    <NavLink to="/app/dashboard" className={({ isActive }) => isActive ? 'active-nav' : ''}>
+                    <NavLink to="/app/cockpit" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <PieChart size={20} /> {t('nav.dashboard')}
+                            <LayoutDashboard size={20} /> {t('nav.cockpit')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>

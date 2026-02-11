@@ -441,7 +441,7 @@ const Settings: React.FC = () => {
                                 }
                             }}
                         />
-                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Determines when topics turn yellow (Due Soon) before the deadline.</p>
+                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Determines when topics turn yellow (Warning) before the deadline.</p>
                     </div>
                 </div>
             </div>
@@ -451,8 +451,8 @@ const Settings: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                     {[
                         { label: 'Critical / Overdue', color: '#ef4444' },
-                        { label: 'Due Soon / At Risk', color: '#f59e0b' },
-                        { label: 'On Track', color: '#10b981' },
+                        { label: 'Warning / Near Deadline', color: '#f59e0b' },
+                        { label: 'Monitoring', color: '#10b981' },
                         { label: 'Closed / Done', color: '#94a3b8' },
                     ].map((c, i) => (
                         <div key={i} style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>

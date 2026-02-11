@@ -4,7 +4,7 @@ import { topicsService, authService, todosService } from '../services';
 import { notificationService } from '../services/notifications';
 import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea } from '../types';
 import { Save, Printer, Mail, ArrowLeft, ChevronRight, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar } from 'lucide-react';
-import { getStatusMeta, getStatusBadgeStyle } from '../utils/statusUtils';
+import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, normalizeStatus } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 
 
@@ -80,7 +80,6 @@ const Cockpit: React.FC = () => {
             setFormState({
                 title: selectedTopic.title || '',
                 dueDate: selectedTopic.dueDate || '',
-                severity: selectedTopic.severity || 'Medium',
                 description: selectedTopic.plan.description || '',
                 asIs: selectedTopic.plan.asIs || '',
                 toBe: selectedTopic.plan.toBe || '',
@@ -106,7 +105,7 @@ const Cockpit: React.FC = () => {
         }
     }, [selectedTopic?.id, selectedTopic?.step]);
 
-    const myToDos = todos.filter((t: ToDo) => t.status !== 'Overdue' || t.priority === 'Critical');
+    const myToDos = todos.filter((t: ToDo) => t.status !== 'Critical');
 
     // Derived: My Assigned Actions from Topics
     const myActions = topics.flatMap(t =>
@@ -142,7 +141,6 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            severity: formState.severity,
             plan: { description: formState.description, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, objectives: formState.objectives || [] } as any,
             do: { checkDate: formState.checkDate, actions: formState.actions || [] },
 
@@ -236,7 +234,6 @@ const Cockpit: React.FC = () => {
             ownerId: user?.id || '',
             responsibleId: 'u2',
             status: createState.status as any,
-            severity: 'Medium',
             category: 'Clinical',
             kpi: '-',
             objective: '-',
@@ -276,22 +273,9 @@ const Cockpit: React.FC = () => {
         }
 
         // Validation for DO phase
+        // Validation for DO phase
         if (selectedTopic.step === 'DO') {
-            if (!formState.checkDate) {
-                alert('Validation Error: A defined "Check Date" is required to proceed.');
-                return;
-            }
-            // Ensure at least one action exists
-            if (!formState.actions || formState.actions.length === 0) {
-                alert('Validation Error: At least one execution action must be defined.');
-                return;
-            }
-            // Ensure each action has a Meeting Type, Meeting Date/Time, and at least one person
-            const invalidAction = formState.actions.find((a: any) => !a.meetingType || !a.teamsMeeting || a.assignments.length === 0);
-            if (invalidAction) {
-                alert(`Validation Error: Action "${invalidAction.title}" is missing a Meeting Type, Meeting Date/Time, or Assigned Persons.`);
-                return;
-            }
+            // No mandatory fields for DO phase - user can save/proceed with partial info
         }
 
         // Validation for CHECK phase
@@ -308,12 +292,26 @@ const Cockpit: React.FC = () => {
                 alert('Validation Error: At least one KPI evaluation is required.');
                 return;
             }
+            // Enforce KPI Status only if Partially Effective
+            if (formState.effectivenessStatus === 'Partially Effective') {
+                const missingStatus = formState.kpiEvaluations.find((k: any) => !k.status);
+                if (missingStatus) {
+                    alert('Validation Error: KPI Status (Achieved/Not Achieved) is required for all KPIs when effectiveness is "Partially Effective".');
+                    return;
+                }
+            }
         }
 
         // Validation for ACT phase (Closing)
         if (selectedTopic.step === 'ACT') {
             if (!formState.actOutcome) {
                 alert('Validation Error: An ACT Outcome must be selected.');
+                return;
+            }
+
+            // Enforce Check-Act Logic
+            if (formState.actOutcome === 'Standardize' && formState.effectivenessStatus !== 'Effective') {
+                alert('Validation Error: "Standardize" is only available when the Effectiveness Assessment is "Effective".');
                 return;
             }
 
@@ -328,18 +326,25 @@ const Cockpit: React.FC = () => {
                 }
             }
 
+            // Lessons Learned is optional - no validation required
+
             // Confirmation Checklist
-            if (!formState.actConfirmation.standardized && formState.actOutcome === 'Standardize') {
-                alert('Validation Error: You must confirm that the improvement has been standardized.');
-                return;
-            }
-            if (!formState.actConfirmation.noActionsPending) {
-                alert('Validation Error: You must confirm that no further operational actions are pending.');
-                return;
-            }
-            if (!formState.actConfirmation.readyToClose) {
-                alert('Validation Error: You must confirm that the topic is ready to be closed.');
-                return;
+            if (formState.actOutcome === 'Standardize') {
+                if (!formState.actConfirmation.standardized) {
+                    alert('Validation Error: You must confirm that the improvement has been standardized.');
+                    return;
+                }
+            } else {
+                // For Non-Standardize outcomes (Improve / Close)
+                if (!formState.actConfirmation.noActionsPending) {
+                    alert('Validation Error: You must confirm that ' + (formState.actOutcome === 'Improve & Re-run PDCA' ? 'the PDCA will be rerun for improvements.' : 'no further operational actions are pending.'));
+                    return;
+                }
+                // Ready to Close required ONLY for Close without Standardization
+                if (formState.actOutcome === 'Close without Standardization' && !formState.actConfirmation.readyToClose) {
+                    alert('Validation Error: You must confirm that the topic is ready to be closed.');
+                    return;
+                }
             }
         }
 
@@ -350,7 +355,6 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            severity: formState.severity,
             plan: { description: formState.description, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, objectives: formState.objectives || [] },
             do: { checkDate: formState.checkDate, actions: formState.actions },
             check: {
@@ -384,15 +388,18 @@ const Cockpit: React.FC = () => {
                 checkDate: formState.checkDate, actions: formState.actions,
                 completedAt: new Date().toISOString()
             };
-            if (selectedTopic.step === 'CHECK') (updates as any).check = {
-                kpis: formState.kpis,
-                kpiResults: formState.kpiResults,
-                effectivenessReview: formState.effectivenessReview,
-                effectivenessStatus: formState.effectivenessStatus,
-                kpiEvaluations: formState.kpiEvaluations,
-                audit: { checkedBy: user?.name || 'Unknown', checkedOn: new Date().toISOString() },
-                completedAt: new Date().toISOString()
-            };
+            if (selectedTopic.step === 'CHECK') {
+                (updates as any).check = {
+                    kpis: formState.kpis,
+                    kpiResults: formState.kpiResults,
+                    effectivenessReview: formState.effectivenessReview,
+                    effectivenessStatus: formState.effectivenessStatus,
+                    kpiEvaluations: formState.kpiEvaluations,
+                    audit: { checkedBy: user?.name || 'Unknown', checkedOn: new Date().toISOString() },
+                    completedAt: new Date().toISOString()
+                };
+                updates.status = 'Done' as const;
+            }
 
             topicsService.update(selectedTopic.id, updates);
             loadData();
@@ -426,7 +433,7 @@ const Cockpit: React.FC = () => {
 
     const handleReopen = () => {
         if (!selectedTopic) return;
-        topicsService.update(selectedTopic.id, { status: 'On Track' });
+        topicsService.update(selectedTopic.id, { status: 'Monitoring' });
         loadData();
         window.dispatchEvent(new Event('storage'));
     };
@@ -434,25 +441,6 @@ const Cockpit: React.FC = () => {
     const getStatusClass = (status: string, dueDate?: string, completed?: boolean) => {
         return getStatusMeta(status, dueDate, completed).class;
     };
-
-    const getPriorityBadge = (priority: string) => {
-        const bgColors: any = {
-            Critical: '#fee2e2',
-            High: '#fef9c3',
-            Medium: '#fef9c3',
-            Low: 'var(--color-bg)'
-        };
-        const textColors: any = {
-            Critical: 'var(--color-status-red)',
-            High: '#854d0e',
-            Medium: '#854d0e',
-            Low: 'var(--color-text-muted)'
-        };
-        const priorityKey = priority.toLowerCase();
-        const translatedPriority = t(`priority.${priorityKey}`);
-        return <span className="badge" style={{ background: bgColors[priority], color: textColors[priority] }}>{translatedPriority}</span>;
-    };
-
 
     const isStepClickable = (step: Step) => {
         const steps: Step[] = ['PLAN', 'DO', 'CHECK', 'ACT'];
@@ -482,7 +470,6 @@ const Cockpit: React.FC = () => {
                                     ownerId: user?.id || '',
                                     responsibleId: 'u2',
                                     status: createState.status as any,
-                                    severity: 'Medium',
                                     category: 'Clinical',
                                     kpi: '-',
                                     objective: '-',
@@ -616,14 +603,12 @@ const Cockpit: React.FC = () => {
                                                 borderRadius: '6px',
                                                 border: '1px solid var(--color-border)',
                                                 fontWeight: 600,
-                                                color: createState.status === 'Monitoring' ? '#16a34a' :
-                                                    createState.status === 'Warning' ? '#ca8a04' :
-                                                        createState.status === 'Critical' ? '#dc2626' : 'inherit'
+                                                color: getStatusColor(createState.status)
                                             }}
                                         >
-                                            <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('pdca.monitoring')}</option>
-                                            <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
-                                            <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
+                                            <option value="Monitoring" style={{ color: getStatusColor('Monitoring'), fontWeight: 600 }}>{t('status.monitoring')}</option>
+                                            <option value="Warning" style={{ color: getStatusColor('Warning'), fontWeight: 600 }}>{t('status.warning')}</option>
+                                            <option value="Critical" style={{ color: getStatusColor('Critical'), fontWeight: 600 }}>{t('status.critical')}</option>
                                         </select>
                                     </div>
 
@@ -665,7 +650,7 @@ const Cockpit: React.FC = () => {
                                 {emailStatus.message.replace('email(s) sent successfully', t('pdca.emailSentSuccess').replace('{{count}}', '')).replace('email(s) failed to send', t('pdca.emailSentFailed').replace('{{count}}', '')).replace('Email service unavailable', t('pdca.emailServiceUnavailable'))}
                             </span>
                         )}
-                        <span className="badge" style={{ ...getStatusBadgeStyle(selectedTopic.status, selectedTopic.dueDate), padding: '6px 12px' }}>{getStatusMeta(selectedTopic.status, selectedTopic.dueDate).label.toUpperCase()}</span>
+                        <span className="badge" style={{ ...getStatusBadgeStyle(selectedTopic.status), padding: '6px 12px' }}>{getStatusLabel(t, selectedTopic.status).toUpperCase()}</span>
                     </div>
                 </div>
 
@@ -676,7 +661,7 @@ const Cockpit: React.FC = () => {
                     </div>
                 </div>
 
-                {selectedTopic.status === 'Done' && (
+                {selectedTopic.status === 'Done' && (selectedTopic.step !== 'ACT' || !!selectedTopic.act?.completedAt) && (
                     <div className="card" style={{ background: '#f8fafc', borderLeft: '4px solid var(--color-status-done)', padding: '1rem 1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <Lock size={18} color="var(--color-status-done)" />
                         <div style={{ fontSize: '14px', color: '#475569' }}>
@@ -756,61 +741,114 @@ const Cockpit: React.FC = () => {
                                     </div>
                                 )}
                                 {viewingStep === 'PLAN' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                                        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <Target size={20} /> {t('pdca.plan')} & {t('pdca.purpose')}
-                                            </h3>
+                                    <div>
+                                        {/* HEADER - Matches Create View */}
+                                        <div style={{ marginBottom: '1.5rem', paddingBottom: '1.25rem', borderBottom: '1px solid var(--color-border)', background: '#fcfcfd', margin: '-1.75rem -1.75rem 1.75rem -1.75rem', padding: '1.25rem 1.75rem' }}>
+                                            <h3 style={{ margin: 0 }}>{t('pdca.planData')}</h3>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                            <div style={{ flex: 1 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('pdca.asIs')}</label>
+                                        {/* TITLE */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600 }}>{t('common.title')} <span style={{ color: 'red' }}>*</span></label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={formState.title}
+                                                onChange={e => setFormState({ ...formState, title: e.target.value })}
+                                                placeholder={t('pdca.titlePlaceholder')}
+                                                disabled={selectedTopic.status === 'Done'}
+                                            />
+                                        </div>
+
+                                        {/* AS-IS / TO-BE GRID */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
+                                            <div>
+                                                <label style={{ fontWeight: 600 }}>{t('pdca.asIs')} <span style={{ color: 'red' }}>*</span></label>
                                                 <textarea
-                                                    rows={6}
+                                                    rows={4}
+                                                    required
                                                     value={formState.asIs}
                                                     onChange={e => setFormState({ ...formState, asIs: e.target.value })}
                                                     placeholder={t('pdca.asIsPlaceholder')}
                                                     disabled={selectedTopic.status === 'Done'}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px', lineHeight: 1.5 }}
                                                 />
                                             </div>
-                                            <div style={{ flex: 1 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('pdca.toBe')}</label>
+                                            <div>
+                                                <label style={{ fontWeight: 600 }}>{t('pdca.toBe')} <span style={{ color: 'red' }}>*</span></label>
                                                 <textarea
-                                                    rows={6}
+                                                    rows={4}
+                                                    required
                                                     value={formState.toBe}
                                                     onChange={e => setFormState({ ...formState, toBe: e.target.value })}
                                                     placeholder={t('pdca.toBePlaceholder')}
                                                     disabled={selectedTopic.status === 'Done'}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px', lineHeight: 1.5 }}
                                                 />
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                            <div style={{ flex: 1 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('pdca.rootCause')}</label>
-                                                <textarea
-                                                    rows={4}
-                                                    value={formState.rootCause}
-                                                    onChange={e => setFormState({ ...formState, rootCause: e.target.value })}
-                                                    placeholder={t('pdca.rootCausePlaceholder')}
-                                                    disabled={selectedTopic.status === 'Done'}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                                                />
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('pdca.purpose')}</label>
-                                                <textarea
-                                                    rows={4}
-                                                    value={formState.objective || ''}
-                                                    onChange={e => setFormState({ ...formState, objective: e.target.value })}
-                                                    placeholder={t('pdca.purpose') + "..."}
-                                                    disabled={selectedTopic.status === 'Done'}
-                                                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                                                />
-                                            </div>
+                                        {/* ROOT CAUSE */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600 }}>{t('pdca.rootCause')}</label>
+                                            <textarea
+                                                rows={2}
+                                                value={formState.rootCause}
+                                                onChange={e => setFormState({ ...formState, rootCause: e.target.value })}
+                                                placeholder={t('pdca.rootCausePlaceholder')}
+                                                disabled={selectedTopic.status === 'Done'}
+                                            />
+                                        </div>
+
+                                        {/* PURPOSE (Objective) */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600 }}>{t('pdca.purpose')}</label>
+                                            <textarea
+                                                rows={4}
+                                                value={formState.objective || ''}
+                                                onChange={e => setFormState({ ...formState, objective: e.target.value })}
+                                                placeholder={t('pdca.purpose') + "..."}
+                                                disabled={selectedTopic.status === 'Done'}
+                                            />
+                                        </div>
+
+                                        {/* CYCLE (Description) */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600 }}>{t('pdca.cycle')}</label>
+                                            <textarea
+                                                rows={4}
+                                                value={formState.description || ''}
+                                                onChange={e => setFormState({ ...formState, description: e.target.value })}
+                                                placeholder={t('pdca.cycle') + "..."}
+                                                disabled={selectedTopic.status === 'Done'}
+                                            />
+                                        </div>
+
+                                        {/* STATUS dropdown */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>{t('common.status')}</label>
+                                            <select
+                                                value={selectedTopic.status}
+                                                onChange={e => {
+                                                    const newStatus = e.target.value;
+                                                    topicsService.update(selectedTopic.id, { status: newStatus as any });
+                                                    loadData();
+                                                    window.dispatchEvent(new Event('storage'));
+                                                }}
+                                                disabled={selectedTopic.status === 'Done'}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '0.8rem',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid var(--color-border)',
+                                                    fontWeight: 600,
+                                                    color: selectedTopic.status === 'Monitoring' ? '#16a34a' :
+                                                        selectedTopic.status === 'Warning' ? '#ca8a04' :
+                                                            selectedTopic.status === 'Critical' ? '#dc2626' : 'inherit'
+                                                }}
+                                            >
+                                                <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('pdca.monitoring')}</option>
+                                                <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
+                                                <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
+                                            </select>
                                         </div>
                                     </div>
                                 )}
@@ -977,88 +1015,83 @@ const Cockpit: React.FC = () => {
                                                                 />
                                                             </div>
 
-                                                            {action.assignments.length > 0 && (
+                                                            <div style={{ flex: 1 }}>
+                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingType')}</label>
+                                                                <select
+                                                                    value={action.meetingType || ''}
+                                                                    onChange={e => {
+                                                                        const updated = [...formState.actions];
+                                                                        updated[idx].meetingType = e.target.value as 'In-Office' | 'Online';
+                                                                        // Clear fields when switching type
+                                                                        if (e.target.value === 'In-Office') {
+                                                                            updated[idx].teamsMeetingLink = '';
+                                                                        } else if (e.target.value === 'Online') {
+                                                                            updated[idx].meetingLocation = '';
+                                                                        }
+                                                                        setFormState({ ...formState, actions: updated });
+                                                                    }}
+                                                                    style={{
+                                                                        fontSize: '12px',
+                                                                        padding: '4px',
+                                                                        width: '100%',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    <option value="">{t('pdca.selectMeetingType')}</option>
+                                                                    <option value="In-Office">{t('pdca.inOffice')}</option>
+                                                                    <option value="Online">{t('pdca.online')}</option>
+                                                                </select>
+                                                            </div>
+
+                                                            {action.meetingType && (
                                                                 <>
                                                                     <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingType')} <span style={{ color: 'red' }}>*</span></label>
-                                                                        <select
-                                                                            value={action.meetingType || ''}
+                                                                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingDateTime')}</label>
+                                                                        <input
+                                                                            type="datetime-local"
+                                                                            value={action.teamsMeeting || ''}
                                                                             onChange={e => {
                                                                                 const updated = [...formState.actions];
-                                                                                updated[idx].meetingType = e.target.value as 'In-Office' | 'Online';
-                                                                                // Clear fields when switching type
-                                                                                if (e.target.value === 'In-Office') {
-                                                                                    updated[idx].teamsMeetingLink = '';
-                                                                                } else if (e.target.value === 'Online') {
-                                                                                    updated[idx].meetingLocation = '';
-                                                                                }
+                                                                                updated[idx].teamsMeeting = e.target.value;
                                                                                 setFormState({ ...formState, actions: updated });
                                                                             }}
-                                                                            style={{
-                                                                                fontSize: '12px',
-                                                                                padding: '4px',
-                                                                                width: '100%',
-                                                                                border: !action.meetingType ? '1px solid red' : '1px solid #cbd5e1',
-                                                                                fontWeight: 600
-                                                                            }}
-                                                                        >
-                                                                            <option value="">{t('pdca.selectMeetingType')}</option>
-                                                                            <option value="In-Office">{t('pdca.inOffice')}</option>
-                                                                            <option value="Online">{t('pdca.online')}</option>
-                                                                        </select>
+                                                                            style={{ fontSize: '12px', padding: '4px', width: '100%', border: '1px solid #cbd5e1' }}
+                                                                        />
                                                                     </div>
 
-                                                                    {action.meetingType && (
-                                                                        <>
-                                                                            <div style={{ flex: 1 }}>
-                                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingDateTime')} <span style={{ color: 'red' }}>*</span></label>
-                                                                                <input
-                                                                                    type="datetime-local"
-                                                                                    required
-                                                                                    value={action.teamsMeeting || ''}
-                                                                                    onChange={e => {
-                                                                                        const updated = [...formState.actions];
-                                                                                        updated[idx].teamsMeeting = e.target.value;
-                                                                                        setFormState({ ...formState, actions: updated });
-                                                                                    }}
-                                                                                    style={{ fontSize: '12px', padding: '4px', width: '100%', border: !action.teamsMeeting ? '1px solid red' : '1px solid #cbd5e1' }}
-                                                                                />
-                                                                            </div>
+                                                                    {action.meetingType === 'In-Office' && (
+                                                                        <div style={{ flex: 1 }}>
+                                                                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.officeLocation')}</label>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={t('pdca.officeLocationPlaceholder')}
+                                                                                value={action.meetingLocation || ''}
+                                                                                onChange={e => {
+                                                                                    const updated = [...formState.actions];
+                                                                                    updated[idx].meetingLocation = e.target.value;
+                                                                                    setFormState({ ...formState, actions: updated });
+                                                                                }}
+                                                                                style={{ fontSize: '12px', padding: '4px', width: '100%' }}
+                                                                            />
+                                                                        </div>
+                                                                    )}
 
-                                                                            {action.meetingType === 'In-Office' && (
-                                                                                <div style={{ flex: 1 }}>
-                                                                                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.officeLocation')}</label>
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        placeholder={t('pdca.officeLocationPlaceholder')}
-                                                                                        value={action.meetingLocation || ''}
-                                                                                        onChange={e => {
-                                                                                            const updated = [...formState.actions];
-                                                                                            updated[idx].meetingLocation = e.target.value;
-                                                                                            setFormState({ ...formState, actions: updated });
-                                                                                        }}
-                                                                                        style={{ fontSize: '12px', padding: '4px', width: '100%' }}
-                                                                                    />
-                                                                                </div>
-                                                                            )}
-
-                                                                            {action.meetingType === 'Online' && (
-                                                                                <div style={{ flex: 1 }}>
-                                                                                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.onlineLink')}</label>
-                                                                                    <input
-                                                                                        type="url"
-                                                                                        placeholder={t('pdca.onlineLinkPlaceholder')}
-                                                                                        value={action.teamsMeetingLink || ''}
-                                                                                        onChange={e => {
-                                                                                            const updated = [...formState.actions];
-                                                                                            updated[idx].teamsMeetingLink = e.target.value;
-                                                                                            setFormState({ ...formState, actions: updated });
-                                                                                        }}
-                                                                                        style={{ fontSize: '12px', padding: '4px', width: '100%' }}
-                                                                                    />
-                                                                                </div>
-                                                                            )}
-                                                                        </>
+                                                                    {action.meetingType === 'Online' && (
+                                                                        <div style={{ flex: 1 }}>
+                                                                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.onlineLink')}</label>
+                                                                            <input
+                                                                                type="url"
+                                                                                placeholder={t('pdca.onlineLinkPlaceholder')}
+                                                                                value={action.teamsMeetingLink || ''}
+                                                                                onChange={e => {
+                                                                                    const updated = [...formState.actions];
+                                                                                    updated[idx].teamsMeetingLink = e.target.value;
+                                                                                    setFormState({ ...formState, actions: updated });
+                                                                                }}
+                                                                                style={{ fontSize: '12px', padding: '4px', width: '100%' }}
+                                                                            />
+                                                                        </div>
                                                                     )}
                                                                 </>
                                                             )}
@@ -1074,7 +1107,7 @@ const Cockpit: React.FC = () => {
                                             </h4>
                                             <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
                                                 <div style={{ flex: 1 }}>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('common.dueDate')} <span style={{ color: 'red' }}>*</span></label>
+                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('common.dueDate')}</label>
                                                     <input
                                                         type="date"
                                                         value={formState.checkDate}
@@ -1137,7 +1170,16 @@ const Cockpit: React.FC = () => {
                                                 ].map((opt) => (
                                                     <div
                                                         key={opt.value}
-                                                        onClick={() => selectedTopic.status !== 'Done' && setFormState({ ...formState, effectivenessStatus: opt.value as EffectivenessStatus })}
+                                                        onClick={() => {
+                                                            if (selectedTopic.status === 'Done') return;
+                                                            const newStatus = opt.value as EffectivenessStatus;
+                                                            let newOutcome = formState.actOutcome;
+                                                            // If switching to Non-Effective, Standardize is no longer valid
+                                                            if (newStatus !== 'Effective' && newOutcome === 'Standardize') {
+                                                                newOutcome = undefined;
+                                                            }
+                                                            setFormState({ ...formState, effectivenessStatus: newStatus, actOutcome: newOutcome });
+                                                        }}
                                                         style={{
                                                             padding: '1.25rem',
                                                             borderRadius: '8px',
@@ -1224,21 +1266,23 @@ const Cockpit: React.FC = () => {
                                                                     style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
                                                                 />
                                                             </div>
-                                                            <div style={{ flex: 1 }}>
-                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>{t('common.status')}</label>
-                                                                <select
-                                                                    value={kpi.status}
-                                                                    onChange={e => {
-                                                                        const updated = [...formState.kpiEvaluations];
-                                                                        updated[idx].status = e.target.value;
-                                                                        setFormState({ ...formState, kpiEvaluations: updated });
-                                                                    }}
-                                                                    style={{ width: '100%', padding: '6px', fontSize: '13px', fontWeight: 600, color: kpi.status === 'Achieved' ? 'green' : 'red', borderColor: kpi.status === 'Achieved' ? '#86efac' : '#fca5a5' }}
-                                                                >
-                                                                    <option value="Achieved">{t('pdca.achieved')}</option>
-                                                                    <option value="Not Achieved">{t('pdca.notAchieved')}</option>
-                                                                </select>
-                                                            </div>
+                                                            {formState.effectivenessStatus === 'Partially Effective' && (
+                                                                <div style={{ flex: 1 }}>
+                                                                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>{t('common.status')}</label>
+                                                                    <select
+                                                                        value={kpi.status}
+                                                                        onChange={e => {
+                                                                            const updated = [...formState.kpiEvaluations];
+                                                                            updated[idx].status = e.target.value;
+                                                                            setFormState({ ...formState, kpiEvaluations: updated });
+                                                                        }}
+                                                                        style={{ width: '100%', padding: '6px', fontSize: '13px', fontWeight: 600, color: kpi.status === 'Achieved' ? 'green' : 'red', borderColor: kpi.status === 'Achieved' ? '#86efac' : '#fca5a5' }}
+                                                                    >
+                                                                        <option value="Achieved">{t('pdca.achieved')}</option>
+                                                                        <option value="Not Achieved">{t('pdca.notAchieved')}</option>
+                                                                    </select>
+                                                                </div>
+                                                            )}
                                                             <button
                                                                 onClick={() => {
                                                                     const updated = formState.kpiEvaluations.filter((_: any, i: number) => i !== idx);
@@ -1308,18 +1352,24 @@ const Cockpit: React.FC = () => {
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                                 {[
                                                     { value: 'Standardize', icon: <ShieldCheck />, desc: t('pdca.measureSuccessful'), label: t('pdca.standardize') },
-                                                    { value: 'Improve & Re-run PDCA', icon: <RotateCcw />, desc: t('pdca.improveRerunLong'), label: t('pdca.improveRerun') },
-                                                    { value: 'Close without Standardization', icon: <X />, desc: t('pdca.closeWithoutStandardizationLong'), label: t('pdca.closeWithoutStandardization') }
-                                                ].map((opt: any) => (
+                                                    { value: 'Improve & Re-run PDCA', icon: <RotateCcw />, desc: t('pdca.improveRerun'), label: t('pdca.improveRerun') },
+                                                    { value: 'Close without Standardization', icon: <X />, desc: t('pdca.closeWithoutStandardization'), label: t('pdca.closeWithoutStandardization') }
+                                                ].filter(opt => {
+                                                    // HIDE Standardize if Check was NOT Effective
+                                                    if (opt.value === 'Standardize' && formState.effectivenessStatus !== 'Effective') {
+                                                        return false;
+                                                    }
+                                                    return true;
+                                                }).map((opt: any) => (
                                                     <div
                                                         key={opt.value}
-                                                        onClick={() => selectedTopic.status !== 'Done' && setFormState({ ...formState, actOutcome: opt.value as ActOutcome })}
+                                                        onClick={() => (selectedTopic.status !== 'Done' || !selectedTopic.act?.completedAt) && setFormState({ ...formState, actOutcome: opt.value as ActOutcome })}
                                                         style={{
                                                             padding: '1.25rem',
                                                             borderRadius: '8px',
                                                             border: `2px solid ${formState.actOutcome === opt.value ? 'var(--color-primary)' : '#e2e8f0'}`,
                                                             background: formState.actOutcome === opt.value ? 'var(--color-primary-light)' : 'white',
-                                                            cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer',
+                                                            cursor: (selectedTopic.status === 'Done' && selectedTopic.act?.completedAt) ? 'default' : 'pointer',
                                                             opacity: (formState.actOutcome && formState.actOutcome !== opt.value) ? 0.6 : 1
                                                         }}
                                                     >
@@ -1339,10 +1389,10 @@ const Cockpit: React.FC = () => {
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>2. {t('pdca.standardizationScope')} <span style={{ color: 'red' }}>*</span></label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                                                         {['process', 'clinicalGuide', 'policy', 'checklist', 'training', 'ehrConfiguration', 'other'].map(key => (
-                                                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
+                                                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: (selectedTopic.status === 'Done' && selectedTopic.act?.completedAt) ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"
-                                                                    disabled={selectedTopic.status === 'Done'}
+                                                                    disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                                     checked={formState.standardizationScope?.includes(key)}
                                                                     onChange={e => {
                                                                         const current = formState.standardizationScope || [];
@@ -1363,10 +1413,10 @@ const Cockpit: React.FC = () => {
                                                     <label style={{ fontWeight: 700, display: 'block', marginBottom: '1rem' }}>3. {t('pdca.affectedAreas')}</label>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                                                         {['nursing', 'surgery', 'emergency', 'inpatientWard', 'outpatientClinic', 'pharmacy', 'diagnostics', 'administration', 'other'].map(key => (
-                                                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: selectedTopic.status === 'Done' ? 'default' : 'pointer' }}>
+                                                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', background: 'white', cursor: (selectedTopic.status === 'Done' && selectedTopic.act?.completedAt) ? 'default' : 'pointer' }}>
                                                                 <input
                                                                     type="checkbox"
-                                                                    disabled={selectedTopic.status === 'Done'}
+                                                                    disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                                     checked={formState.affectedAreas?.includes(key)}
                                                                     onChange={e => {
                                                                         const current = formState.affectedAreas || [];
@@ -1392,7 +1442,7 @@ const Cockpit: React.FC = () => {
                                                         rows={5}
                                                         value={formState.standardizationDescription}
                                                         onChange={e => setFormState({ ...formState, standardizationDescription: e.target.value })}
-                                                        disabled={selectedTopic.status === 'Done'}
+                                                        disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                         placeholder={t('pdca.standardizationDescPlaceholder')}
                                                         style={{ width: '100%', padding: '1rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                                     />
@@ -1410,7 +1460,7 @@ const Cockpit: React.FC = () => {
                                                 rows={4}
                                                 value={formState.lessonsLearned}
                                                 onChange={e => setFormState({ ...formState, lessonsLearned: e.target.value })}
-                                                disabled={selectedTopic.status === 'Done'}
+                                                disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                 placeholder={t('pdca.lessonsLearnedPlaceholder')}
                                                 style={{ width: '100%', padding: '1rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                                             />
@@ -1429,29 +1479,35 @@ const Cockpit: React.FC = () => {
                                                             type="checkbox"
                                                             checked={formState.actConfirmation?.standardized}
                                                             onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, standardized: e.target.checked } })}
-                                                            disabled={selectedTopic.status === 'Done'}
+                                                            disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                         />
                                                         {t('pdca.confirmStandardized')}
                                                     </label>
                                                 )}
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formState.actConfirmation?.noActionsPending}
-                                                        onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, noActionsPending: e.target.checked } })}
-                                                        disabled={selectedTopic.status === 'Done'}
-                                                    />
-                                                    {t('pdca.confirmNoActions')}
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formState.actConfirmation?.readyToClose}
-                                                        onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, readyToClose: e.target.checked } })}
-                                                        disabled={selectedTopic.status === 'Done'}
-                                                    />
-                                                    {t('pdca.confirmReadyClose')}
-                                                </label>
+                                                {formState.actOutcome !== 'Standardize' && (
+                                                    <>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formState.actConfirmation?.noActionsPending}
+                                                                onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, noActionsPending: e.target.checked } })}
+                                                                disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
+                                                            />
+                                                            {formState.actOutcome === 'Improve & Re-run PDCA' ? t('pdca.confirmRerunPDCA') : t('pdca.confirmNoActions')}
+                                                        </label>
+                                                        {formState.actOutcome === 'Close without Standardization' && (
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formState.actConfirmation?.readyToClose}
+                                                                    onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, readyToClose: e.target.checked } })}
+                                                                    disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
+                                                                />
+                                                                {t('pdca.confirmReadyClose')}
+                                                            </label>
+                                                        )}
+                                                    </>
+                                                )}
                                             </div>
 
                                             {selectedTopic.status === 'Done' && selectedTopic.act?.audit && (
@@ -1469,7 +1525,7 @@ const Cockpit: React.FC = () => {
 
                     </div>
                 </div>
-            </div>
+            </div >
         );
     }
 
@@ -1489,27 +1545,25 @@ const Cockpit: React.FC = () => {
                                 <th>{t('common.title')}</th>
                                 <th>{t('pdca.topicTitle')}</th>
                                 <th>{t('common.step')}</th>
-                                <th>{t('common.priority')}</th>
                                 <th>{t('common.dueDate')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {myToDos.length === 0 ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('landing.keineAufgaben')}</td></tr>
+                                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('landing.keineAufgaben')}</td></tr>
                             ) : (
                                 myToDos.map((todo: ToDo) => (
                                     <tr key={todo.id}>
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span className={`status-dot ${getStatusBadgeStyle(todo.status, todo.dueDate).background}`}></span>
+                                                <span className="status-dot" style={{ backgroundColor: getStatusColor(todo.status, todo.dueDate) }}></span>
                                                 <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(todo.status, todo.dueDate, undefined, t).label}</span>
                                             </div>
                                         </td>
                                         <td style={{ fontWeight: 600, color: '#1a202c' }}>{todo.title}</td>
                                         <td style={{ color: '#4a5568', fontSize: '13px' }}>{todo.topicTitle}</td>
                                         <td><span className="badge" style={{ background: '#f1f5f9', color: '#475569' }}>{t(`phases.${todo.step.toLowerCase()}`)}</span></td>
-                                        <td>{getPriorityBadge(todo.priority)}</td>
-                                        <td style={{ color: todo.status === 'Overdue' ? 'var(--color-danger)' : 'inherit', fontWeight: todo.status === 'Overdue' ? 600 : 400 }}>
+                                        <td style={{ color: todo.status === 'Critical' ? 'var(--color-status-red)' : 'inherit', fontWeight: todo.status === 'Critical' ? 600 : 400 }}>
                                             {new Date(todo.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}
                                         </td>
                                     </tr>
@@ -1548,7 +1602,7 @@ const Cockpit: React.FC = () => {
                                         <tr key={a.id}>
                                             <td>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span className={`status-dot ${getStatusBadgeStyle(a.status, a.dueDate).background}`}></span>
+                                                    <span className="status-dot" style={{ backgroundColor: getStatusColor(a.status, a.dueDate) }}></span>
                                                     <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(a.status, a.dueDate, undefined, t).label}</span>
                                                 </div>
                                             </td>
@@ -1617,8 +1671,8 @@ const Cockpit: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: 600, color: '#64748b' }}>{t('filters.status')}</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                            {['On Track', 'Critical', 'Warning', 'Done'].map(s => {
-                                const statusKey = s === 'On Track' ? 'onTrack' : s.toLowerCase();
+                            {['Monitoring', 'Critical', 'Warning', 'Done'].map(s => {
+                                const statusKey = s.toLowerCase();
                                 return (
                                     <button
                                         key={s}

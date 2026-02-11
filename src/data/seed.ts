@@ -19,8 +19,7 @@ export const initialData = {
             responsibleId: 'u2',
             step: 'PLAN' as const,
             dueDate: '2026-03-28',
-            status: 'On Track' as const,
-            severity: 'High' as const,
+            status: 'Monitoring' as const,
             category: 'Clinical' as const,
             location: 'University Hospital Zurich (ZH)',
             kpi: 'Infection rate < 0.5%',
@@ -46,7 +45,7 @@ export const initialData = {
                         dueDate: '2026-02-20',
                         teamsMeeting: '2026-02-18T14:00',
                         teamsMeetingLink: 'https://teams.microsoft.com/l/meetup-join/demo',
-                        status: 'On Track'
+                        status: 'Monitoring'
                     }
                 ]
             },
@@ -61,7 +60,6 @@ export const initialData = {
             step: 'DO' as const,
             dueDate: '2025-01-01',
             status: 'Critical' as const,
-            severity: 'Critical' as const,
             category: 'Patient Safety' as const,
             location: 'Geneva University Hospitals (GE)',
             kpi: 'Zero high-risk medication errors',
@@ -98,7 +96,6 @@ export const initialData = {
             step: 'DO' as const,
             dueDate: '2024-03-01',
             status: 'Critical' as const,
-            severity: 'High' as const,
             category: 'Nursing' as const,
             kpi: '100% compliance with fall risk assessments',
             objective: 'Ensure every patient has a validated fall risk assessment within 2 hours of admission.',
@@ -126,8 +123,7 @@ export const initialData = {
             topicId: 'T-001',
             topicTitle: 'Reduction of Post-operative Infection Rates',
             step: 'PLAN' as const,
-            priority: 'Medium' as const,
-            status: 'Pending' as const,
+            status: 'Monitoring' as const,
             dueDate: '2026-02-15'
         },
         {
@@ -136,8 +132,7 @@ export const initialData = {
             topicId: 'T-002',
             topicTitle: 'Medication Administration Error Reduction',
             step: 'DO' as const,
-            priority: 'Critical' as const,
-            status: 'Overdue' as const,
+            status: 'Critical' as const,
             dueDate: '2025-01-05'
         }
     ]

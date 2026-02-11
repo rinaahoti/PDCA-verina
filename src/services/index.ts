@@ -1,4 +1,5 @@
-import { User, Topic, ToDo, SupportTicket, HistoryEntry, Organization, Department, GovernanceRules, NotificationSettings, UserPreferences } from '../types';
+import { User, Topic, ToDo, Status, SupportTicket, HistoryEntry, Organization, Department, GovernanceRules, NotificationSettings, UserPreferences } from '../types';
+import { normalizeStatus } from '../utils/statusUtils';
 import { initialData } from '../data/seed';
 import { activityService } from './activityService';
 import { adminService } from './adminService';
@@ -224,14 +225,27 @@ export const topicsService = {
             if (t.status === 'Done') return t;
 
             const dueDate = new Date(t.dueDate);
-            dueDate.setHours(23, 59, 59, 999); // End of the day for due date
+            dueDate.setHours(23, 59, 59, 999);
 
+            let calculatedStatus: Status = 'Monitoring';
             if (dueDate < now) {
-                return { ...t, status: 'Critical' as const };
+                calculatedStatus = 'Critical';
             } else if (dueDate <= thresholdDate) {
+                calculatedStatus = 'Warning';
+            }
+
+            // We respect manually set statuses if they are "more urgent" than calculated
+            // Priority: Critical > Warning > Monitoring
+            const savedStatus = normalizeStatus(t.status) as Status;
+
+            if (savedStatus === 'Critical' || calculatedStatus === 'Critical') {
+                return { ...t, status: 'Critical' as const };
+            }
+            if (savedStatus === 'Warning' || calculatedStatus === 'Warning') {
                 return { ...t, status: 'Warning' as const };
             }
-            return { ...t, status: 'On Track' as const };
+
+            return { ...t, status: 'Monitoring' as const };
         });
     },
     save: (topics: Topic[]) => localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics)),

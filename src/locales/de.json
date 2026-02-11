@@ -24,7 +24,6 @@
         "clearFilters": "Filter zurücksetzen",
         "clearAllFilters": "Alle Filter zurücksetzen",
         "all": "Alle",
-        "priority": "Priorität",
         "activeTasks": "AKTIVE AUFGABEN",
         "assignments": "ZUWEISUNGEN",
         "initiatives": "Initiativen",
@@ -199,10 +198,7 @@
     },
     "dashboard": {
         "totalFindings": "GESAMTZAHL FESTSTELLUNGEN",
-        "onTrack": "PLANMÄSSIG",
-        "warning": "WARNUNG",
-        "critical": "KRITISCH",
-        "done": "ERLEDIGT",
+        "monitoring": "ÜBERWACHUNG",
         "analysisFilters": "ANALYSE-FILTER",
         "location": "STANDORT",
         "department": "ABTEILUNG",
@@ -413,21 +409,10 @@
         "step": "Schritt:"
     },
     "status": {
-        "open": "Offen",
-        "inProgress": "In Arbeit",
-        "done": "Erledigt",
         "monitoring": "Überwachung",
         "warning": "Warnung",
         "critical": "Kritisch",
-        "overdue": "Überfällig",
-        "onTrack": "Planmäßig",
-        "dueSoon": "Bald fällig"
-    },
-    "priority": {
-        "low": "Niedrig",
-        "medium": "Mittel",
-        "high": "Hoch",
-        "critical": "Kritisch"
+        "done": "Erledigt"
     },
     "templatesStandards": {
         "pageTitle": "Vorlagen & Standards",

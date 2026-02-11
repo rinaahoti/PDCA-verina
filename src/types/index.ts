@@ -56,11 +56,11 @@ export interface Organization {
 }
 
 export type Step = 'PLAN' | 'DO' | 'CHECK' | 'ACT';
-export type Status = 'Critical' | 'Warning' | 'On Track' | 'Done' | 'Monitoring';
-export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
-export type Severity = 'Low' | 'Medium' | 'High' | 'Critical' | 'Business Critical';
+export type Status = 'Critical' | 'Warning' | 'Monitoring' | 'Done';
+
+//export type Severity = 'Low' | 'Medium' | 'High' | 'Critical' | 'Business Critical';
 export type Category = 'Clinical' | 'Nursing' | 'Quality' | 'Compliance' | 'Patient Safety';
-export type ToDoStatus = 'Pending' | 'In Progress' | 'Overdue';
+// export type ToDoStatus = 'Pending' | 'In Progress' | 'Overdue';
 
 // CHECK Phase: Effectiveness Status
 export type EffectivenessStatus = 'Effective' | 'Partially Effective' | 'Not Effective';
@@ -121,7 +121,7 @@ export interface Topic {
     step: Step;
     dueDate: string;
     status: Status;
-    severity: Severity;
+    //severity: Severity;
     category: Category;
     kpi: string;
     objective: string;
@@ -197,8 +197,8 @@ export interface ToDo {
     topicId: string;
     topicTitle: string;
     step: Step;
-    priority: Priority;
-    status: ToDoStatus;
+
+    status: Status;
     dueDate: string;
 }
 

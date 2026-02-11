@@ -552,15 +552,13 @@ const TemplatesStandards: React.FC = () => {
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.outcome')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kpiSummary')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.scope')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.whyNot')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.standardId')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.date')}</th>
                                     <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredOutcomes.length === 0 ? (
-                                    <tr><td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noOutcomes')}</td></tr>
+                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noOutcomes')}</td></tr>
                                 ) : (
                                     filteredOutcomes.map(outcome => {
                                         const achievedKPIs = outcome.kpi.filter(k => k.status === 'Achieved').length;
@@ -614,16 +612,6 @@ const TemplatesStandards: React.FC = () => {
                                                         {outcome.scope.length > 2 && <span style={{ fontSize: '10px', color: '#94a3b8' }}>+{outcome.scope.length - 2}</span>}
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1rem', color: '#64748b', maxWidth: '200px' }}>
-                                                    {outcome.whyNot ? (
-                                                        <div style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {outcome.whyNot}
-                                                        </div>
-                                                    ) : '—'}
-                                                </td>
-                                                <td style={{ padding: '1rem', fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>
-                                                    {outcome.standardId || '—'}
-                                                </td>
                                                 <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>
                                                     {new Date(outcome.createdAt).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB')}
                                                 </td>
@@ -637,23 +625,6 @@ const TemplatesStandards: React.FC = () => {
                                                         >
                                                             <Eye size={13} />
                                                         </button>
-                                                        <button
-                                                            onClick={() => { setEditingOutcome(outcome); setOutcomeModalOpen(true); }}
-                                                            className="btn btn-outline"
-                                                            style={{ padding: '4px 8px' }}
-                                                            title={t('common.edit')}
-                                                        >
-                                                            <Edit2 size={13} />
-                                                        </button>
-                                                        {outcome.decision === 'Standardize' && !outcome.standardId && (
-                                                            <button
-                                                                onClick={() => handleGenerateStandard(outcome)}
-                                                                className="btn"
-                                                                style={{ padding: '4px 8px', fontSize: '11px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
-                                                            >
-                                                                {t('templatesStandards.actions.generate')}
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

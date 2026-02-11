@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Topic, ToDo } from '../types';
 import { Search, Filter, X } from 'lucide-react';
 import { authService, topicsService } from '../services';
-import { getStatusMeta } from '../utils/statusUtils';
+import { getStatusColor, getStatusLabel } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const Lists: React.FC = () => {
@@ -16,7 +16,6 @@ const Lists: React.FC = () => {
 
     // Read filters from URL
     const filterOwner = searchParams.get('owner');
-    const filterSeverity = searchParams.get('severity');
     const filterStep = searchParams.get('step') || 'ALL';
 
     useEffect(() => {
@@ -27,8 +26,7 @@ const Lists: React.FC = () => {
         const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
         const matchesStep = filterStep === 'ALL' || t.step === filterStep;
         const matchesOwner = filterOwner !== 'me' || t.ownerId === user?.id;
-        const matchesSeverity = filterSeverity !== 'critical' || (t.severity === 'Critical' || t.severity === 'Business Critical');
-        return matchesSearch && matchesStep && matchesOwner && matchesSeverity;
+        return matchesSearch && matchesStep && matchesOwner;
     });
 
     const clearFilters = () => {
@@ -36,7 +34,7 @@ const Lists: React.FC = () => {
         setSearch('');
     };
 
-    const hasActiveFilters = filterOwner || filterSeverity || filterStep !== 'ALL' || search;
+    const hasActiveFilters = filterOwner || filterStep !== 'ALL' || search;
 
     return (
         <div className="card">
@@ -107,8 +105,8 @@ const Lists: React.FC = () => {
                             <td>{topic.id}</td>
                             <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span className={`status-dot ${getStatusMeta(topic.status, topic.dueDate, undefined, t).class}`}></span>
-                                    <span style={{ fontSize: '12px' }}>{getStatusMeta(topic.status, topic.dueDate, undefined, t).label}</span>
+                                    <span className="status-dot" style={{ backgroundColor: getStatusColor(topic.status) }}></span>
+                                    <span style={{ fontSize: '12px' }}>{getStatusLabel(t, topic.status)}</span>
                                 </div>
                             </td>
                             <td style={{ fontWeight: 500 }}>{topic.title}</td>

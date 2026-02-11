@@ -24,7 +24,6 @@
         "clearFilters": "Clear filters",
         "clearAllFilters": "Clear all filters",
         "all": "All",
-        "priority": "Priority",
         "activeTasks": "ACTIVE TASKS",
         "assignments": "ASSIGNMENTS",
         "initiatives": "Initiatives",
@@ -199,10 +198,7 @@
     },
     "dashboard": {
         "totalFindings": "TOTAL FINDINGS",
-        "onTrack": "ON TRACK",
-        "warning": "WARNING",
-        "critical": "CRITICAL",
-        "done": "DONE",
+        "monitoring": "MONITORING",
         "analysisFilters": "ANALYSIS FILTERS",
         "location": "LOCATION",
         "department": "DEPARTMENT",
@@ -356,6 +352,7 @@
         "lessonsLearnedPlaceholder": "Key takeaways from this initiative...",
         "confirmStandardized": "I confirm that the improvement has been standardized and documented.",
         "confirmNoActions": "I confirm that no further operational actions are pending.",
+        "confirmRerunPDCA": "I confirm that the PDCA will be rerun for improvements.",
         "confirmReadyClose": "I confirm that the topic is ready to be closed.",
         "closedBy": "Closed By:",
         "finalOutcome": "Final Outcome:",
@@ -413,21 +410,10 @@
         "step": "Step:"
     },
     "status": {
-        "open": "Open",
-        "inProgress": "In Progress",
-        "done": "Done",
         "monitoring": "Monitoring",
         "warning": "Warning",
         "critical": "Critical",
-        "overdue": "Overdue",
-        "onTrack": "On Track",
-        "dueSoon": "Due Soon"
-    },
-    "priority": {
-        "low": "Low",
-        "medium": "Medium",
-        "high": "High",
-        "critical": "Critical"
+        "done": "Done"
     },
     "templatesStandards": {
         "pageTitle": "Templates & Standards",
