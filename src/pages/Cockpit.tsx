@@ -105,6 +105,24 @@ const Cockpit: React.FC = () => {
         }
     }, [selectedTopic?.id, selectedTopic?.step]);
 
+    const getTranslatedTopicTitle = (title: string) => {
+        const titleMap: Record<string, string> = {
+            'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
+            'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls'
+        };
+        return titleMap[title] || title;
+    };
+
+    const getTranslatedKPI = (kpi: string) => {
+        const kpiMap: Record<string, string> = {
+            'Infection rate < 0.5%': 'Infektionsrate < 0,5 %',
+            'Zero high-risk medication errors': 'Keine Hochrisiko-Medikationsfehler',
+            '100% compliance with fall risk assessments': '100 % Einhaltung der Sturzrisikobewertungen'
+        };
+        return kpiMap[kpi] || kpi;
+    };
+
     const myToDos = todos.filter((t: ToDo) => t.status !== 'Critical');
 
     // Derived: My Assigned Actions from Topics
@@ -1606,7 +1624,7 @@ const Cockpit: React.FC = () => {
                                                     <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(a.status, a.dueDate, undefined, t).label}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ fontWeight: 600, color: '#1a202c', fontSize: '13px' }}>{a.topicTitle}</td>
+                                            <td style={{ fontWeight: 600, color: '#1a202c', fontSize: '13px' }}>{getTranslatedTopicTitle(a.topicTitle)}</td>
                                             <td style={{ fontWeight: 600, color: '#435ebe' }}>{a.title}</td>
                                             <td style={{ fontSize: '13px' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
                                             <td style={{ fontSize: '13px', fontWeight: 600 }}>
@@ -1755,8 +1773,8 @@ const Cockpit: React.FC = () => {
                                             </div>
                                         </td>
                                         <td>
-                                            <div style={{ fontWeight: 700, color: '#1a202c' }}>{topic.title}</div>
-                                            <div style={{ fontSize: '11px', color: '#718096', marginTop: '4px' }}>{t('common.kpi')}: {topic.kpi}</div>
+                                            <div style={{ fontWeight: 700, color: '#1a202c' }}>{getTranslatedTopicTitle(topic.title)}</div>
+                                            <div style={{ fontSize: '11px', color: '#718096', marginTop: '4px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
                                         </td>
                                         <td><span className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>{t(`phases.${topic.step.toLowerCase()}`)}</span></td>
                                         <td>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
