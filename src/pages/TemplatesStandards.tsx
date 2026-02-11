@@ -77,7 +77,7 @@ const seedOutcomes = (): PDCAOutcome[] => [
     },
     {
         ref: 'T-002',
-        title: 'Reduktion von Fehlern bei der Medikamentenabgabe',
+        title: 'Reduktion von Medikationsfehlern',
         owner: 'Dr. Elena Rossi',
         category: 'Medikamentensicherheit',
         location: 'Inselspital Bern (BE)',
@@ -307,6 +307,16 @@ const TemplatesStandards: React.FC = () => {
         return map[name] ? t(map[name]) : name;
     };
 
+    const getTranslatedTitle = (title: string) => {
+        const titleMap: Record<string, string> = {
+            'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
+            'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
+            'Reduktion von Fehlern bei der Medikamentenabgabe': 'Reduktion von Medikationsfehlern'
+        };
+        return titleMap[title] || title;
+    };
+
     const getTranslatedTag = (tag: string) => {
         const areas = ['nursing', 'surgery', 'emergency', 'inpatientWard', 'outpatientClinic', 'pharmacy', 'diagnostics', 'geriatrics', 'administration'];
         const scopes = ['process', 'clinicalGuide', 'policy', 'checklist', 'training', 'ehrConfiguration', 'infectionControl', 'preOpProtocols', 'sterilizationProcedures'];
@@ -326,7 +336,8 @@ const TemplatesStandards: React.FC = () => {
             'Infektionskontrolle': 'infectionControl',
             'Pflege': 'nursing',
             'Apotheke': 'pharmacy',
-            'Geriatrie': 'geriatrics'
+            'Geriatrie': 'geriatrics',
+            'Geriatrics Department': 'geriatrics'
         };
 
         const key = englishMap[tag] || tag.toLowerCase();
@@ -604,7 +615,7 @@ const TemplatesStandards: React.FC = () => {
                                             <tr key={outcome.ref} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                 <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>{outcome.ref}</td>
                                                 <td style={{ padding: '1rem' }}>
-                                                    <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>{outcome.title}</div>
+                                                    <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>{getTranslatedTitle(outcome.title)}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748b' }}>
                                                         {outcome.owner} · {getTranslatedCategory(outcome.category)} · {getTranslatedLocationName(outcome.location)}
                                                     </div>
