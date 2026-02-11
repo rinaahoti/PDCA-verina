@@ -236,20 +236,20 @@
         "custom": "Benutzerdefiniert"
     },
     "phases": {
-        "plan": "Plan",
-        "do": "Do",
-        "check": "Check",
-        "act": "Act",
+        "plan": "Planen",
+        "do": "Umsetzen",
+        "check": "Prüfen",
+        "act": "Handeln",
         "planningStrategy": "Planung & Strategie",
         "executionImplementation": "Umsetzung & Implementierung",
         "reviewVerification": "Überprüfung & Verifizierung",
         "actionStandardization": "Aktion & Standardisierung"
     },
     "pdca": {
-        "plan": "PLAN",
-        "do": "DO",
-        "check": "CHECK",
-        "act": "ACT",
+        "plan": "PLANEN",
+        "do": "UMSETZEN",
+        "check": "PRÜFEN",
+        "act": "HANDELN",
         "planDesc": "Planung & Strategie",
         "doDesc": "Umsetzung & Implementierung",
         "checkDesc": "Überprüfung & Verifizierung",

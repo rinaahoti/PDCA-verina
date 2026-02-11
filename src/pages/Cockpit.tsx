@@ -1671,7 +1671,7 @@ const Cockpit: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: 600, color: '#64748b' }}>{t('filters.status')}</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                            {['Monitoring', 'Critical', 'Warning', 'Done'].map(s => {
+                            {['Monitoring', 'Critical', 'Warning', 'Done'].filter(s => s !== 'Done').map(s => {
                                 const statusKey = s.toLowerCase();
                                 return (
                                     <button
@@ -1699,7 +1699,7 @@ const Cockpit: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontWeight: 600, color: '#64748b' }}>{t('filters.step')}</span>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                            {(['PLAN', 'DO', 'CHECK', 'ACT'] as Step[]).map(s => (
+                            {(['PLAN', 'DO', 'CHECK', 'ACT'] as Step[]).filter(s => s !== 'ACT').map(s => (
                                 <button
                                     key={s}
                                     onClick={() => toggleStep(s)}
