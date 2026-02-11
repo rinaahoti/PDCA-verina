@@ -58,57 +58,57 @@ const STORAGE_KEY_TEMPLATES = 'virena_templates';
 const seedOutcomes = (): PDCAOutcome[] => [
     {
         ref: 'T-001',
-        title: 'Reduction of Post-operative Infection Rates',
+        title: 'Reduktion postoperativer Infektionsraten',
         owner: 'Dr. Marcus Weber',
-        category: 'Patient Safety',
-        location: 'Basel',
+        category: 'Patientensicherheit',
+        location: 'Universitätsspital Basel (BS)',
         effectiveness: 'Effective',
         decision: 'Standardize',
-        scope: ['Surgery Department', 'Infection Control'],
-        areas: ['Pre-op protocols', 'Sterilization procedures'],
+        scope: ['Chirurgie', 'Infektionskontrolle'],
+        areas: ['Präoperative Protokolle', 'Sterilisationsverfahren'],
         kpi: [
-            { name: 'Infection Rate Reduction', target: 50, actual: 65, status: 'Achieved' }
+            { name: 'Infektionsraten-Reduktion', target: 50, actual: 65, status: 'Achieved' }
         ],
-        description: 'Implemented enhanced pre-operative protocols',
-        lessons: 'Early intervention and staff training critical',
+        description: 'Erweiterte präoperative Protokolle implementiert',
+        lessons: 'Frühzeitige Intervention und Schulung des Personals kritisch',
         signoff: { standardized: true, noPending: true, readyClose: true },
         standardId: 'STD-T-001',
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
     },
     {
         ref: 'T-002',
-        title: 'Medication Administration Error Reduction',
+        title: 'Reduktion von Fehlern bei der Medikamentenabgabe',
         owner: 'Dr. Elena Rossi',
-        category: 'Medication Safety',
-        location: 'Bern',
+        category: 'Medikamentensicherheit',
+        location: 'Inselspital Bern (BE)',
         effectiveness: 'Partially Effective',
         decision: 'Improve & Re-run',
-        scope: ['Nursing', 'Pharmacy'],
-        areas: ['Double-check procedures', 'Electronic verification'],
+        scope: ['Pflege', 'Apotheke'],
+        areas: ['Doppel-Check-Verfahren', 'Elektronische Verifizierung'],
         kpi: [
-            { name: 'Error Rate Reduction', target: 80, actual: 45, status: 'Partial' }
+            { name: 'Fehlerraten-Reduktion', target: 80, actual: 45, status: 'Partial' }
         ],
-        description: 'Piloted electronic verification system',
-        lessons: 'Technology adoption requires more training',
-        whyNot: 'Target not met; requires additional training cycles and system refinement before standardization',
+        description: 'Elektronisches Verifizierungssystem pilotiert',
+        lessons: 'Technologieeinführung erfordert mehr Schulung',
+        whyNot: 'Ziel nicht erreicht; erfordert zusätzliche Schulungszyklen und Systemverfeinerung vor der Standardisierung',
         signoff: { standardized: false, noPending: false, readyClose: false },
         createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
     },
     {
         ref: 'T-003',
-        title: 'Patient Fall Prevention Protocol Compliance',
+        title: 'Einhaltung des Sturzpräventionsprotokolls',
         owner: 'Sarah Johnson (RN)',
-        category: 'Patient Safety',
-        location: 'Basel',
+        category: 'Patientensicherheit',
+        location: 'Universitätsspital Basel (BS)',
         effectiveness: 'Effective',
         decision: 'Standardize',
-        scope: ['Nursing', 'Geriatrics'],
-        areas: ['Risk assessment', 'Environmental safety'],
+        scope: ['Pflege', 'Geriatrie'],
+        areas: ['Risikobewertung', 'Umgebungssicherheit'],
         kpi: [
-            { name: 'Fall Incident Reduction', target: 40, actual: 52, status: 'Achieved' }
+            { name: 'Sturzvorfall-Reduktion', target: 40, actual: 52, status: 'Achieved' }
         ],
-        description: 'Enhanced fall risk assessment and prevention measures',
-        lessons: 'Consistent application across all shifts essential',
+        description: 'Verbesserte Sturzrisikobewertung und Präventionsmaßnahmen',
+        lessons: 'Konsequente Anwendung über alle Schichten hinweg essenziell',
         signoff: { standardized: true, noPending: true, readyClose: true },
         standardId: 'STD-T-003',
         createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString()
@@ -118,18 +118,18 @@ const seedOutcomes = (): PDCAOutcome[] => [
 const seedTemplates = (): Template[] => [
     {
         id: 'STD-T-001',
-        title: 'Standard: Reduction of Post-operative Infection Rates',
+        title: 'Standard: Reduktion postoperativer Infektionsraten',
         kind: 'standard',
-        category: 'Patient Safety',
+        category: 'Patientensicherheit',
         step: 'ACT',
         status: 'Published',
         source: 'PDCA T-001'
     },
     {
         id: 'STD-T-003',
-        title: 'Standard: Patient Fall Prevention Protocol Compliance',
+        title: 'Standard: Einhaltung des Sturzpräventionsprotokolls',
         kind: 'standard',
-        category: 'Patient Safety',
+        category: 'Patientensicherheit',
         step: 'ACT',
         status: 'Published',
         source: 'PDCA T-003'
@@ -283,7 +283,9 @@ const TemplatesStandards: React.FC = () => {
     const getTranslatedCategory = (cat: string) => {
         const map: Record<string, string> = {
             'Patient Safety': 'templatesStandards.categories.patientSafety',
-            'Medication Safety': 'templatesStandards.categories.medicationSafety'
+            'Medication Safety': 'templatesStandards.categories.medicationSafety',
+            'Patientensicherheit': 'templatesStandards.categories.patientSafety',
+            'Medikamentensicherheit': 'templatesStandards.categories.medicationSafety'
         };
         return map[cat] ? t(map[cat]) : cat;
     };
@@ -294,11 +296,45 @@ const TemplatesStandards: React.FC = () => {
             'Bern': 'admin.inselspitalBern',
             'Zurich': 'admin.universityHospitalZurich',
             'Geneva': 'admin.genevaUniversityHospitals',
-            'Lausanne': 'admin.chuvLausanne'
+            'Lausanne': 'admin.chuvLausanne',
+            'Universitätsspital Basel (BS)': 'admin.universityHospitalBasel',
+            'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'Universitätsspital Zürich (ZH)': 'admin.universityHospitalZurich',
+            'Genfer Universitätsspitäler (GE)': 'admin.genevaUniversityHospitals',
+            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
+            'University Hospital Basel (BS)': 'admin.universityHospitalBasel'
         };
-        // Also map existing full names if they are stored that way? 
-        // Seed data uses short names like 'Basel'.
         return map[name] ? t(map[name]) : name;
+    };
+
+    const getTranslatedTag = (tag: string) => {
+        const areas = ['nursing', 'surgery', 'emergency', 'inpatientWard', 'outpatientClinic', 'pharmacy', 'diagnostics', 'geriatrics', 'administration'];
+        const scopes = ['process', 'clinicalGuide', 'policy', 'checklist', 'training', 'ehrConfiguration', 'infectionControl', 'preOpProtocols', 'sterilizationProcedures'];
+
+        const englishMap: Record<string, string> = {
+            'Nursing': 'nursing',
+            'Surgery Department': 'surgery',
+            'Emergency': 'emergency',
+            'Inpatient Ward': 'inpatientWard',
+            'Outpatient Clinic': 'outpatientClinic',
+            'Pharmacy': 'pharmacy',
+            'Diagnostics': 'diagnostics',
+            'Geriatrics': 'geriatrics',
+            'Administration': 'administration',
+            'Infection Control': 'infectionControl',
+            'Chirurgie': 'surgery',
+            'Infektionskontrolle': 'infectionControl',
+            'Pflege': 'nursing',
+            'Apotheke': 'pharmacy',
+            'Geriatrie': 'geriatrics'
+        };
+
+        const key = englishMap[tag] || tag.toLowerCase();
+
+        if (areas.includes(key)) return t(`pdca.areas.${key}`);
+        if (scopes.includes(key)) return t(`pdca.scopes.${key}`);
+
+        return tag;
     };
 
     const getTranslatedTemplateKind = (kind: string) => {
@@ -606,7 +642,7 @@ const TemplatesStandards: React.FC = () => {
                                                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                                         {outcome.scope.slice(0, 2).map((s, i) => (
                                                             <span key={i} style={{ padding: '2px 6px', background: '#f1f5f9', borderRadius: '4px', fontSize: '10px', color: '#64748b' }}>
-                                                                {s}
+                                                                {getTranslatedTag(s)}
                                                             </span>
                                                         ))}
                                                         {outcome.scope.length > 2 && <span style={{ fontSize: '10px', color: '#94a3b8' }}>+{outcome.scope.length - 2}</span>}

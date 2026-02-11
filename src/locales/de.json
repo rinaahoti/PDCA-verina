@@ -375,6 +375,9 @@
             "checklist": "Checkliste",
             "training": "Training",
             "ehrConfiguration": "KAS-Konfiguration",
+            "infectionControl": "Infektionskontrolle",
+            "preOpProtocols": "Präoperative Protokolle",
+            "sterilizationProcedures": "Sterilisationsverfahren",
             "other": "Sonstiges"
         },
         "areas": {
@@ -385,6 +388,7 @@
             "outpatientClinic": "Ambulanz",
             "pharmacy": "Apotheke",
             "diagnostics": "Diagnostik",
+            "geriatrics": "Geriatrie",
             "administration": "Verwaltung",
             "other": "Sonstiges"
         },

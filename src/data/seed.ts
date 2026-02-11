@@ -14,31 +14,31 @@ export const initialData = {
     topics: [
         {
             id: 'T-001',
-            title: 'Reduction of Post-operative Infection Rates',
+            title: 'Reduktion postoperativer Infektionsraten',
             ownerId: 'u1',
             responsibleId: 'u2',
             step: 'PLAN' as const,
             dueDate: '2026-03-28',
             status: 'Monitoring' as const,
             category: 'Clinical' as const,
-            location: 'University Hospital Zurich (ZH)',
-            kpi: 'Infection rate < 0.5%',
-            objective: 'Improve surgical outcome and patient safety through sterile protocol optimization.',
+            location: 'Universitätsspital Zürich (ZH)',
+            kpi: 'Infektionsrate < 0,5%',
+            objective: 'Verbesserung des chirurgischen Ergebnisses und der Patientensicherheit durch Optimierung der Sterilprotokolle.',
             history: [],
             plan: {
-                description: 'Current infection rate in Surgery Ward B is at 2.1%.',
-                asIs: 'Current surgical prep protocol is inconsistent across shifts. Hand hygiene compliance is at 75%. Documentation of sterile field setup is often missing.',
-                toBe: 'Standardized surgical prep protocol implemented hospital-wide. 100% hand hygiene compliance and digitized sterile checklist.',
-                rootCause: 'Inconsistent training for new surgical staff and manual documentation gaps.',
-                objectives: ['Implement digital sterile checklist', 'Conduct mandatory hygiene retraining']
+                description: 'Die aktuelle Infektionsrate auf der chirurgischen Station B liegt bei 2,1%.',
+                asIs: 'Das aktuelle Protokoll zur chirurgischen Vorbereitung ist über die Schichten hinweg inkonsistent. Die Einhaltung der Händehygiene liegt bei 75%. Die Dokumentation der Einrichtung des sterilen Feldes fehlt oft.',
+                toBe: 'Standardisiertes chirurgisches Vorbereitungsprotokoll krankenhausweit implementiert. 100%ige Einhaltung der Händehygiene und digitalisierte sterile Checkliste.',
+                rootCause: 'Inkonsistente Schulung für neues chirurgisches Personal und Lücken in der manuellen Dokumentation.',
+                objectives: ['Digitale sterile Checkliste implementieren', 'Verpflichtende Hygiene-Nachschulung durchführen']
             },
             do: {
                 checkDate: '2026-03-15',
                 actions: [
                     {
                         id: 'a-demo-001',
-                        title: 'Review Sterile Protocol Documentation',
-                        description: 'Audit current sterile field setup procedures and identify gaps in documentation.',
+                        title: 'Überprüfung der Sterilprotokoll-Dokumentation',
+                        description: 'Audit der aktuellen Verfahren zur Einrichtung des sterilen Feldes und Identifizierung von Lücken in der Dokumentation.',
                         assignments: [
                             { userId: 'u1', userName: 'Dr. Elena Rossi', completed: false, completedAt: undefined }
                         ],
@@ -49,88 +49,88 @@ export const initialData = {
                     }
                 ]
             },
-            check: { kpiResults: '', effectivenessReview: '' },
-            act: { standardization: '', lessonsLearned: '' }
+            check: { kpis: [], kpiResults: '', effectivenessReview: '', kpiEvaluations: [] },
+            act: { lessonsLearned: '' }
         },
         {
             id: 'T-002',
-            title: 'Medication Administration Error Reduction',
+            title: 'Reduktion von Fehlern bei der Medikamentenabgabe',
             ownerId: 'u1',
             responsibleId: 'u2',
             step: 'DO' as const,
             dueDate: '2025-01-01',
             status: 'Critical' as const,
             category: 'Patient Safety' as const,
-            location: 'Geneva University Hospitals (GE)',
-            kpi: 'Zero high-risk medication errors',
-            objective: 'Standardize the double-check process for high-risk medication delivery.',
+            location: 'Genfer Universitätsspitäler (GE)',
+            kpi: 'Null Hochrisiko-Medikationsfehler',
+            objective: 'Standardisierung des Doppel-Check-Prozesses für die Abgabe von Hochrisiko-Medikamenten.',
             history: [],
             plan: {
-                description: 'Three near-miss incidents reported in the last quarter regarding insulin dosages.',
-                asIs: 'Current double-check process is verbal and not consistently recorded. High-risk meds are stored next to routine medications.',
-                toBe: 'Barcode-assisted medication administration (BCMA) implemented in all wards. Separate storage for high-risk medications.',
-                rootCause: 'Lack of automated verification system and look-alike packaging.',
-                objectives: ['Install BCMA scanners', 'Redesign high-risk med storage']
+                description: 'Drei Beinahe-Fehler im letzten Quartal bezüglich der Insulindosierung gemeldet.',
+                asIs: 'Der aktuelle Doppel-Check-Prozess erfolgt mündlich und wird nicht konsistent aufgezeichnet. Hochrisikomedikamente werden neben Routinemedikamenten gelagert.',
+                toBe: 'Barcode-gestützte Medikamentenabgabe (BCMA) in allen Stationen implementiert. Getrennte Lagerung für Hochrisikomedikamente.',
+                rootCause: 'Fehlen eines automatisierten Verifizierungssystems und Verwechslungsgefahr bei der Verpackung.',
+                objectives: ['BCMA-Scanner installieren', 'Lagerung für Hochrisikomedikamente neu gestalten']
             },
             do: {
                 checkDate: '2025-01-10',
                 actions: [
                     {
                         id: 'a1',
-                        title: 'Design high-risk labeling system',
-                        description: 'Implement tall-man lettering and color-coded labels for all high-risk infusions.',
+                        title: 'Design eines Kennzeichnungssystems für Hochrisikomedikamente',
+                        description: 'Implementierung von "Tall-man"-Schrift und farbcodierten Etiketten für alle Hochrisiko-Infusionen.',
                         assignments: [{ userId: 'u3', userName: 'Sarah Johnson', completed: true }],
                         dueDate: '2025-01-02',
                         status: 'Done'
                     }
                 ]
             },
-            check: { kpiResults: '', effectivenessReview: '' },
-            act: { standardization: '', lessonsLearned: '' }
+            check: { kpis: [], kpiResults: '', effectivenessReview: '', kpiEvaluations: [] },
+            act: { lessonsLearned: '' }
         },
         {
             id: 'T-003',
-            title: 'Patient Fall Prevention Protocol Compliance',
+            title: 'Einhaltung des Sturzpräventionsprotokolls',
             ownerId: 'u1',
             responsibleId: 'u4',
             step: 'DO' as const,
             dueDate: '2024-03-01',
             status: 'Critical' as const,
             category: 'Nursing' as const,
-            kpi: '100% compliance with fall risk assessments',
-            objective: 'Ensure every patient has a validated fall risk assessment within 2 hours of admission.',
+            kpi: '100% Einhaltung der Sturzrisikobewertung',
+            objective: 'Sicherstellung, dass jeder Patient innerhalb von 2 Stunden nach der Aufnahme eine validierte Sturzrisikobewertung erhält.',
             // Audit Fields
             type: 'Audit Finding',
             rating: 'Major',
-            location: 'University Hospital Basel (BS)',
-            auditReference: 'Patient Safety Standard 4.1',
+            location: 'Universitätsspital Basel (BS)',
+            auditReference: 'Patientensicherheitsstandard 4.1',
             auditType: 'Internal',
             history: [],
             plan: {
-                description: 'Audit showed 30% of admissions lacked completed fall risk scores.',
-                rootCause: 'Admission workflow does not mandate the score before bed assignment.',
-                objectives: ['Update EHR admission template', 'Train nursing staff on Morse Fall Scale']
+                description: 'Das Audit ergab, dass bei 30 % der Aufnahmen die Sturzrisikobewertung fehlte.',
+                rootCause: 'Der Aufnahmeprozess schreibt die Bewertung vor der Bettenzuweisung nicht zwingend vor.',
+                objectives: ['EHR-Aufnahmevorlage aktualisieren', 'Schulung des Pflegepersonals zur Morse-Sturz-Skala']
             },
             do: { actions: [], checkDate: '' },
-            check: { kpiResults: '', effectivenessReview: '' },
-            act: { standardization: '', lessonsLearned: '' }
+            check: { kpis: [], kpiResults: '', effectivenessReview: '', kpiEvaluations: [] },
+            act: { lessonsLearned: '' }
         }
     ],
     todos: [
         {
             id: 'TD-001',
-            title: 'Audit Sterile Field Documentation',
+            title: 'Prüfprotokoll Dokumentation sterile Felder',
             topicId: 'T-001',
-            topicTitle: 'Reduction of Post-operative Infection Rates',
+            topicTitle: 'Reduktion postoperativer Infektionsraten',
             step: 'PLAN' as const,
             status: 'Monitoring' as const,
             dueDate: '2026-02-15'
         },
         {
             id: 'TD-002',
-            title: 'Validate Barcode Scanner Calibration',
+            title: 'Validierung der Barcode-Scanner-Kalibrierung',
             topicId: 'T-002',
-            topicTitle: 'Medication Administration Error Reduction',
+            topicTitle: 'Reduktion von Fehlern bei der Medikamentenabgabe',
             step: 'DO' as const,
             status: 'Critical' as const,
             dueDate: '2025-01-05'
