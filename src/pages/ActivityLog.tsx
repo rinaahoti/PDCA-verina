@@ -28,10 +28,20 @@ const ActivityLog: React.FC = () => {
     const getTranslatedLocationName = (name: string) => {
         const map: Record<string, string> = {
             'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
+            'University Hospital Zurich': 'admin.universityHospitalZurich',
+            'Zurich': 'admin.zurich',
             'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
+            'Geneva University Hospitals': 'admin.genevaUniversityHospitals',
+            'Geneva': 'admin.geneva',
             'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'Inselspital Bern': 'admin.inselspitalBern',
+            'Bern': 'admin.bern',
             'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
-            'CHUV Lausanne (VD)': 'admin.chuvLausanne'
+            'University Hospital Basel': 'admin.universityHospitalBasel',
+            'Basel': 'admin.basel',
+            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
+            'CHUV Lausanne': 'admin.chuvLausanne',
+            'Lausanne': 'admin.lausanne'
         };
         return map[name] ? t(map[name]) : name;
     };
@@ -43,42 +53,82 @@ const ActivityLog: React.FC = () => {
             'Surgery Department': 'admin.surgeryDepartment',
             'Main Pharmacy': 'admin.mainPharmacy',
             'Infectious Diseases': 'admin.infectiousDiseases',
-            'Emergency Medicine': 'admin.emergencyMedicine'
+            'Emergency Medicine': 'admin.emergencyMedicine',
+            'Clinical Compliance': 'admin.clinicalCompliance',
+            'Compliance & Ethics': 'admin.complianceEthics',
+            'Nursing': 'admin.nursing'
         };
         return map[name] ? t(map[name]) : name;
     };
 
     // Helper to translate activity messages
     const translateActivityMessage = (message: string) => {
-        // Topic Created
+        // New Clinical Staff
+        if (message.includes('New clinical staff registered')) return t('activityLog.messages.newClinicalStaff');
+
+        // Site Visit
+        if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
+
+        // Topic Moved Check
+        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/);
+        if (topicCheck) return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(topicCheck[2]) });
+
+        // Topic Moved Act
+        const topicAct = message.match(/PDCA topic moved to ACT phase [-–] (.*)/);
+        if (topicAct) return t('activityLog.messages.topicMovedAct', { location: getTranslatedLocationName(topicAct[1]) });
+
+        // Dept Created - Specific format "Department created: Name"
+        const deptCreatedSpecific = message.match(/^Department created: (.*)$/);
+        if (deptCreatedSpecific) return t('activityLog.messages.deptCreated', { name: getTranslatedDepartmentName(deptCreatedSpecific[1]) });
+
+        // Loc Added
+        const locAdded = message.match(/^Location added: (.*)$/);
+        if (locAdded) return t('activityLog.messages.locAdded', { name: getTranslatedLocationName(locAdded[1]) });
+
+        // Audit Completed
+        const auditComp = message.match(/Clinical audit completed [-–] (.*)/);
+        if (auditComp) return t('activityLog.messages.auditCompleted', { location: getTranslatedLocationName(auditComp[1]) });
+
+        // Profile Updated
+        if (message.includes('Clinical profile updated')) return t('activityLog.messages.profileUpdated');
+
+        // Incident Reported
+        const incident = message.match(/Patient safety incident reported [-–] (.*)/);
+        if (incident) return t('activityLog.messages.incidentReported', { location: getTranslatedLocationName(incident[1]) });
+
+        // New Clinical PDCA
+        const newPdca = message.match(/New Clinical PDCA: (.*)/);
+        if (newPdca) return t('activityLog.messages.newClinicalPdca', { topic: newPdca[1] });
+
+        // Original Topic Created
         const topicCreatedMatch = message.match(/^New PDCA Topic (.*?) created$/);
         if (topicCreatedMatch) return t('activityLog.messages.topicCreated', { id: topicCreatedMatch[1] });
 
-        // Topic Moved
+        // Original Topic Moved (Generic)
         const topicMovedMatch = message.match(/^Topic (.*?) moved to (.*?) phase$/);
         if (topicMovedMatch) return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: topicMovedMatch[2] });
 
-        // Location Created
+        // Original Location Created
         const locCreatedMatch = message.match(/^Location (.*?) created$/);
         if (locCreatedMatch) return t('activityLog.messages.locationCreated', { name: getTranslatedLocationName(locCreatedMatch[1]) });
 
-        // Location Updated
+        // Original Location Updated
         const locUpdatedMatch = message.match(/^Location (.*?) updated$/);
         if (locUpdatedMatch) return t('activityLog.messages.locationUpdated', { name: getTranslatedLocationName(locUpdatedMatch[1]) });
 
-        // Location Deleted
+        // Original Location Deleted
         const locDeletedMatch = message.match(/^Location (.*?) deleted$/);
         if (locDeletedMatch) return t('activityLog.messages.locationDeleted', { name: getTranslatedLocationName(locDeletedMatch[1]) });
 
-        // Department Created
+        // Original Department Created (Generic)
         const depCreatedMatch = message.match(/^Department (.*?) created$/);
         if (depCreatedMatch) return t('activityLog.messages.departmentCreated', { name: getTranslatedDepartmentName(depCreatedMatch[1]) });
 
-        // Department Updated
+        // Original Department Updated
         const depUpdatedMatch = message.match(/^Department (.*?) updated$/);
         if (depUpdatedMatch) return t('activityLog.messages.departmentUpdated', { name: getTranslatedDepartmentName(depUpdatedMatch[1]) });
 
-        // Department Deleted
+        // Original Department Deleted
         const depDeletedMatch = message.match(/^Department (.*?) deleted$/);
         if (depDeletedMatch) return t('activityLog.messages.departmentDeleted', { name: getTranslatedDepartmentName(depDeletedMatch[1]) });
 
@@ -170,9 +220,15 @@ const ActivityLog: React.FC = () => {
         const diffInMins = Math.floor(diffInMs / (1000 * 60));
         const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
 
-        if (diffInMins < 1) return t('common.justNow') || 'Just now';
-        if (diffInMins < 60) return `${diffInMins}m ${t('common.ago') || 'ago'}`;
-        if (diffInHours < 24) return `${diffInHours}h ${t('common.ago') || 'ago'}`;
+        if (diffInMins < 1) return t('common.justNow') || 'Gerade eben';
+
+        if (language === 'de') {
+            if (diffInMins < 60) return `vor ${diffInMins}m`;
+            if (diffInHours < 24) return `vor ${diffInHours}h`;
+        } else {
+            if (diffInMins < 60) return `${diffInMins}m ${t('common.ago') || 'ago'}`;
+            if (diffInHours < 24) return `${diffInHours}h ${t('common.ago') || 'ago'}`;
+        }
         return date.toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
