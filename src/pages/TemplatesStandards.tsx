@@ -611,31 +611,32 @@ const TemplatesStandards: React.FC = () => {
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                        <span style={{
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
+                                                    <div style={{
+                                                        background: '#F8F9FA',
+                                                        borderLeft: `4px solid ${outcome.decision === 'Standardize' ? '#22C55E' : '#F59E0B'}`,
+                                                        padding: '10px 14px',
+                                                        borderRadius: '4px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '4px',
+                                                        width: '200px'
+                                                    }}>
+                                                        <div style={{
                                                             fontSize: '10px',
-                                                            fontWeight: 600,
-                                                            display: 'inline-block',
-                                                            width: 'fit-content',
-                                                            background: outcome.decision === 'Standardize' ? '#dcfce7' : outcome.decision === 'Improve & Re-run' ? '#fef3c7' : '#fee2e2',
-                                                            color: outcome.decision === 'Standardize' ? '#166534' : outcome.decision === 'Improve & Re-run' ? '#92400e' : '#991b1b'
+                                                            fontWeight: 700,
+                                                            color: '#64748B',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.05em'
                                                         }}>
                                                             {getTranslatedDecision(outcome.decision)}
-                                                        </span>
-                                                        <span style={{
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '10px',
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '14px',
                                                             fontWeight: 600,
-                                                            display: 'inline-block',
-                                                            width: 'fit-content',
-                                                            background: outcome.effectiveness === 'Effective' ? '#dcfce7' : outcome.effectiveness === 'Partially Effective' ? '#fef3c7' : '#fee2e2',
-                                                            color: outcome.effectiveness === 'Effective' ? '#166534' : outcome.effectiveness === 'Partially Effective' ? '#92400e' : '#991b1b'
+                                                            color: '#334155'
                                                         }}>
                                                             {getTranslatedEffectiveness(outcome.effectiveness)}
-                                                        </span>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} {t('templatesStandards.badges.achieved')}</td>
