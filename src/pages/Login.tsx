@@ -30,7 +30,7 @@ const Login: React.FC = () => {
                         <label>{t('auth.email')}</label>
                         <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
                     </div>
-                    <button type="submit" className="btn" style={{ width: '100%', marginTop: '1.5rem', padding: '0.75rem', justifyContent: 'center', background: '#5FAE9E', color: '#cbeee2', border: 'none' }}>{t('auth.signIn')}</button>
+                    <button type="submit" className="btn" style={{ width: '100%', marginTop: '1.5rem', padding: '0.75rem', justifyContent: 'center', background: '#5FAE9E', color: '#ffffff', border: 'none' }}>{t('auth.signIn')}</button>
                 </form>
             </div>
         </div>
@@ -38,3 +38,5 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+
+//#5FAE9E

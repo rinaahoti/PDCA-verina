@@ -14,7 +14,7 @@ interface ShellProps {
 export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { t } = useLanguage();
+    const { t, language, setLanguage } = useLanguage();
 
     return (
         <div className="app-shell">
@@ -90,14 +90,115 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
                         {t('header.breadcrumb')}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <LanguageSwitcher />
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontWeight: 600, fontSize: '14px' }}>{user.name}</div>
-                            <div className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary-dark)' }}>{t('roles.' + user.role.toLowerCase())}</div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1.5rem',
+                        background: 'white',
+                        padding: '0.5rem 1.5rem',
+                        borderRadius: '12px',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                    }}>
+                        {/* Language Switcher */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{
+                                width: '32px', height: '32px', borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#64748B'
+                            }}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                </svg>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <button
+                                    onClick={() => setLanguage('en')}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        padding: '4px 2px',
+                                        fontSize: '14px',
+                                        fontWeight: language === 'en' ? 700 : 400,
+                                        color: language === 'en' ? '#3e4c5a' : '#94a3b8',
+                                        borderBottom: language === 'en' ? '2px solid #5FAE9E' : '2px solid transparent',
+                                        cursor: 'pointer',
+                                        fontFamily: 'Inter, sans-serif'
+                                    }}
+                                >
+                                    EN
+                                </button>
+                                <button
+                                    onClick={() => setLanguage('de')}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        padding: '4px 2px',
+                                        fontSize: '14px',
+                                        fontWeight: language === 'de' ? 700 : 400,
+                                        color: language === 'de' ? '#3e4c5a' : '#94a3b8',
+                                        borderBottom: language === 'de' ? '2px solid #5FAE9E' : '2px solid transparent',
+                                        cursor: 'pointer',
+                                        fontFamily: 'Inter, sans-serif'
+                                    }}
+                                >
+                                    DE
+                                </button>
+                            </div>
                         </div>
-                        <button className="btn btn-outline" onClick={() => { localStorage.removeItem('mso_v5_user'); window.location.href = '/login'; }}>
-                            <LogOut size={16} /> {t('header.signOut')}
+
+                        {/* Divider */}
+                        <div style={{ width: '1px', height: '24px', background: '#E2E8F0' }}></div>
+
+                        {/* User Profile */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                background: '#5FAE9E',
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                fontWeight: 700,
+                                boxShadow: '0 4px 6px -1px rgba(95, 174, 158, 0.3)'
+                            }}>
+                                {user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 600, color: '#334155', lineHeight: '1.2' }}>{user.name}</span>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#424b55', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{user.role}</span>
+                            </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div style={{ width: '1px', height: '24px', background: '#E2E8F0' }}></div>
+
+                        {/* Logout */}
+                        <button
+                            onClick={() => { localStorage.removeItem('mso_v5_user'); window.location.href = '/login'; }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#64748B',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                cursor: 'pointer',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.background = '#FEF2F2'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.background = 'none'; }}
+                        >
+                            <LogOut size={16} />
+                            {t('header.signOut')}
                         </button>
                     </div>
                 </header>

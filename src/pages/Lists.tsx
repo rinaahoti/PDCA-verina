@@ -26,7 +26,9 @@ const Lists: React.FC = () => {
         const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
         const matchesStep = filterStep === 'ALL' || t.step === filterStep;
         const matchesOwner = filterOwner !== 'me' || t.ownerId === user?.id;
-        return matchesSearch && matchesStep && matchesOwner;
+        const isNotDone = t.status !== 'Done';
+        const isNotAct = t.step !== 'ACT';
+        return matchesSearch && matchesStep && matchesOwner && isNotDone && isNotAct;
     });
 
     const clearFilters = () => {
@@ -69,7 +71,7 @@ const Lists: React.FC = () => {
 
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <select
-                        style={{ width: '160px' }}
+                        style={{ width: '160px', padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc' }}
                         value={filterStep}
                         onChange={e => setSearchParams(prev => {
                             if (e.target.value === 'ALL') prev.delete('step');
@@ -81,7 +83,6 @@ const Lists: React.FC = () => {
                         <option value="PLAN">{t('pdca.plan')}</option>
                         <option value="DO">{t('pdca.do')}</option>
                         <option value="CHECK">{t('pdca.check')}</option>
-                        <option value="ACT">{t('pdca.act')}</option>
                     </select>
 
                     <button

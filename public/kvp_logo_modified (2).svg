@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+
+  <!-- Three lines dividing the circle into 3 sections -->
+  <!-- Line from top to center -->
+  <line x1="100" y1="15" x2="100" y2="100" stroke="#5FAE9E" stroke-width="12" stroke-opacity="1"/>
+  
+  <!-- K - Left of top line (moved further left horizontally, slightly down) -->
+  <text x="45" y="75" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="#5FAE9E" text-anchor="middle" dominant-baseline="middle">K</text>
+  
+  <!-- Line from center to bottom-left -->
+  <line x1="100" y1="100" x2="26" y2="160" stroke="#5FAE9E" stroke-width="12" stroke-opacity="1"/>
+  
+  <!-- V - Right of top line (moved further right horizontally, slightly down) -->
+  <text x="155" y="75" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="#5FAE9E" text-anchor="middle" dominant-baseline="middle">V</text>
+  
+  <!-- Line from center to bottom-right -->
+  <line x1="100" y1="100" x2="174" y2="160" stroke="#5FAE9E" stroke-width="12" stroke-opacity="1"/>
+  
+  <!-- P - Below center, between bottom lines (moved further from center) -->
+  <text x="100" y="155" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="#5FAE9E" text-anchor="middle" dominant-baseline="middle">P</text>
+
+
+</svg>

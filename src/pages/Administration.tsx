@@ -241,7 +241,7 @@ const Administration: React.FC = () => {
                     <div>
                         <div style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{t('admin.locations')}</h3>
-                            <button className="btn" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                            <button className="btn" onClick={() => { setEditingLoc({}); setLocModalOpen(true); }} style={{ display: 'flex', gap: '6px', background: '#b3d8d8', color: '#424b55' }}>
                                 <Plus size={16} /> {t('admin.addLocation')}
                             </button>
                         </div>
@@ -313,7 +313,7 @@ const Administration: React.FC = () => {
                                             {isExpanded && (
                                                 <button
                                                     className="btn"
-                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55' }}
                                                     onClick={(e) => { e.stopPropagation(); onAddDepartment(loc.id); }}
                                                 >
                                                     <Plus size={14} /> {t('admin.addDepartment')}
@@ -401,7 +401,7 @@ const Administration: React.FC = () => {
                                             {isExpanded && (
                                                 <button
                                                     className="btn"
-                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}
+                                                    style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55' }}
                                                     onClick={(e) => { e.stopPropagation(); onAddUser(loc.id); }}
                                                 >
                                                     <Plus size={14} /> {t('admin.addUser')}
@@ -544,7 +544,7 @@ const Administration: React.FC = () => {
                                             <Building2 size={18} style={{ color: '#64748b' }} />
                                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{t('admin.departments')}</h3>
                                         </div>
-                                        <button onClick={() => onAddDepartment()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                                        <button onClick={() => onAddDepartment()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55' }}>
                                             <Plus size={14} /> {t('admin.addDepartment')}
                                         </button>
                                     </div>
@@ -594,7 +594,7 @@ const Administration: React.FC = () => {
                                             <Users size={18} style={{ color: '#64748b' }} />
                                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>{t('admin.tabUsers')}</h3>
                                         </div>
-                                        <button onClick={() => onAddUser()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55', border: '1px solid #424b55' }}>
+                                        <button onClick={() => onAddUser()} className="btn" style={{ fontSize: '12px', padding: '6px 12px', background: '#b3d8d8', color: '#424b55' }}>
                                             <Plus size={14} /> {t('admin.addUser')}
                                         </button>
                                     </div>

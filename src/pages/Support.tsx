@@ -47,16 +47,6 @@ const Support: React.FC = () => {
         alert('Message sent successfully!');
     };
 
-    const downloadPDF = () => {
-        const content = "VIRENA v1.0 User Guide\n\nThis is a placeholder for the PDF manual.";
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'VIRENA_Guide.pdf';
-        a.click();
-    };
-
     const PDCA_CARDS = [
         { title: 'Plan', desc: 'Define objectives, identify problems, and develop action plans.', icon: <FileText size={18} color="#3b82f6" /> },
         { title: 'Do', desc: 'Implement the planned actions and collect data.', icon: <Zap size={18} color="#f59e0b" /> },
@@ -65,7 +55,6 @@ const Support: React.FC = () => {
     ];
 
     const RESOURCES = [
-        { title: 'Complete User Manual (PDF)', desc: 'Comprehensive guide for all features', icon: <Book size={20} color="#64748b" /> },
         { title: 'Video Tutorials', desc: 'Step-by-step video guides', icon: <PlayCircle size={20} color="#64748b" /> },
         { title: 'Best Practices Guide', desc: 'Tips for effective PDCA implementation', icon: <Download size={20} color="#64748b" /> },
     ];
@@ -184,7 +173,7 @@ const Support: React.FC = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {[
                             { q: 'How do I change the status of a measure?', a: 'Only the OWNER or ASSIGNED user can change statuses. Navigate to the measure detail and use the step progression buttons.' },
-                            { q: 'Can I export the data?', a: 'Yes, role-based export options are available in the Lists view for XLSX and PDF formats.' },
+                            { q: 'Can I export the data?', a: 'Yes, role-based export options are available in the Lists view for XLSX format.' },
                             { q: 'What determines the Critical status?', a: 'A measure automatically becomes Critical if its due date has passed and it is not yet marked as Done.' },
                             { q: 'How do I delete a measure?', a: 'Measures can only be archived or deleted by users with Administrator privileges to maintain audit history.' },
                         ].map((faq, i) => (

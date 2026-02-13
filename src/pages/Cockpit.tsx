@@ -8,6 +8,8 @@ import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, nor
 import { useLanguage } from '../contexts/LanguageContext';
 
 
+import { generatePDCAPdf } from '../utils/pdfGenerator';
+
 const Cockpit: React.FC = () => {
     const { t, language } = useLanguage();
     const navigate = useNavigate();
@@ -19,6 +21,7 @@ const Cockpit: React.FC = () => {
     const [todos, setTodos] = useState<ToDo[]>([]);
     const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
     const [viewingStep, setViewingStep] = useState<Step>('PLAN');
+    const [showPdfModal, setShowPdfModal] = useState(false);
 
     // Create Mode State
     const [createState, setCreateState] = useState({
@@ -137,6 +140,7 @@ const Cockpit: React.FC = () => {
     const myActions = topics.flatMap(t =>
         (t.do?.actions || [])
             .filter(a => a.assignments?.some((assign: any) => assign.userId === user?.id))
+            .filter(a => a.status !== 'Done') // Filter out Done actions to show only active executions
             .map(a => ({
                 ...a,
                 topicId: t.id,
@@ -151,7 +155,12 @@ const Cockpit: React.FC = () => {
         const isOwner = t.ownerId === user?.id;
         const matchesStatus = statusFilter.length === 0 || statusFilter.includes(t.status);
         const matchesStep = stepFilter.length === 0 || stepFilter.includes(t.step);
-        return isOwner && matchesStatus && matchesStep;
+
+        // Filter out Done status and ACT phase as requested for this view
+        const isNotDone = t.status !== 'Done';
+        const isNotAct = t.step !== 'ACT';
+
+        return isOwner && matchesStatus && matchesStep && isNotDone && isNotAct;
     });
 
     const toggleStatus = (status: string) => {
@@ -604,7 +613,7 @@ const Cockpit: React.FC = () => {
                                             rows={4}
                                             value={createState.objective || ''}
                                             onChange={e => setCreateState({ ...createState, objective: e.target.value })}
-                                            placeholder={t('pdca.purpose') + "..."}
+                                            placeholder={t('pdca.purposePlaceholder')}
                                         />
                                     </div>
 
@@ -614,7 +623,7 @@ const Cockpit: React.FC = () => {
                                             rows={4}
                                             value={createState.description || ''}
                                             onChange={e => setCreateState({ ...createState, description: e.target.value })}
-                                            placeholder={t('pdca.cycle') + "..."}
+                                            placeholder={t('pdca.cyclePlaceholder')}
                                         />
                                     </div>
 
@@ -664,18 +673,7 @@ const Cockpit: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         {isSaved && <span style={{ color: 'var(--color-status-green)', fontWeight: 700, fontSize: '12px' }}>{t('pdca.saveSaved')}</span>}
-                        {emailStatus.show && (
-                            <span style={{
-                                color: emailStatus.success ? 'var(--color-status-green)' : 'var(--color-status-yellow)',
-                                fontWeight: 700,
-                                fontSize: '12px',
-                                padding: '6px 12px',
-                                background: emailStatus.success ? '#dcfce7' : '#fef9c3',
-                                border: emailStatus.success ? '1px solid #86efac' : '1px solid #fcd34d'
-                            }}>
-                                {emailStatus.message.replace('email(s) sent successfully', t('pdca.emailSentSuccess').replace('{{count}}', '')).replace('email(s) failed to send', t('pdca.emailSentFailed').replace('{{count}}', '')).replace('Email service unavailable', t('pdca.emailServiceUnavailable'))}
-                            </span>
-                        )}
+                        {/* Email status notification removed as per user request */}
                         <span className="badge" style={{ ...getStatusBadgeStyle(selectedTopic.status), padding: '6px 12px' }}>{getStatusLabel(t, selectedTopic.status).toUpperCase()}</span>
                     </div>
                 </div>
@@ -831,7 +829,7 @@ const Cockpit: React.FC = () => {
                                                 rows={4}
                                                 value={formState.objective || ''}
                                                 onChange={e => setFormState({ ...formState, objective: e.target.value })}
-                                                placeholder={t('pdca.purpose') + "..."}
+                                                placeholder={t('pdca.purposePlaceholder')}
                                                 disabled={selectedTopic.status === 'Done'}
                                             />
                                         </div>
@@ -843,7 +841,7 @@ const Cockpit: React.FC = () => {
                                                 rows={4}
                                                 value={formState.description || ''}
                                                 onChange={e => setFormState({ ...formState, description: e.target.value })}
-                                                placeholder={t('pdca.cycle') + "..."}
+                                                placeholder={t('pdca.cyclePlaceholder')}
                                                 disabled={selectedTopic.status === 'Done'}
                                             />
                                         </div>
@@ -1260,7 +1258,7 @@ const Cockpit: React.FC = () => {
                                                                         updated[idx].name = e.target.value;
                                                                         setFormState({ ...formState, kpiEvaluations: updated });
                                                                     }}
-                                                                    placeholder="e.g. Reduce Defect Rate"
+                                                                    placeholder={t('pdca.kpiPlaceholder')}
                                                                     style={{ width: '100%', padding: '6px', fontSize: '13px', fontWeight: 600, border: '1px solid #cbd5e1', borderRadius: '4px' }}
                                                                 />
                                                             </div>
@@ -1274,7 +1272,7 @@ const Cockpit: React.FC = () => {
                                                                         updated[idx].targetValue = e.target.value;
                                                                         setFormState({ ...formState, kpiEvaluations: updated });
                                                                     }}
-                                                                    placeholder="e.g. < 5%"
+                                                                    placeholder={t('pdca.targetPlaceholder')}
                                                                     style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
                                                                 />
                                                             </div>
@@ -1288,7 +1286,7 @@ const Cockpit: React.FC = () => {
                                                                         updated[idx].actualResult = e.target.value;
                                                                         setFormState({ ...formState, kpiEvaluations: updated });
                                                                     }}
-                                                                    placeholder="Current Value"
+                                                                    placeholder={t('pdca.actualPlaceholder')}
                                                                     style={{ width: '100%', padding: '6px', fontSize: '13px', border: '1px solid #cbd5e1', borderRadius: '4px' }}
                                                                 />
                                                             </div>
@@ -1504,7 +1502,11 @@ const Cockpit: React.FC = () => {
                                                         <input
                                                             type="checkbox"
                                                             checked={formState.actConfirmation?.standardized}
-                                                            onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, standardized: e.target.checked } })}
+                                                            onChange={e => {
+                                                                const checked = e.target.checked;
+                                                                setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, standardized: checked } });
+                                                                if (checked) setShowPdfModal(true);
+                                                            }}
                                                             disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                         />
                                                         {t('pdca.confirmStandardized')}
@@ -1551,6 +1553,53 @@ const Cockpit: React.FC = () => {
 
                     </div>
                 </div>
+                {showPdfModal && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                        <div style={{ background: 'white', padding: '2.5rem', borderRadius: '12px', width: '500px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                            <div style={{ width: '64px', height: '64px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+                                <CheckCircle2 size={32} color="#10b981" strokeWidth={3} />
+                            </div>
+
+                            <h2 style={{ margin: '0 0 1rem 0', color: '#1e293b', fontSize: '1.5rem', fontWeight: 700 }}>
+                                Export PDCA Process to PDF?
+                            </h2>
+
+                            <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+                                The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?
+                            </p>
+
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <button
+                                    onClick={() => setShowPdfModal(false)}
+                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+                                >
+                                    Not Now
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        // Merge current form state into topic for PDF generation to ensure latest edits are included
+                                        const topicForPdf = {
+                                            ...selectedTopic,
+                                            plan: { ...selectedTopic.plan, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, description: formState.description },
+                                            do: { ...selectedTopic.do, actions: formState.actions, checkDate: formState.checkDate },
+                                            check: { ...selectedTopic.check, effectivenessStatus: formState.effectivenessStatus, kpiEvaluations: formState.kpiEvaluations, effectivenessReview: formState.effectivenessReview },
+                                            act: { ...selectedTopic.act, actOutcome: formState.actOutcome, lessonsLearned: formState.lessonsLearned }
+                                        };
+                                        generatePDCAPdf(topicForPdf);
+                                        setShowPdfModal(false);
+                                    }}
+                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+                                >
+                                    Yes, Generate PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div >
         );
     }
@@ -1561,7 +1610,23 @@ const Cockpit: React.FC = () => {
             <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pdca.myToDos')}</h3>
-                    <div className="badge" style={{ background: '#435ebe22', color: 'var(--color-primary)' }}>{myToDos.length} {t('common.activeTasks')}</div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#334155',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAE9E' }}></div>
+                        {myToDos.length} {t('common.activeTasks')}
+                    </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: '1000px' }}>
@@ -1588,7 +1653,7 @@ const Cockpit: React.FC = () => {
                                         </td>
                                         <td style={{ fontWeight: 600, color: '#1a202c' }}>{getTranslatedTaskTitle(todo.title)}</td>
                                         <td style={{ color: '#4a5568', fontSize: '13px' }}>{getTranslatedTopicTitle(todo.topicTitle)}</td>
-                                        <td><span className="badge" style={{ background: '#f1f5f9', color: '#475569' }}>{t(`phases.${todo.step.toLowerCase()}`)}</span></td>
+                                        <td>{t(`phases.${todo.step.toLowerCase()}`).toUpperCase()}</td>
                                         <td style={{ color: todo.status === 'Critical' ? 'var(--color-status-red)' : 'inherit', fontWeight: todo.status === 'Critical' ? 600 : 400 }}>
                                             {new Date(todo.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}
                                         </td>
@@ -1604,7 +1669,23 @@ const Cockpit: React.FC = () => {
             <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem' }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pdca.myActions')}</h3>
-                    <div className="badge" style={{ background: '#ecfccb', color: '166534' }}>{myActions.length} {t('common.assignments')}</div>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: '#334155',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                    }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAE9E' }}></div>
+                        {myActions.length} {t('common.assignments')}
+                    </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: '1000px' }}>
@@ -1784,7 +1865,7 @@ const Cockpit: React.FC = () => {
                                             <div style={{ fontWeight: 700, color: '#1a202c' }}>{getTranslatedTopicTitle(topic.title)}</div>
                                             <div style={{ fontSize: '11px', color: '#718096', marginTop: '4px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
                                         </td>
-                                        <td><span className="badge" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>{t(`phases.${topic.step.toLowerCase()}`)}</span></td>
+                                        <td>{t(`phases.${topic.step.toLowerCase()}`).toUpperCase()}</td>
                                         <td>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
                                         <td style={{ fontSize: '13px', fontWeight: 500 }}>{topic.ownerName || 'Elena Rossi'}</td>
                                     </tr>

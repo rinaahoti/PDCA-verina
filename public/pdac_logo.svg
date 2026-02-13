@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70" width="70" height="70">
+  <!-- Dividing lines -->
+  <line x1="35" y1="3" x2="35" y2="67" stroke="#5FAE9E" stroke-width="4.5"/>
+  <line x1="3" y1="35" x2="67" y2="35" stroke="#5FAE9E" stroke-width="4.5"/>
+  
+  <!-- Letters -->
+  <!-- P - Top Left -->
+  <text x="17.5" y="24.5" font-family="Arial, sans-serif" font-size="14.5" font-weight="bold" fill="#5FAE9E" text-anchor="middle">P</text>
+  
+  <!-- D - Top Right -->
+  <text x="52.5" y="24.5" font-family="Arial, sans-serif" font-size="14.5" font-weight="bold" fill="#5FAE9E" text-anchor="middle">D</text>
+  
+  <!-- A - Bottom Left (SWAPPED) -->
+  <text x="17.5" y="53" font-family="Arial, sans-serif" font-size="14.5" font-weight="bold" fill="#5FAE9E" text-anchor="middle">A</text>
+  
+  <!-- C - Bottom Right (SWAPPED) -->
+  <text x="52.5" y="53" font-family="Arial, sans-serif" font-size="14.5" font-weight="bold" fill="#5FAE9E" text-anchor="middle">C</text>
+</svg>

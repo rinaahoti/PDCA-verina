@@ -125,7 +125,11 @@ const ActivityLog: React.FC = () => {
 
         // Original Topic Moved (Generic)
         const topicMovedMatch = message.match(/^Topic (.*?) moved to (.*?) phase$/);
-        if (topicMovedMatch) return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: topicMovedMatch[2] });
+        if (topicMovedMatch) {
+            const phaseKey = topicMovedMatch[2].toLowerCase();
+            const translatedPhase = t(`pdca.${phaseKey}`);
+            return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: translatedPhase });
+        }
 
         // Original Location Created
         const locCreatedMatch = message.match(/^Location (.*?) created$/);

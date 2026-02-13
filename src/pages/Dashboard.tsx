@@ -224,7 +224,11 @@ export default function Dashboard() {
 
         // Topic Moved
         const topicMovedMatch = message.match(/^Topic (.*?) moved to (.*?) phase$/);
-        if (topicMovedMatch) return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: topicMovedMatch[2] });
+        if (topicMovedMatch) {
+            const phaseKey = topicMovedMatch[2].toLowerCase();
+            const translatedPhase = t(`pdca.${phaseKey}`);
+            return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: translatedPhase });
+        }
 
         // Location Created
         const locCreatedMatch = message.match(/^Location (.*?) created$/);
@@ -808,7 +812,7 @@ export default function Dashboard() {
                                     const phases = ['PLAN', 'DO', 'CHECK', 'ACT'];
                                     for (const phase of phases) {
                                         if (activity.message.includes(phase)) {
-                                            return <span style={{ background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>{phase}</span>;
+                                            return <span style={{ background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>{t(`pdca.${phase.toLowerCase()}`)}</span>;
                                         }
                                     }
                                 }

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-// --- TYPES ---
+// --- TYPES --- 
 
 type EffectivenessStatus = 'Effective' | 'Partially Effective' | 'Not Effective';
 type DecisionType = 'Standardize' | 'Improve & Re-run' | 'Close';
