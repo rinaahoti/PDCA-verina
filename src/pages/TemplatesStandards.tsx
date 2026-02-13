@@ -447,18 +447,8 @@ const TemplatesStandards: React.FC = () => {
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('templatesStandards.subtitle')}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button onClick={handleExportJSON} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                        <Download size={16} /> {t('templatesStandards.exportJson')}
-                    </button>
                     <button onClick={handleRestoreDefaults} className="btn btn-outline" style={{ display: 'flex', gap: '8px', color: '#dc2626', borderColor: '#fee2e2' }}>
                         <RefreshCw size={16} /> {t('templatesStandards.restoreDefaults')}
-                    </button>
-                    <button
-                        onClick={() => { setEditingOutcome({}); setOutcomeModalOpen(true); }}
-                        className="btn"
-                        style={{ display: 'flex', gap: '8px', background: '#cbeee2', color: '#5FAE9E', border: '1px solid #5FAE9E' }}
-                    >
-                        <Plus size={16} /> {t('templatesStandards.newOutcome')}
                     </button>
                 </div>
             </div>
