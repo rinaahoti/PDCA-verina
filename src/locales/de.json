@@ -228,7 +228,7 @@
         "findingStatus": "Status der Feststellungen",
         "total": "Gesamt",
         "recentActivity": "Kürzliche Aktivitäten",
-        "complianceLifecycle": "Compliance Lebenszyklus",
+        "complianceLifecycle": "PDCA-Zyklus",
         "activePhase": "AKTIVE PHASE",
         "viewAll": "Alle ansehen",
         "pdcaWorkflowDescription": "KVP-Workflow-Fortschritt über alle aktiven Feststellungen",
@@ -239,7 +239,7 @@
         "totalActive": "GESAMT AKTIV",
         "inPlanning": "IN PLANUNG",
         "inProgress": "IN ARBEIT",
-        "criticalIssues": "KRITISCHE PROBLEME",
+        "criticalIssues": "Handlungsphase",
         "universityHospitalZurich": "Universitätsspital Zürich (ZH)",
         "genevaUniversityHospitals": "Genfer Universitätsspitäler (GE)",
         "inselspitalBern": "Inselspital Bern (BE)",
@@ -427,6 +427,9 @@
         "achieved": "Erreicht",
         "notAchieved": "Nicht erreicht",
         "titlePlaceholder": "Titel des Themas eingeben…",
+        "goal": "Ziel",
+        "goalPlaceholder": "Ziel des Themas eingeben...",
+        "goalRequired": "Ziel ist erforderlich.",
         "asIsPlaceholder": "Aktuellen Zustand beschreiben…",
         "toBePlaceholder": "Gewünschten Zielzustand beschreiben…",
         "rootCausePlaceholder": "Hauptursache(n) des Problems beschreiben…",
@@ -434,13 +437,19 @@
         "cyclePlaceholder": "PDCA-Zyklus beschreiben…",
         "kpiPlaceholder": "z. B. Reduktion der Fehlerquote",
         "targetPlaceholder": "z. B. < 5 %",
-        "actualPlaceholder": "Aktueller Wert"
+        "actualPlaceholder": "Aktueller Wert",
+        "improvementPurpose": "Verbesserungszweck",
+        "improvementPurposeSafetyCritical": "Sicherheitskritisch",
+        "improvementPurposeSaveTime": "Zeit sparen",
+        "improvementPurposeReduceCosts": "Kosten reduzieren",
+        "improvementPurposeIncreaseQuality": "Qualität steigern"
     },
     "filters": {
         "status": "Status:",
         "step": "Schritt:"
     },
     "status": {
+        "all": "Alle Status",
         "monitoring": "Überwachung",
         "warning": "Warnung",
         "critical": "Kritisch",

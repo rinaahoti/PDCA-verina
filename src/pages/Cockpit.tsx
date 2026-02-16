@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService, authService, todosService } from '../services';
 import { notificationService } from '../services/notifications';
 import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea } from '../types';
-import { Save, Printer, Mail, ArrowLeft, ChevronRight, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar } from 'lucide-react';
+import { Save, Printer, Mail, ArrowLeft, ChevronRight, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp } from 'lucide-react';
 import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, normalizeStatus } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -26,11 +26,12 @@ const Cockpit: React.FC = () => {
     // Create Mode State
     const [createState, setCreateState] = useState({
         title: '',
+        goal: '',
         description: '',
         asIs: '',
         toBe: '',
         rootCause: '',
-        objective: '',
+        improvementPurpose: [] as string[],
         dueDate: '',
         step: 'PLAN' as Step,
         status: 'Monitoring'
@@ -84,9 +85,11 @@ const Cockpit: React.FC = () => {
                 title: selectedTopic.title || '',
                 dueDate: selectedTopic.dueDate || '',
                 description: selectedTopic.plan.description || '',
+                goal: selectedTopic.plan.goal || '',
                 asIs: selectedTopic.plan.asIs || '',
                 toBe: selectedTopic.plan.toBe || '',
                 rootCause: selectedTopic.plan.rootCause || '',
+                improvementPurpose: selectedTopic.plan.improvementPurpose || selectedTopic.plan.objectives || [],
                 checkDate: selectedTopic.do.checkDate || '',
                 actions: selectedTopic.do.actions || [],
                 kpis: selectedTopic.check.kpis || [],
@@ -176,7 +179,7 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            plan: { description: formState.description, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, objectives: formState.objectives || [] } as any,
+            plan: { description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [] } as any,
             do: { checkDate: formState.checkDate, actions: formState.actions || [] },
 
             check: {
@@ -281,10 +284,12 @@ const Cockpit: React.FC = () => {
             plan: {
                 ...newTopic.plan,
                 description: createState.description,
+                goal: createState.goal,
                 asIs: createState.asIs,
                 toBe: createState.toBe,
                 rootCause: createState.rootCause,
-                objectives: createState.objective ? [createState.objective] : [],
+                improvementPurpose: createState.improvementPurpose,
+                objectives: createState.improvementPurpose,
                 completedAt: new Date().toISOString()
             },
             step: 'DO'
@@ -390,7 +395,7 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            plan: { description: formState.description, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, objectives: formState.objectives || [] },
+            plan: { description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [] },
             do: { checkDate: formState.checkDate, actions: formState.actions },
             check: {
                 kpis: formState.kpis,
@@ -416,7 +421,7 @@ const Cockpit: React.FC = () => {
             const updates: any = { step: nextStep };
 
             if (selectedTopic.step === 'PLAN') (updates as any).plan = {
-                description: formState.description, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, objectives: formState.objectives || [],
+                description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [],
                 completedAt: new Date().toISOString()
             };
             if (selectedTopic.step === 'DO') (updates as any).do = {
@@ -496,6 +501,7 @@ const Cockpit: React.FC = () => {
                                 e.preventDefault();
                                 // Validation
                                 if (!createState.title.trim()) { alert('Title is required'); return; }
+                                if (!createState.goal.trim()) { alert(t('pdca.goalRequired')); return; }
                                 if (!createState.asIs.trim()) { alert('AS-IS (Current State) is required'); return; }
                                 if (!createState.toBe.trim()) { alert('TO-BE (Target State) is required'); return; }
 
@@ -515,10 +521,12 @@ const Cockpit: React.FC = () => {
                                 topicsService.update(newTopic.id, {
                                     plan: {
                                         description: '',
+                                        goal: createState.goal,
                                         asIs: createState.asIs,
                                         toBe: createState.toBe,
                                         rootCause: createState.rootCause,
-                                        objectives: createState.objective ? [createState.objective] : [],
+                                        improvementPurpose: createState.improvementPurpose,
+                                        objectives: createState.improvementPurpose,
                                         completedAt: new Date().toISOString()
                                     }
                                 });
@@ -575,6 +583,16 @@ const Cockpit: React.FC = () => {
                                             placeholder={t('pdca.titlePlaceholder')}
                                         />
                                     </div>
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ fontWeight: 600 }}>{t('pdca.goal')} <span style={{ color: 'red' }}>*</span></label>
+                                        <textarea
+                                            rows={3}
+                                            required
+                                            value={createState.goal}
+                                            onChange={e => setCreateState({ ...createState, goal: e.target.value })}
+                                            placeholder={t('pdca.goalPlaceholder')}
+                                        />
+                                    </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
                                         <div>
                                             <label style={{ fontWeight: 600 }}>{t('pdca.asIs')} <span style={{ color: 'red' }}>*</span></label>
@@ -607,14 +625,51 @@ const Cockpit: React.FC = () => {
                                         />
                                     </div>
 
+                                    {/* IMPROVEMENT PURPOSE (Verbesserungszweck) */}
                                     <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ fontWeight: 600 }}>{t('pdca.purpose')}</label>
-                                        <textarea
-                                            rows={4}
-                                            value={createState.objective || ''}
-                                            onChange={e => setCreateState({ ...createState, objective: e.target.value })}
-                                            placeholder={t('pdca.purposePlaceholder')}
-                                        />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <TrendingUp size={20} color="#5FAE9E" strokeWidth={2} />
+                                            <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.improvementPurpose')}</label>
+                                        </div>
+                                        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
+                                            {[
+                                                { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
+                                                { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
+                                                { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
+                                                { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
+                                            ].map(option => (
+                                                <label
+                                                    key={option.value}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: '0.75rem 0',
+                                                        cursor: 'pointer',
+                                                        gap: '0.75rem'
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={createState.improvementPurpose.includes(option.value)}
+                                                        onChange={e => {
+                                                            const newPurposes = e.target.checked
+                                                                ? [...createState.improvementPurpose, option.value]
+                                                                : createState.improvementPurpose.filter(p => p !== option.value);
+                                                            setCreateState({ ...createState, improvementPurpose: newPurposes });
+                                                        }}
+                                                        style={{
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            cursor: 'pointer',
+                                                            accentColor: '#5FAE9E'
+                                                        }}
+                                                    />
+                                                    <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
+                                                        {option.label}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
                                     </div>
 
                                     <div style={{ marginBottom: '1.5rem' }}>
@@ -784,6 +839,19 @@ const Cockpit: React.FC = () => {
                                             />
                                         </div>
 
+                                        {/* GOAL */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 600 }}>{t('pdca.goal')} <span style={{ color: 'red' }}>*</span></label>
+                                            <textarea
+                                                rows={3}
+                                                required
+                                                value={formState.goal || ''}
+                                                onChange={e => setFormState({ ...formState, goal: e.target.value })}
+                                                placeholder={t('pdca.goalPlaceholder')}
+                                                disabled={selectedTopic.status === 'Done'}
+                                            />
+                                        </div>
+
                                         {/* AS-IS / TO-BE GRID */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
                                             <div>
@@ -822,16 +890,53 @@ const Cockpit: React.FC = () => {
                                             />
                                         </div>
 
-                                        {/* PURPOSE (Objective) */}
+                                        {/* IMPROVEMENT PURPOSE (Verbesserungszweck) */}
                                         <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ fontWeight: 600 }}>{t('pdca.purpose')}</label>
-                                            <textarea
-                                                rows={4}
-                                                value={formState.objective || ''}
-                                                onChange={e => setFormState({ ...formState, objective: e.target.value })}
-                                                placeholder={t('pdca.purposePlaceholder')}
-                                                disabled={selectedTopic.status === 'Done'}
-                                            />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                <TrendingUp size={20} color="#5FAE9E" strokeWidth={2} />
+                                                <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.improvementPurpose')}</label>
+                                            </div>
+                                            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
+                                                {[
+                                                    { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
+                                                    { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
+                                                    { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
+                                                    { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
+                                                ].map(option => (
+                                                    <label
+                                                        key={option.value}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            padding: '0.75rem 0',
+                                                            cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
+                                                            gap: '0.75rem',
+                                                            opacity: selectedTopic.status === 'Done' ? 0.6 : 1
+                                                        }}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={(formState.improvementPurpose || []).includes(option.value)}
+                                                            onChange={e => {
+                                                                const newPurposes = e.target.checked
+                                                                    ? [...(formState.improvementPurpose || []), option.value]
+                                                                    : (formState.improvementPurpose || []).filter(p => p !== option.value);
+                                                                setFormState({ ...formState, improvementPurpose: newPurposes });
+                                                            }}
+                                                            disabled={selectedTopic.status === 'Done'}
+                                                            style={{
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
+                                                                accentColor: '#5FAE9E'
+                                                            }}
+                                                        />
+                                                        <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
+                                                            {option.label}
+                                                        </span>
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
 
                                         {/* CYCLE (Description) */}

@@ -305,7 +305,7 @@ export default function Dashboard() {
 
             if (locationParam !== 'All' && f.location !== locationParam) return false;
 
-            if (statusParam !== 'All') {
+            if (statusParam !== 'All' && statusParam !== 'ALL') {
                 const label = getStatusLabel(t, f.status, f.deadline);
 
                 // Exact match with allowed restricted statuses
@@ -602,6 +602,7 @@ export default function Dashboard() {
                             label={t('dashboard.status')}
                             value={statusParam}
                             options={[
+                                { label: t('status.all'), value: 'ALL' },
                                 { label: t('status.monitoring'), value: 'Monitoring' },
                                 { label: t('status.critical'), value: 'Critical' },
                                 { label: t('status.warning'), value: 'Warning' },

@@ -209,7 +209,7 @@
         "findingStatus": "Finding Status",
         "total": "Total",
         "recentActivity": "Recent Activity",
-        "complianceLifecycle": "Compliance Lifecycle",
+        "complianceLifecycle": "PDCA Cycle",
         "activePhase": "ACTIVE PHASE",
         "viewAll": "View All",
         "pdcaWorkflowDescription": "PDCA workflow progression across all active findings",
@@ -220,7 +220,7 @@
         "totalActive": "TOTAL ACTIVE",
         "inPlanning": "IN PLANNING",
         "inProgress": "IN PROGRESS",
-        "criticalIssues": "CRITICAL ISSUES",
+        "criticalIssues": "Act Phase",
         "universityHospitalZurich": "University Hospital Zurich (ZH)",
         "genevaUniversityHospitals": "Geneva University Hospitals (GE)",
         "inselspitalBern": "Inselspital Bern (BE)",
@@ -405,6 +405,9 @@
         "achieved": "Achieved",
         "notAchieved": "Not Achieved",
         "titlePlaceholder": "Enter topic title...",
+        "goal": "Goal",
+        "goalPlaceholder": "Enter the goal of the topic...",
+        "goalRequired": "Goal is required.",
         "asIsPlaceholder": "Describe current state...",
         "toBePlaceholder": "Describe target state...",
         "rootCausePlaceholder": "Describe root cause(s)...",
@@ -412,13 +415,19 @@
         "cyclePlaceholder": "Describe PDCA cycle...",
         "kpiPlaceholder": "e.g. Reduce Defect Rate",
         "targetPlaceholder": "e.g. < 5%",
-        "actualPlaceholder": "Current Value"
+        "actualPlaceholder": "Current Value",
+        "improvementPurpose": "Improvement Purpose",
+        "improvementPurposeSafetyCritical": "Safety-critical",
+        "improvementPurposeSaveTime": "Save time",
+        "improvementPurposeReduceCosts": "Reduce costs",
+        "improvementPurposeIncreaseQuality": "Increase quality"
     },
     "filters": {
         "status": "Status:",
         "step": "Step:"
     },
     "status": {
+        "all": "All statuses",
         "monitoring": "Monitoring",
         "warning": "Warning",
         "critical": "Critical",
