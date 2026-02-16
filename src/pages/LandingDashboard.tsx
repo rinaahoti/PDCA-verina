@@ -129,7 +129,7 @@ const LandingDashboard: React.FC = () => {
                             justifyContent: 'center',
                             marginBottom: '2rem'
                         }}>
-                            <FileCheck size={48} color="#5FAE9E" strokeWidth={2} />
+                            <img src="/qm-logo.png" alt="QM Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
                         </div>
                         <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.audit')}</h3>
                         <button
