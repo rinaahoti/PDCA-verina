@@ -71,7 +71,7 @@ const LandingDashboard: React.FC = () => {
                             justifyContent: 'center',
                             marginBottom: '2rem'
                         }}>
-                            <img src="/kvp_logo_modified (2).svg" alt="PDCA Logo" style={{ width: '74px', height: '74px' }} />
+                            <img src="/logo4.png" alt="PDCA Logo" style={{ width: '180px', height: '180px' }} />
                         </div>
                         <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.pdca')}</h3>
                         <button

@@ -641,13 +641,30 @@ const TemplatesStandards: React.FC = () => {
                                                 </td>
                                                 <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} {t('templatesStandards.badges.achieved')}</td>
                                                 <td style={{ padding: '1rem' }}>
-                                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                                                         {outcome.scope.slice(0, 2).map((s, i) => (
-                                                            <span key={i} style={{ padding: '2px 6px', background: '#f1f5f9', borderRadius: '4px', fontSize: '10px', color: '#64748b' }}>
+                                                            <span key={i} style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                padding: '6px 14px',
+                                                                background: '#F3F4F6',
+                                                                borderRadius: '999px',
+                                                                fontSize: '12px',
+                                                                color: '#475569',
+                                                                fontWeight: 500
+                                                            }}>
+                                                                <span style={{
+                                                                    width: '6px',
+                                                                    height: '6px',
+                                                                    borderRadius: '50%',
+                                                                    background: '#5FAE9E',
+                                                                    display: 'inline-block'
+                                                                }} />
                                                                 {getTranslatedTag(s)}
                                                             </span>
                                                         ))}
-                                                        {outcome.scope.length > 2 && <span style={{ fontSize: '10px', color: '#94a3b8' }}>+{outcome.scope.length - 2}</span>}
+                                                        {outcome.scope.length > 2 && <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>+{outcome.scope.length - 2}</span>}
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>
