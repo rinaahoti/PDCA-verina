@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck, Lightbulb } from 'lucide-react';
+import { FileCheck } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
@@ -71,7 +71,7 @@ const LandingDashboard: React.FC = () => {
                             justifyContent: 'center',
                             marginBottom: '2rem'
                         }}>
-                            <img src="/logo4.png" alt="PDCA Logo" style={{ width: '180px', height: '180px' }} />
+                            <img src="/logo5.png" alt="PDCA Logo" style={{ width: '190px', height: '134px' }} />
                         </div>
                         <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.pdca')}</h3>
                         <button
@@ -129,7 +129,7 @@ const LandingDashboard: React.FC = () => {
                             justifyContent: 'center',
                             marginBottom: '2rem'
                         }}>
-                            <img src="/qm-logo.png" alt="QM Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
+                            <img src="/logo6.png" alt="QM Logo" style={{ width: '180px', height: '120px', objectFit: 'contain' }} />
                         </div>
                         <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.audit')}</h3>
                         <button
@@ -185,7 +185,7 @@ const LandingDashboard: React.FC = () => {
                             justifyContent: 'center',
                             marginBottom: '2rem'
                         }}>
-                            <Lightbulb size={48} color="#5FAE9E" strokeWidth={2} />
+                            <img src="/logo8.png" alt="IDEEN Logo" style={{ width: '100px', height: '100px' }} />
                         </div>
                         <h3 style={{ margin: '0 0 2.5rem 0', fontSize: '24px', fontWeight: 600, color: '#1C1917' }}>{t('landing.ideen')}</h3>
                         <button
