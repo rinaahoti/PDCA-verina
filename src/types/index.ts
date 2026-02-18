@@ -136,10 +136,12 @@ export interface Topic {
     history: HistoryEntry[];
     plan: {
         description: string;
+        goal?: string;
         asIs?: string;
         toBe?: string;
         rootCause: string;
         objectives: string[];
+        improvementPurpose?: string[];
         kpis?: { name: string; target: string }[];
         completedAt?: string;
     };

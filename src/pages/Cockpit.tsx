@@ -654,7 +654,7 @@ const Cockpit: React.FC = () => {
                                                         onChange={e => {
                                                             const newPurposes = e.target.checked
                                                                 ? [...createState.improvementPurpose, option.value]
-                                                                : createState.improvementPurpose.filter(p => p !== option.value);
+                                                                : createState.improvementPurpose.filter((p: string) => p !== option.value);
                                                             setCreateState({ ...createState, improvementPurpose: newPurposes });
                                                         }}
                                                         style={{
@@ -672,15 +672,6 @@ const Cockpit: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ fontWeight: 600 }}>{t('pdca.cycle')}</label>
-                                        <textarea
-                                            rows={4}
-                                            value={createState.description || ''}
-                                            onChange={e => setCreateState({ ...createState, description: e.target.value })}
-                                            placeholder={t('pdca.cyclePlaceholder')}
-                                        />
-                                    </div>
 
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>{t('common.status')}</label>
@@ -920,7 +911,7 @@ const Cockpit: React.FC = () => {
                                                             onChange={e => {
                                                                 const newPurposes = e.target.checked
                                                                     ? [...(formState.improvementPurpose || []), option.value]
-                                                                    : (formState.improvementPurpose || []).filter(p => p !== option.value);
+                                                                    : (formState.improvementPurpose || []).filter((p: string) => p !== option.value);
                                                                 setFormState({ ...formState, improvementPurpose: newPurposes });
                                                             }}
                                                             disabled={selectedTopic.status === 'Done'}

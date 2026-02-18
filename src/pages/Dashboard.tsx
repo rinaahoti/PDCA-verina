@@ -589,12 +589,13 @@ export default function Dashboard() {
                         <FilterDropdown
                             label={t('dashboard.department')}
                             value={departmentParam}
-                            options={departments.map(d => ({
-                                label: getTranslatedDepartmentName(d.name),
-                                value: d.name // Use constant value for logic
-                            }))}
+                            options={[
+                                { label: t('dashboard.deptNursing'), value: 'Nursing' },
+                                { label: t('dashboard.deptLaboratory'), value: 'Laboratory' },
+                                { label: t('dashboard.deptTechnical'), value: 'Technical Services' }
+                            ]}
                             onChange={(v: string) => updateFilter('department', v)}
-                            placeholder={t('dashboard.allDepartments')}
+                            placeholder={null}
                         />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -604,8 +605,8 @@ export default function Dashboard() {
                             options={[
                                 { label: t('status.all'), value: 'ALL' },
                                 { label: t('status.monitoring'), value: 'Monitoring' },
-                                { label: t('status.critical'), value: 'Critical' },
                                 { label: t('status.warning'), value: 'Warning' },
+                                { label: t('status.critical'), value: 'Critical' },
                                 { label: t('status.done'), value: 'Done' }
                             ]}
                             onChange={(v: string) => updateFilter('status', v)}
@@ -725,8 +726,8 @@ export default function Dashboard() {
                         {/* Legend */}
                         <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {[
-                                { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444', bg: '#FEF2F2' },
                                 { label: 'Warning', value: statsByStatus['status-warning'], color: '#F59E0B', bg: '#FFF7ED' },
+                                { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444', bg: '#FEF2F2' },
                                 { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: '#22C55E', bg: '#F0FDF4' }
                             ].map((item, i) => (
                                 <div key={i} style={{
@@ -763,8 +764,8 @@ export default function Dashboard() {
                         gap: '1rem'
                     }}>
                         {[
-                            { label: 'CRITICAL', value: statsByStatus['status-critical'] },
                             { label: 'WARNING', value: statsByStatus['status-warning'] },
+                            { label: 'CRITICAL', value: statsByStatus['status-critical'] },
                             { label: 'MONITORING', value: statsByStatus['status-ontrack'] }
                         ].map((item, i) => (
                             <div key={i} style={{
