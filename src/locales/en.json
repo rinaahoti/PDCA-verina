@@ -276,7 +276,7 @@
         "purpose": "Purpose",
         "cycle": "Cycle",
         "executionActions": "Execution Actions",
-        "checkTrigger": "CHECK Phase Trigger",
+        "checkTrigger": "DO Phase Activation",
         "effectivenessAssessment": "Effectiveness Assessment",
         "kpiEvaluation": "KPI Evaluation",
         "effectivenessReview": "Effectiveness Review",

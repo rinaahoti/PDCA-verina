@@ -295,7 +295,7 @@
         "purpose": "Zweck",
         "cycle": "Zyklus",
         "executionActions": "Ausführungsmaßnahmen",
-        "checkTrigger": "Trigger für CHECK-Phase",
+        "checkTrigger": "Aktivierung der Durchführungsphase",
         "effectivenessAssessment": "Wirksamkeitsprüfung",
         "kpiEvaluation": "KPI-Auswertung",
         "effectivenessReview": "Wirksamkeitsbericht",
