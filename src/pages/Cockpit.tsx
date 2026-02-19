@@ -66,6 +66,7 @@ const Cockpit: React.FC = () => {
     const [locationDeptTab, setLocationDeptTab] = useState<'locations' | 'departments'>('locations');
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+    const [planMeetingExpanded, setPlanMeetingExpanded] = useState(false);
 
     const LOCATION_OPTIONS = [
         'Pristina ',
@@ -125,7 +126,7 @@ const Cockpit: React.FC = () => {
         checkTriggerDate: ''
     });
 
-    const MOCK_PERSONS = [
+    const PERSONS = [
         'Dr. Elena Rossi',
         'Dr. Marcus Weber',
         'Sarah Johnson',
@@ -865,314 +866,6 @@ const Cockpit: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Location & Department Card (PLAN only) */}
-                        {viewingStep === 'PLAN' && (
-                            <div style={{
-                                background: '#fff',
-                                borderRadius: '16px',
-                                border: '1px solid #e8ecf0',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                                padding: '1.75rem',
-                                position: 'relative'
-                            }}>
-                                {/* Header */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.25rem' }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '12px',
-                                        background: 'linear-gradient(135deg, #5FAE9E 0%, #4a9e8e 100%)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        flexShrink: 0
-                                    }}>
-                                        <MapPin size={20} color="#fff" strokeWidth={2.2} />
-                                    </div>
-                                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>Location & Department</span>
-                                </div>
-
-                                {/* Tab row */}
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '0',
-                                    borderBottom: '2px solid #e8ecf0',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    <button
-                                        onClick={() => setLocationDeptTab('locations')}
-                                        style={{
-                                            flex: 1,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '6px',
-                                            padding: '10px 0',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            cursor: 'pointer',
-                                            fontSize: '13px',
-                                            fontWeight: 600,
-                                            color: locationDeptTab === 'locations' ? '#5FAE9E' : '#94a3b8',
-                                            borderBottom: locationDeptTab === 'locations' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
-                                            marginBottom: '-2px',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        <Building2 size={15} />
-                                        Locations
-                                    </button>
-                                    <button
-                                        onClick={() => setLocationDeptTab('departments')}
-                                        style={{
-                                            flex: 1,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '6px',
-                                            padding: '10px 0',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            cursor: 'pointer',
-                                            fontSize: '13px',
-                                            fontWeight: 600,
-                                            color: locationDeptTab === 'departments' ? '#5FAE9E' : '#94a3b8',
-                                            borderBottom: locationDeptTab === 'departments' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
-                                            marginBottom: '-2px',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        <Users size={15} />
-                                        Departments
-                                    </button>
-                                </div>
-
-                                {/* Locations list */}
-                                {locationDeptTab === 'locations' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                                        {LOCATION_OPTIONS.map((loc) => {
-                                            const isSelected = selectedLocations.includes(loc);
-                                            return (
-                                                <label
-                                                    key={loc}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px',
-                                                        padding: '12px 14px',
-                                                        borderRadius: '10px',
-                                                        cursor: 'pointer',
-                                                        background: isSelected ? '#edf8f5' : 'transparent',
-                                                        transition: 'background 0.18s ease',
-                                                        marginBottom: '2px'
-                                                    }}
-                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
-                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => {
-                                                            setSelectedLocations(prev =>
-                                                                prev.includes(loc)
-                                                                    ? prev.filter(l => l !== loc)
-                                                                    : [...prev, loc]
-                                                            );
-                                                        }}
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            cursor: 'pointer',
-                                                            accentColor: '#5FAE9E',
-                                                            borderRadius: '6px',
-                                                            flexShrink: 0
-                                                        }}
-                                                    />
-                                                    <span style={{
-                                                        fontSize: '14px',
-                                                        color: isSelected ? '#1a202c' : '#475569',
-                                                        fontWeight: isSelected ? 600 : 400
-                                                    }}>{loc}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Departments list */}
-                                {locationDeptTab === 'departments' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                                        {DEPARTMENT_OPTIONS.map((dept) => {
-                                            const isSelected = selectedDepartments.includes(dept);
-                                            return (
-                                                <label
-                                                    key={dept}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '12px',
-                                                        padding: '12px 14px',
-                                                        borderRadius: '10px',
-                                                        cursor: 'pointer',
-                                                        background: isSelected ? '#edf8f5' : 'transparent',
-                                                        transition: 'background 0.18s ease',
-                                                        marginBottom: '2px'
-                                                    }}
-                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
-                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => {
-                                                            setSelectedDepartments(prev =>
-                                                                prev.includes(dept)
-                                                                    ? prev.filter(d => d !== dept)
-                                                                    : [...prev, dept]
-                                                            );
-                                                        }}
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            cursor: 'pointer',
-                                                            accentColor: '#5FAE9E',
-                                                            borderRadius: '6px',
-                                                            flexShrink: 0
-                                                        }}
-                                                    />
-                                                    <span style={{
-                                                        fontSize: '14px',
-                                                        color: isSelected ? '#1a202c' : '#475569',
-                                                        fontWeight: isSelected ? 600 : 400
-                                                    }}>{dept}</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Divider before selected summary */}
-                                <div style={{ borderTop: '1px solid #e8ecf0', margin: '1rem 0 0.85rem 0' }} />
-
-                                {/* Selected Locations summary */}
-                                <div style={{ marginBottom: '0.75rem' }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: '#94a3b8',
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <MapPin size={13} />
-                                        SELECTED LOCATIONS
-                                    </div>
-                                    {selectedLocations.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                            {selectedLocations.map(loc => (
-                                                <span
-                                                    key={loc}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        background: '#5FAE9E',
-                                                        color: '#fff',
-                                                        borderRadius: '20px',
-                                                        padding: '5px 12px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        lineHeight: '1.3'
-                                                    }}
-                                                >
-                                                    {loc}
-                                                    <button
-                                                        onClick={() => setSelectedLocations(prev => prev.filter(l => l !== loc))}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#fff',
-                                                            cursor: 'pointer',
-                                                            padding: '0',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            lineHeight: 1,
-                                                            opacity: 0.85
-                                                        }}
-                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
-                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
-                                                    >
-                                                        <X size={14} strokeWidth={2.5} />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Selected Departments summary */}
-                                <div>
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        color: '#94a3b8',
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        marginBottom: '8px'
-                                    }}>
-                                        <Users size={13} />
-                                        SELECTED DEPARTMENTS
-                                    </div>
-                                    {selectedDepartments.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                            {selectedDepartments.map(dept => (
-                                                <span
-                                                    key={dept}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        background: '#5FAE9E',
-                                                        color: '#fff',
-                                                        borderRadius: '20px',
-                                                        padding: '5px 12px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        lineHeight: '1.3'
-                                                    }}
-                                                >
-                                                    {dept}
-                                                    <button
-                                                        onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#fff',
-                                                            cursor: 'pointer',
-                                                            padding: '0',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            lineHeight: 1,
-                                                            opacity: 0.85
-                                                        }}
-                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
-                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
-                                                    >
-                                                        <X size={14} strokeWidth={2.5} />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
                         {/* PLAN Phase Meeting Card */}
                         {viewingStep === 'PLAN' && (
@@ -1184,215 +877,227 @@ const Cockpit: React.FC = () => {
                                 padding: '1.75rem',
                                 position: 'relative'
                             }}>
-                                {/* Header */}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
-                                    <span style={{
-                                        background: '#fff8ed',
-                                        color: '#d97706',
-                                        border: '1px solid #fde68a',
-                                        borderRadius: '6px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        padding: '2px 8px',
-                                        letterSpacing: '0.05em'
-                                    }}>MOCK</span>
-                                </div>
-                                <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
-
-                                {/* A) Meeting Title Input */}
-                                <input
-                                    type="text"
-                                    value={planMeeting.title}
-                                    onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
-                                    placeholder="Shkruaj titullin e mbledhjes..."
+                                {/* Header — clickable toggle */}
+                                <div
+                                    onClick={() => setPlanMeetingExpanded(prev => !prev)}
                                     style={{
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '10px',
-                                        border: '1px solid #e2e8f0',
-                                        background: '#f8fafc',
-                                        fontSize: '14px',
-                                        color: '#334155',
-                                        outline: 'none',
-                                        marginBottom: '1.25rem'
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: 'pointer',
+                                        marginBottom: planMeetingExpanded ? '1rem' : '0',
+                                        userSelect: 'none'
                                     }}
-                                />
-
-                                {/* B) Responsible Persons */}
-                                <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
-
-                                    {/* Selected person chips */}
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                                        {planMeeting.responsiblePersons.map(person => (
-                                            <div key={person} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '5px 12px', fontSize: '13px', color: '#334155' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={planMeeting.checkedPersons.includes(person)}
-                                                    onChange={e => {
-                                                        const updated = e.target.checked
-                                                            ? [...planMeeting.checkedPersons, person]
-                                                            : planMeeting.checkedPersons.filter(p => p !== person);
-                                                        setPlanMeeting({ ...planMeeting, checkedPersons: updated });
-                                                    }}
-                                                    style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#5FAE9E', margin: 0 }}
-                                                />
-                                                <span>{person}</span>
-                                            </div>
-                                        ))}
-                                        {/* + Assign button */}
-                                        <button
-                                            onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: !planMeeting.showDropdown })}
-                                            style={{
-                                                background: 'transparent',
-                                                border: '1.5px dashed #cbd5e1',
-                                                borderRadius: '8px',
-                                                padding: '4px 12px',
-                                                fontSize: '12px',
-                                                color: '#64748b',
-                                                cursor: 'pointer',
-                                                fontWeight: 500
-                                            }}
-                                        >+ Assign...</button>
-                                    </div>
-
-                                    {/* Remove x controls */}
-                                    {planMeeting.responsiblePersons.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                                            {planMeeting.responsiblePersons.map(person => (
-                                                <button
-                                                    key={person + '-remove'}
-                                                    onClick={() => setPlanMeeting({
-                                                        ...planMeeting,
-                                                        responsiblePersons: planMeeting.responsiblePersons.filter(p => p !== person),
-                                                        checkedPersons: planMeeting.checkedPersons.filter(p => p !== person)
-                                                    })}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', padding: '0 3px', lineHeight: 1 }}
-                                                    title={`Remove ${person}`}
-                                                >×</button>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Dropdown overlay */}
-                                    {planMeeting.showDropdown && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '100%',
-                                                left: 0,
-                                                zIndex: 9999,
-                                                background: '#fff',
-                                                borderRadius: '10px',
-                                                boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                                                minWidth: '240px',
-                                                maxHeight: '280px',
-                                                overflow: 'hidden',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                marginTop: '6px'
-                                            }}
-                                        >
-                                            {/* Sticky teal header */}
-                                            <div style={{
-                                                background: '#0d9488',
-                                                color: '#fff',
-                                                fontWeight: 700,
-                                                fontSize: '12px',
-                                                letterSpacing: '0.05em',
-                                                padding: '11px 16px',
-                                                cursor: 'default',
-                                                flexShrink: 0
-                                            }}>+ ASSIGN PERSON...</div>
-                                            {/* Scrollable list */}
-                                            <div style={{ overflowY: 'auto', flex: 1 }}>
-                                                {MOCK_PERSONS.filter(p => !planMeeting.responsiblePersons.includes(p)).map((person, idx) => (
-                                                    <div
-                                                        key={person}
-                                                        onClick={() => {
-                                                            setPlanMeeting({
-                                                                ...planMeeting,
-                                                                responsiblePersons: [...planMeeting.responsiblePersons, person],
-                                                                showDropdown: false
-                                                            });
-                                                        }}
-                                                        style={{
-                                                            padding: '10px 14px',
-                                                            fontSize: '13px',
-                                                            color: idx === 1 ? '#0d9488' : '#334155',
-                                                            background: idx === 1 ? '#f0fdfa' : '#fff',
-                                                            cursor: 'pointer',
-                                                            borderBottom: '1px solid #f1f5f9',
-                                                            transition: 'background 0.15s'
-                                                        }}
-                                                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
-                                                        onMouseLeave={e => (e.currentTarget.style.background = idx === 1 ? '#f0fdfa' : '#fff')}
-                                                    >{person}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                                >
+                                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
+                                    <ChevronDown
+                                        size={20}
+                                        color="#64748b"
+                                        style={{
+                                            transition: 'transform 0.25s ease',
+                                            transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                        }}
+                                    />
                                 </div>
+                                {planMeetingExpanded && (
+                                    <>
+                                        <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
 
-                                {/* D) Meeting Type */}
-                                <div style={{ marginBottom: '1.25rem' }}>
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
-                                    <div style={{ position: 'relative' }}>
-                                        <select
-                                            value={planMeeting.meetingType}
-                                            onChange={e => setPlanMeeting({ ...planMeeting, meetingType: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                appearance: 'none',
-                                                WebkitAppearance: 'none',
-                                                padding: '0.7rem 2.5rem 0.7rem 1rem',
-                                                borderRadius: '10px',
-                                                border: '1px solid #e2e8f0',
-                                                background: '#fff',
-                                                fontSize: '13px',
-                                                color: '#334155',
-                                                cursor: 'pointer',
-                                                outline: 'none'
-                                            }}
-                                        >
-                                            <option>In-Office (On-site)</option>
-                                            <option>Remote (Online)</option>
-                                            <option>Hybrid</option>
-                                        </select>
-                                        <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
-                                    </div>
-                                </div>
-
-                                {/* E) Bottom row: Date & Location */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.5rem' }}>
-                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>MEETING DATE &amp; TIME</div>
-                                        <DateTimePicker
-                                            value={planMeeting.meetingDateTime}
-                                            onChange={val => setPlanMeeting({ ...planMeeting, meetingDateTime: val })}
-                                        />
-                                    </div>
-                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>OFFICE / LOCATION</div>
+                                        {/* A) Meeting Title Input */}
                                         <input
                                             type="text"
-                                            value={planMeeting.location}
-                                            onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
-                                            placeholder="Location"
-                                            style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
+                                            value={planMeeting.title}
+                                            onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
+                                            placeholder="Shkruaj titullin e mbledhjes..."
+                                            style={{
+                                                width: '100%',
+                                                boxSizing: 'border-box',
+                                                padding: '0.75rem 1rem',
+                                                borderRadius: '10px',
+                                                border: '1px solid #e2e8f0',
+                                                background: '#f8fafc',
+                                                fontSize: '14px',
+                                                color: '#334155',
+                                                outline: 'none',
+                                                marginBottom: '1.25rem'
+                                            }}
                                         />
-                                    </div>
-                                </div>
+
+                                        {/* B) Responsible Persons */}
+                                        <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+
+                                            {/* Selected person chips */}
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                {planMeeting.responsiblePersons.map(person => (
+                                                    <div key={person} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '5px 12px', fontSize: '13px', color: '#334155' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={planMeeting.checkedPersons.includes(person)}
+                                                            onChange={e => {
+                                                                const updated = e.target.checked
+                                                                    ? [...planMeeting.checkedPersons, person]
+                                                                    : planMeeting.checkedPersons.filter(p => p !== person);
+                                                                setPlanMeeting({ ...planMeeting, checkedPersons: updated });
+                                                            }}
+                                                            style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#5FAE9E', margin: 0 }}
+                                                        />
+                                                        <span>{person}</span>
+                                                    </div>
+                                                ))}
+                                                {/* + Assign button */}
+                                                <button
+                                                    onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: !planMeeting.showDropdown })}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: '1.5px dashed #cbd5e1',
+                                                        borderRadius: '8px',
+                                                        padding: '4px 12px',
+                                                        fontSize: '12px',
+                                                        color: '#64748b',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 500
+                                                    }}
+                                                >+ Assign...</button>
+                                            </div>
+
+                                            {/* Remove x controls */}
+                                            {planMeeting.responsiblePersons.length > 0 && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                                                    {planMeeting.responsiblePersons.map(person => (
+                                                        <button
+                                                            key={person + '-remove'}
+                                                            onClick={() => setPlanMeeting({
+                                                                ...planMeeting,
+                                                                responsiblePersons: planMeeting.responsiblePersons.filter(p => p !== person),
+                                                                checkedPersons: planMeeting.checkedPersons.filter(p => p !== person)
+                                                            })}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', padding: '0 3px', lineHeight: 1 }}
+                                                            title={`Remove ${person}`}
+                                                        >×</button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Dropdown overlay */}
+                                            {planMeeting.showDropdown && (
+                                                <div
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        zIndex: 9999,
+                                                        background: '#fff',
+                                                        borderRadius: '10px',
+                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                                                        minWidth: '240px',
+                                                        maxHeight: '280px',
+                                                        overflow: 'hidden',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        marginTop: '6px'
+                                                    }}
+                                                >
+                                                    {/* Sticky teal header */}
+                                                    <div style={{
+                                                        background: '#0d9488',
+                                                        color: '#fff',
+                                                        fontWeight: 700,
+                                                        fontSize: '12px',
+                                                        letterSpacing: '0.05em',
+                                                        padding: '11px 16px',
+                                                        cursor: 'default',
+                                                        flexShrink: 0
+                                                    }}>+ ASSIGN PERSON...</div>
+                                                    {/* Scrollable list */}
+                                                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                                                        {PERSONS.filter(p => !planMeeting.responsiblePersons.includes(p)).map((person, idx) => (
+                                                            <div
+                                                                key={person}
+                                                                onClick={() => {
+                                                                    setPlanMeeting({
+                                                                        ...planMeeting,
+                                                                        responsiblePersons: [...planMeeting.responsiblePersons, person],
+                                                                        showDropdown: false
+                                                                    });
+                                                                }}
+                                                                style={{
+                                                                    padding: '10px 14px',
+                                                                    fontSize: '13px',
+                                                                    color: idx === 1 ? '#0d9488' : '#334155',
+                                                                    background: idx === 1 ? '#f0fdfa' : '#fff',
+                                                                    cursor: 'pointer',
+                                                                    borderBottom: '1px solid #f1f5f9',
+                                                                    transition: 'background 0.15s'
+                                                                }}
+                                                                onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                                onMouseLeave={e => (e.currentTarget.style.background = idx === 1 ? '#f0fdfa' : '#fff')}
+                                                            >{person}</div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* D) Meeting Type */}
+                                        <div style={{ marginBottom: '1.25rem' }}>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                            <div style={{ position: 'relative' }}>
+                                                <select
+                                                    value={planMeeting.meetingType}
+                                                    onChange={e => setPlanMeeting({ ...planMeeting, meetingType: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        appearance: 'none',
+                                                        WebkitAppearance: 'none',
+                                                        padding: '0.7rem 2.5rem 0.7rem 1rem',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #e2e8f0',
+                                                        background: '#fff',
+                                                        fontSize: '13px',
+                                                        color: '#334155',
+                                                        cursor: 'pointer',
+                                                        outline: 'none'
+                                                    }}
+                                                >
+                                                    <option>In-Office (On-site)</option>
+                                                    <option>Remote (Online)</option>
+                                                    <option>Hybrid</option>
+                                                </select>
+                                                <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
+                                            </div>
+                                        </div>
+
+                                        {/* E) Bottom row: Date & Location */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.5rem' }}>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>MEETING DATE &amp; TIME</div>
+                                                <DateTimePicker
+                                                    value={planMeeting.meetingDateTime}
+                                                    onChange={val => setPlanMeeting({ ...planMeeting, meetingDateTime: val })}
+                                                />
+                                            </div>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>OFFICE / LOCATION</div>
+                                                <input
+                                                    type="text"
+                                                    value={planMeeting.location}
+                                                    onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
+                                                    placeholder="Location"
+                                                    style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
+                                                />
+                                            </div>
+                                        </div>
 
 
-                                {/* Close dropdown on outside click overlay */}
-                                {planMeeting.showDropdown && (
-                                    <div
-                                        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                                        onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: false })}
-                                    />
+                                        {/* Close dropdown on outside click overlay */}
+                                        {planMeeting.showDropdown && (
+                                            <div
+                                                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                                                onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: false })}
+                                            />
+                                        )}
+                                    </>
                                 )}
                             </div>
                         )}
@@ -1413,16 +1118,6 @@ const Cockpit: React.FC = () => {
                                     {/* Header */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                                         <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>CHECK Phase Meeting</span>
-                                        <span style={{
-                                            background: '#fff8ed',
-                                            color: '#d97706',
-                                            border: '1px solid #fde68a',
-                                            borderRadius: '6px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            padding: '2px 8px',
-                                            letterSpacing: '0.05em'
-                                        }}>MOCK</span>
                                     </div>
                                     <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
 
@@ -1534,7 +1229,7 @@ const Cockpit: React.FC = () => {
                                                 }}>+ ASSIGN PERSON...</div>
                                                 {/* Scrollable list */}
                                                 <div style={{ overflowY: 'auto', flex: 1 }}>
-                                                    {MOCK_PERSONS.filter(p => !checkMeeting.responsiblePersons.includes(p)).map((person, idx) => (
+                                                    {PERSONS.filter(p => !checkMeeting.responsiblePersons.includes(p)).map((person, idx) => (
                                                         <div
                                                             key={person}
                                                             onClick={() => {
@@ -1812,6 +1507,302 @@ const Cockpit: React.FC = () => {
                                                 placeholder={t('pdca.cyclePlaceholder')}
                                                 disabled={selectedTopic.status === 'Done'}
                                             />
+                                        </div>
+
+                                        {/* LOCATION & DEPARTMENT (moved from sidebar) */}
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            {/* Header — outside bordered container */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                                <MapPin size={20} color="#5FAE9E" strokeWidth={2} />
+                                                <label style={{ fontWeight: 600, margin: 0 }}>Location & Department</label>
+                                            </div>
+                                            <div style={{
+                                                borderRadius: '12px',
+                                                border: '1px solid #e8ecf0',
+                                                padding: '1.5rem',
+                                                background: '#fff'
+                                            }}>
+
+                                                {/* Tab row */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '0',
+                                                    borderBottom: '2px solid #e8ecf0',
+                                                    marginBottom: '0.75rem'
+                                                }}>
+                                                    <button
+                                                        onClick={() => setLocationDeptTab('locations')}
+                                                        style={{
+                                                            flex: 1,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            padding: '10px 0',
+                                                            border: 'none',
+                                                            background: 'transparent',
+                                                            cursor: 'pointer',
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            color: locationDeptTab === 'locations' ? '#5FAE9E' : '#94a3b8',
+                                                            borderBottom: locationDeptTab === 'locations' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                                            marginBottom: '-2px',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                    >
+                                                        <Building2 size={15} />
+                                                        Locations
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setLocationDeptTab('departments')}
+                                                        style={{
+                                                            flex: 1,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            padding: '10px 0',
+                                                            border: 'none',
+                                                            background: 'transparent',
+                                                            cursor: 'pointer',
+                                                            fontSize: '13px',
+                                                            fontWeight: 600,
+                                                            color: locationDeptTab === 'departments' ? '#5FAE9E' : '#94a3b8',
+                                                            borderBottom: locationDeptTab === 'departments' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                                            marginBottom: '-2px',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                    >
+                                                        <Users size={15} />
+                                                        Departments
+                                                    </button>
+                                                </div>
+
+                                                {/* Locations list */}
+                                                {locationDeptTab === 'locations' && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                        {LOCATION_OPTIONS.map((loc) => {
+                                                            const isSelected = selectedLocations.includes(loc);
+                                                            return (
+                                                                <label
+                                                                    key={loc}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '12px',
+                                                                        padding: '12px 14px',
+                                                                        borderRadius: '10px',
+                                                                        cursor: 'pointer',
+                                                                        background: isSelected ? '#edf8f5' : 'transparent',
+                                                                        transition: 'background 0.18s ease',
+                                                                        marginBottom: '2px'
+                                                                    }}
+                                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isSelected}
+                                                                        onChange={() => {
+                                                                            setSelectedLocations(prev =>
+                                                                                prev.includes(loc)
+                                                                                    ? prev.filter(l => l !== loc)
+                                                                                    : [...prev, loc]
+                                                                            );
+                                                                        }}
+                                                                        style={{
+                                                                            width: '20px',
+                                                                            height: '20px',
+                                                                            cursor: 'pointer',
+                                                                            accentColor: '#5FAE9E',
+                                                                            borderRadius: '6px',
+                                                                            flexShrink: 0
+                                                                        }}
+                                                                    />
+                                                                    <span style={{
+                                                                        fontSize: '14px',
+                                                                        color: isSelected ? '#1a202c' : '#475569',
+                                                                        fontWeight: isSelected ? 600 : 400
+                                                                    }}>{loc}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Departments list */}
+                                                {locationDeptTab === 'departments' && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                        {DEPARTMENT_OPTIONS.map((dept) => {
+                                                            const isSelected = selectedDepartments.includes(dept);
+                                                            return (
+                                                                <label
+                                                                    key={dept}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '12px',
+                                                                        padding: '12px 14px',
+                                                                        borderRadius: '10px',
+                                                                        cursor: 'pointer',
+                                                                        background: isSelected ? '#edf8f5' : 'transparent',
+                                                                        transition: 'background 0.18s ease',
+                                                                        marginBottom: '2px'
+                                                                    }}
+                                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isSelected}
+                                                                        onChange={() => {
+                                                                            setSelectedDepartments(prev =>
+                                                                                prev.includes(dept)
+                                                                                    ? prev.filter(d => d !== dept)
+                                                                                    : [...prev, dept]
+                                                                            );
+                                                                        }}
+                                                                        style={{
+                                                                            width: '20px',
+                                                                            height: '20px',
+                                                                            cursor: 'pointer',
+                                                                            accentColor: '#5FAE9E',
+                                                                            borderRadius: '6px',
+                                                                            flexShrink: 0
+                                                                        }}
+                                                                    />
+                                                                    <span style={{
+                                                                        fontSize: '14px',
+                                                                        color: isSelected ? '#1a202c' : '#475569',
+                                                                        fontWeight: isSelected ? 600 : 400
+                                                                    }}>{dept}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Divider before selected summary */}
+                                                <div style={{ borderTop: '1px solid #e8ecf0', margin: '1rem 0 0.85rem 0' }} />
+
+                                                {/* Selected Locations summary */}
+                                                <div style={{ marginBottom: '0.75rem' }}>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        color: '#94a3b8',
+                                                        letterSpacing: '0.08em',
+                                                        textTransform: 'uppercase',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <MapPin size={13} />
+                                                        SELECTED LOCATIONS
+                                                    </div>
+                                                    {selectedLocations.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {selectedLocations.map(loc => (
+                                                                <span
+                                                                    key={loc}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        background: '#5FAE9E',
+                                                                        color: '#fff',
+                                                                        borderRadius: '20px',
+                                                                        padding: '5px 12px',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 600,
+                                                                        lineHeight: '1.3'
+                                                                    }}
+                                                                >
+                                                                    {loc}
+                                                                    <button
+                                                                        onClick={() => setSelectedLocations(prev => prev.filter(l => l !== loc))}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#fff',
+                                                                            cursor: 'pointer',
+                                                                            padding: '0',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            lineHeight: 1,
+                                                                            opacity: 0.85
+                                                                        }}
+                                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                                    >
+                                                                        <X size={14} strokeWidth={2.5} />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Selected Departments summary */}
+                                                <div>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        color: '#94a3b8',
+                                                        letterSpacing: '0.08em',
+                                                        textTransform: 'uppercase',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <Users size={13} />
+                                                        SELECTED DEPARTMENTS
+                                                    </div>
+                                                    {selectedDepartments.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {selectedDepartments.map(dept => (
+                                                                <span
+                                                                    key={dept}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        background: '#5FAE9E',
+                                                                        color: '#fff',
+                                                                        borderRadius: '20px',
+                                                                        padding: '5px 12px',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 600,
+                                                                        lineHeight: '1.3'
+                                                                    }}
+                                                                >
+                                                                    {dept}
+                                                                    <button
+                                                                        onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#fff',
+                                                                            cursor: 'pointer',
+                                                                            padding: '0',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            lineHeight: 1,
+                                                                            opacity: 0.85
+                                                                        }}
+                                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                                    >
+                                                                        <X size={14} strokeWidth={2.5} />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* STATUS dropdown */}
@@ -2562,53 +2553,55 @@ const Cockpit: React.FC = () => {
 
                     </div>
                 </div>
-                {showPdfModal && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                        <div style={{ background: 'white', padding: '2.5rem', borderRadius: '12px', width: '500px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-                            <div style={{ width: '64px', height: '64px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
-                                <CheckCircle2 size={32} color="#10b981" strokeWidth={3} />
-                            </div>
+                {
+                    showPdfModal && (
+                        <div style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                            <div style={{ background: 'white', padding: '2.5rem', borderRadius: '12px', width: '500px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                                <div style={{ width: '64px', height: '64px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+                                    <CheckCircle2 size={32} color="#10b981" strokeWidth={3} />
+                                </div>
 
-                            <h2 style={{ margin: '0 0 1rem 0', color: '#1e293b', fontSize: '1.5rem', fontWeight: 700 }}>
-                                Export PDCA Process to PDF?
-                            </h2>
+                                <h2 style={{ margin: '0 0 1rem 0', color: '#1e293b', fontSize: '1.5rem', fontWeight: 700 }}>
+                                    Export PDCA Process to PDF?
+                                </h2>
 
-                            <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-                                The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?
-                            </p>
+                                <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+                                    The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?
+                                </p>
 
-                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                                <button
-                                    onClick={() => setShowPdfModal(false)}
-                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
-                                >
-                                    Not Now
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        // Merge current form state into topic for PDF generation to ensure latest edits are included
-                                        const topicForPdf = {
-                                            ...selectedTopic,
-                                            plan: { ...selectedTopic.plan, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, description: formState.description },
-                                            do: { ...selectedTopic.do, actions: formState.actions, checkDate: formState.checkDate },
-                                            check: { ...selectedTopic.check, effectivenessStatus: formState.effectivenessStatus, kpiEvaluations: formState.kpiEvaluations, effectivenessReview: formState.effectivenessReview },
-                                            act: { ...selectedTopic.act, actOutcome: formState.actOutcome, lessonsLearned: formState.lessonsLearned }
-                                        };
-                                        generatePDCAPdf(topicForPdf);
-                                        setShowPdfModal(false);
-                                    }}
-                                    style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
-                                >
-                                    Yes, Generate PDF
-                                </button>
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                    <button
+                                        onClick={() => setShowPdfModal(false)}
+                                        style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+                                    >
+                                        Not Now
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // Merge current form state into topic for PDF generation to ensure latest edits are included
+                                            const topicForPdf = {
+                                                ...selectedTopic,
+                                                plan: { ...selectedTopic.plan, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, description: formState.description },
+                                                do: { ...selectedTopic.do, actions: formState.actions, checkDate: formState.checkDate },
+                                                check: { ...selectedTopic.check, effectivenessStatus: formState.effectivenessStatus, kpiEvaluations: formState.kpiEvaluations, effectivenessReview: formState.effectivenessReview },
+                                                act: { ...selectedTopic.act, actOutcome: formState.actOutcome, lessonsLearned: formState.lessonsLearned }
+                                            };
+                                            generatePDCAPdf(topicForPdf);
+                                            setShowPdfModal(false);
+                                        }}
+                                        style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+                                    >
+                                        Yes, Generate PDF
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
             </div >
         );
     }
