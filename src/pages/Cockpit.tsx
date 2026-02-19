@@ -1127,7 +1127,7 @@ const Cockpit: React.FC = () => {
                                         marginBottom: '8px'
                                     }}>
                                         <Users size={13} />
-                                        DEPARTMENTS E ZGJEDHURA
+                                        SELECTED DEPARTMENTS
                                     </div>
                                     {selectedDepartments.length > 0 && (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -1397,47 +1397,6 @@ const Cockpit: React.FC = () => {
                             </div>
                         )}
 
-                        {/* CHECK Phase Trigger Card (separate) */}
-                        {viewingStep === 'PLAN' && (
-                            <div style={{
-                                background: '#fff',
-                                borderRadius: '16px',
-                                border: '1px solid #e8ecf0',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                                padding: '1.75rem'
-                            }}>
-                                {/* Header */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '20px' }}>📅</span>
-                                    <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkTrigger')}</span>
-                                </div>
-                                <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
-
-                                {/* Due Date */}
-                                <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
-                                <input
-                                    type="date"
-                                    value={planMeeting.checkTriggerDate}
-                                    onChange={e => setPlanMeeting({ ...planMeeting, checkTriggerDate: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        padding: '0.65rem 0.9rem',
-                                        borderRadius: '8px',
-                                        border: '1px solid #e2e8f0',
-                                        background: '#f8fafc',
-                                        fontSize: '13px',
-                                        color: '#334155',
-                                        outline: 'none',
-                                        cursor: 'pointer',
-                                        marginBottom: '0.5rem'
-                                    }}
-                                />
-                                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                    Please specify when the effectiveness check will be performed.
-                                </div>
-                            </div>
-                        )}
 
                         {/* CHECK Phase VERSION of side cards */}
                         {viewingStep === 'CHECK' && (
@@ -1882,6 +1841,47 @@ const Cockpit: React.FC = () => {
                                                 <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
                                                 <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
                                             </select>
+                                        </div>
+
+                                        {/* DO Phase Activation Card (moved from sidebar) */}
+                                        <div style={{
+                                            background: '#fff',
+                                            borderRadius: '16px',
+                                            border: '1px solid #e8ecf0',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                                            padding: '1.75rem',
+                                            marginTop: '0.5rem'
+                                        }}>
+                                            {/* Header */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                                                <span style={{ fontSize: '20px' }}>📅</span>
+                                                <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkTrigger')}</span>
+                                            </div>
+                                            <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
+
+                                            {/* Due Date */}
+                                            <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                            <input
+                                                type="date"
+                                                value={planMeeting.checkTriggerDate}
+                                                onChange={e => setPlanMeeting({ ...planMeeting, checkTriggerDate: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    boxSizing: 'border-box',
+                                                    padding: '0.65rem 0.9rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #e2e8f0',
+                                                    background: '#f8fafc',
+                                                    fontSize: '13px',
+                                                    color: '#334155',
+                                                    outline: 'none',
+                                                    cursor: 'pointer',
+                                                    marginBottom: '0.5rem'
+                                                }}
+                                            />
+                                            <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                                Please specify when the effectiveness check will be performed.
+                                            </div>
                                         </div>
                                     </div>
                                 )}
