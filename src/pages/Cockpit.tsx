@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService, authService, todosService } from '../services';
 import { notificationService } from '../services/notifications';
 import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea } from '../types';
-import { Save, Printer, Mail, ArrowLeft, ChevronRight, ChevronDown, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp } from 'lucide-react';
+import { Save, Printer, Mail, ArrowLeft, ChevronRight, ChevronDown, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp, MapPin, Building2, Users } from 'lucide-react';
 import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, normalizeStatus } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 import DateTimePicker from '../components/DateTimePicker';
@@ -61,6 +61,27 @@ const Cockpit: React.FC = () => {
     const [stepFilter, setStepFilter] = useState<Step[]>([]);
     const [isSaved, setIsSaved] = useState(false);
     const [emailStatus, setEmailStatus] = useState<{ show: boolean; success: boolean; message: string }>({ show: false, success: false, message: '' });
+
+    // Location & Department state (PLAN page only)
+    const [locationDeptTab, setLocationDeptTab] = useState<'locations' | 'departments'>('locations');
+    const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+    const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+
+    const LOCATION_OPTIONS = [
+        'Pristina ',
+        'Prizren ',
+        'Peja ',
+        'Mitrovica ',
+        'Gjakova '
+    ];
+    const DEPARTMENT_OPTIONS = [
+        'Finance',
+        'HR & Staff',
+        'IT & Development',
+        'Marketing',
+        'Communications',
+        'Senior Management'
+    ];
 
     // PLAN Phase Meeting state
     const [planMeeting, setPlanMeeting] = useState<{
@@ -843,6 +864,315 @@ const Cockpit: React.FC = () => {
                                 })}
                             </div>
                         </div>
+
+                        {/* Location & Department Card (PLAN only) */}
+                        {viewingStep === 'PLAN' && (
+                            <div style={{
+                                background: '#fff',
+                                borderRadius: '16px',
+                                border: '1px solid #e8ecf0',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                                padding: '1.75rem',
+                                position: 'relative'
+                            }}>
+                                {/* Header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.25rem' }}>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '12px',
+                                        background: 'linear-gradient(135deg, #5FAE9E 0%, #4a9e8e 100%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        <MapPin size={20} color="#fff" strokeWidth={2.2} />
+                                    </div>
+                                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>Location & Department</span>
+                                </div>
+
+                                {/* Tab row */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '0',
+                                    borderBottom: '2px solid #e8ecf0',
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    <button
+                                        onClick={() => setLocationDeptTab('locations')}
+                                        style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            padding: '10px 0',
+                                            border: 'none',
+                                            background: 'transparent',
+                                            cursor: 'pointer',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: locationDeptTab === 'locations' ? '#5FAE9E' : '#94a3b8',
+                                            borderBottom: locationDeptTab === 'locations' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                            marginBottom: '-2px',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <Building2 size={15} />
+                                        Locations
+                                    </button>
+                                    <button
+                                        onClick={() => setLocationDeptTab('departments')}
+                                        style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            padding: '10px 0',
+                                            border: 'none',
+                                            background: 'transparent',
+                                            cursor: 'pointer',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: locationDeptTab === 'departments' ? '#5FAE9E' : '#94a3b8',
+                                            borderBottom: locationDeptTab === 'departments' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                            marginBottom: '-2px',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <Users size={15} />
+                                        Departments
+                                    </button>
+                                </div>
+
+                                {/* Locations list */}
+                                {locationDeptTab === 'locations' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                        {LOCATION_OPTIONS.map((loc) => {
+                                            const isSelected = selectedLocations.includes(loc);
+                                            return (
+                                                <label
+                                                    key={loc}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '12px 14px',
+                                                        borderRadius: '10px',
+                                                        cursor: 'pointer',
+                                                        background: isSelected ? '#edf8f5' : 'transparent',
+                                                        transition: 'background 0.18s ease',
+                                                        marginBottom: '2px'
+                                                    }}
+                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {
+                                                            setSelectedLocations(prev =>
+                                                                prev.includes(loc)
+                                                                    ? prev.filter(l => l !== loc)
+                                                                    : [...prev, loc]
+                                                            );
+                                                        }}
+                                                        style={{
+                                                            width: '20px',
+                                                            height: '20px',
+                                                            cursor: 'pointer',
+                                                            accentColor: '#5FAE9E',
+                                                            borderRadius: '6px',
+                                                            flexShrink: 0
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        fontSize: '14px',
+                                                        color: isSelected ? '#1a202c' : '#475569',
+                                                        fontWeight: isSelected ? 600 : 400
+                                                    }}>{loc}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Departments list */}
+                                {locationDeptTab === 'departments' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                        {DEPARTMENT_OPTIONS.map((dept) => {
+                                            const isSelected = selectedDepartments.includes(dept);
+                                            return (
+                                                <label
+                                                    key={dept}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '12px 14px',
+                                                        borderRadius: '10px',
+                                                        cursor: 'pointer',
+                                                        background: isSelected ? '#edf8f5' : 'transparent',
+                                                        transition: 'background 0.18s ease',
+                                                        marginBottom: '2px'
+                                                    }}
+                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {
+                                                            setSelectedDepartments(prev =>
+                                                                prev.includes(dept)
+                                                                    ? prev.filter(d => d !== dept)
+                                                                    : [...prev, dept]
+                                                            );
+                                                        }}
+                                                        style={{
+                                                            width: '20px',
+                                                            height: '20px',
+                                                            cursor: 'pointer',
+                                                            accentColor: '#5FAE9E',
+                                                            borderRadius: '6px',
+                                                            flexShrink: 0
+                                                        }}
+                                                    />
+                                                    <span style={{
+                                                        fontSize: '14px',
+                                                        color: isSelected ? '#1a202c' : '#475569',
+                                                        fontWeight: isSelected ? 600 : 400
+                                                    }}>{dept}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Divider before selected summary */}
+                                <div style={{ borderTop: '1px solid #e8ecf0', margin: '1rem 0 0.85rem 0' }} />
+
+                                {/* Selected Locations summary */}
+                                <div style={{ marginBottom: '0.75rem' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        color: '#94a3b8',
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <MapPin size={13} />
+                                        SELECTED LOCATIONS
+                                    </div>
+                                    {selectedLocations.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            {selectedLocations.map(loc => (
+                                                <span
+                                                    key={loc}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        background: '#5FAE9E',
+                                                        color: '#fff',
+                                                        borderRadius: '20px',
+                                                        padding: '5px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        lineHeight: '1.3'
+                                                    }}
+                                                >
+                                                    {loc}
+                                                    <button
+                                                        onClick={() => setSelectedLocations(prev => prev.filter(l => l !== loc))}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#fff',
+                                                            cursor: 'pointer',
+                                                            padding: '0',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            lineHeight: 1,
+                                                            opacity: 0.85
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                    >
+                                                        <X size={14} strokeWidth={2.5} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Selected Departments summary */}
+                                <div>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        color: '#94a3b8',
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <Users size={13} />
+                                        DEPARTMENTS E ZGJEDHURA
+                                    </div>
+                                    {selectedDepartments.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            {selectedDepartments.map(dept => (
+                                                <span
+                                                    key={dept}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        background: '#5FAE9E',
+                                                        color: '#fff',
+                                                        borderRadius: '20px',
+                                                        padding: '5px 12px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        lineHeight: '1.3'
+                                                    }}
+                                                >
+                                                    {dept}
+                                                    <button
+                                                        onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#fff',
+                                                            cursor: 'pointer',
+                                                            padding: '0',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            lineHeight: 1,
+                                                            opacity: 0.85
+                                                        }}
+                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                    >
+                                                        <X size={14} strokeWidth={2.5} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* PLAN Phase Meeting Card */}
                         {viewingStep === 'PLAN' && (
