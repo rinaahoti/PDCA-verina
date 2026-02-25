@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService, authService, todosService } from '../services';
 import { notificationService } from '../services/notifications';
@@ -9,7 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import DateTimePicker from '../components/DateTimePicker';
 
 
-import { generatePDCAPdf } from '../utils/pdfGenerator';
+import { generatePlanDoCheckCombinedPdf } from '../utils/pdfGenerator';
 
 const Cockpit: React.FC = () => {
     const { t, language } = useLanguage();
@@ -67,9 +67,14 @@ const Cockpit: React.FC = () => {
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
     const [planMeetingExpanded, setPlanMeetingExpanded] = useState(false);
+    const [checkMeetingExpanded, setCheckMeetingExpanded] = useState(false);
+    const [checkMeetingPickerOpen, setCheckMeetingPickerOpen] = useState(false);
+    const [planMeetingPickerOpen, setPlanMeetingPickerOpen] = useState(false);
+    const [doActionPickerOpenIdx, setDoActionPickerOpenIdx] = useState<number | null>(null);
+    const doResponsiblePickerRef = useRef<HTMLDivElement | null>(null);
 
     const LOCATION_OPTIONS = [
-        'Pristina ',
+        'Prishtina ',
         'Prizren ',
         'Peja ',
         'Mitrovica ',
@@ -134,8 +139,40 @@ const Cockpit: React.FC = () => {
         'Dr. Julia Chen',
         'James Wilson',
         'Anna Müller',
-        'Thomas Becker'
+        'Thomas Becker',
+        'Laura Schmidt',
+        'Dr. Stefan Vogel',
+        'Maria Hoffmann',
+        'Florian Braun',
+        'Katrin Neumann'
     ];
+
+    // UI-only: department labels for the CHECK picker dropdown (Photo 3)
+    const PERSON_DEPT: Record<string, string> = {
+        'Dr. Elena Rossi': 'Medical',
+        'Dr. Marcus Weber': 'Medical',
+        'Sarah Johnson': 'HR & Staff',
+        'Robert Miller': 'HR & Staff',
+        'Dr. Julia Chen': 'Medical',
+        'James Wilson': 'IT',
+        'Anna Müller': 'HR & Staff',
+        'Thomas Becker': 'IT',
+        'Laura Schmidt': 'Finance',
+        'Dr. Stefan Vogel': 'Medical',
+        'Maria Hoffmann': 'Communications',
+        'Florian Braun': 'IT',
+        'Katrin Neumann': 'HR & Staff'
+    };
+
+    // UI-only: avatar background colors cycling list
+    const AVATAR_COLORS = ['#5FAE9E', '#7C3AED', '#D97706', '#DC2626', '#2563EB', '#059669', '#9333EA', '#0369A1'];
+    const getAvatarColor = (name: string): string => {
+        const idx = PERSONS.indexOf(name);
+        return AVATAR_COLORS[idx >= 0 ? idx % AVATAR_COLORS.length : 0];
+    };
+    const getInitials = (name: string): string => {
+        return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    };
 
     const loadData = () => {
         const allTopics = topicsService.getAll();
@@ -186,6 +223,20 @@ const Cockpit: React.FC = () => {
             });
         }
     }, [selectedTopic?.id, selectedTopic?.step]);
+
+    // DO-only: ensure Responsible Persons picker renders full height on first open.
+    useLayoutEffect(() => {
+        if (viewingStep !== 'DO' || doActionPickerOpenIdx === null) return;
+        const frame = requestAnimationFrame(() => {
+            const panel = doResponsiblePickerRef.current;
+            if (!panel) return;
+            panel.style.height = '245px';
+            panel.style.maxHeight = '245px';
+            panel.scrollTop = 0;
+            panel.getBoundingClientRect();
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [viewingStep, doActionPickerOpenIdx]);
 
     const getTranslatedTopicTitle = (title: string) => {
         const titleMap: Record<string, string> = {
@@ -596,7 +647,7 @@ const Cockpit: React.FC = () => {
 
                                 topicsService.update(newTopic.id, {
                                     plan: {
-                                        description: '',
+                                        description: createState.description,
                                         goal: createState.goal,
                                         asIs: createState.asIs,
                                         toBe: createState.toBe,
@@ -629,21 +680,287 @@ const Cockpit: React.FC = () => {
                 </div>
 
                 <div className="detail-view">
-                    <div className="card" style={{ padding: '0.5rem 0' }}>
-                        <div style={{ padding: '1rem', fontWeight: 700, fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('pdca.processLifecycle')}</div>
-                        <div className="lifecycle-stepper">
-                            {['PLAN', 'DO', 'CHECK', 'ACT'].map((step, i) => (
-                                <div key={step} className={`lifecycle-step ${step === 'PLAN' ? 'active' : ''}`} style={{ cursor: 'default', background: step === 'PLAN' ? '#cbeee2' : 'transparent', color: step === 'PLAN' ? '#5FAE9E' : 'inherit', borderLeftColor: step === 'PLAN' ? '#5FAE9E' : 'transparent' }}>
-                                    <div className="lifecycle-step-num" style={{ background: step === 'PLAN' ? '#5FAE9E' : 'var(--color-border)', color: step === 'PLAN' ? 'white' : 'inherit' }}>{i + 1}</div>
-                                    <span>{step.charAt(0) + step.slice(1).toLowerCase()}</span>
-                                    {step !== 'PLAN' && <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
-                                </div>
-                            ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="card" style={{ padding: '0.5rem 0' }}>
+                            <div style={{ padding: '1rem', fontWeight: 700, fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('pdca.processLifecycle')}</div>
+                            <div className="lifecycle-stepper">
+                                {['PLAN', 'DO', 'CHECK', 'ACT'].map((step, i) => (
+                                    <div key={step} className={`lifecycle-step ${step === 'PLAN' ? 'active' : ''}`} style={{ cursor: 'default', background: step === 'PLAN' ? '#cbeee2' : 'transparent', color: step === 'PLAN' ? '#5FAE9E' : 'inherit', borderLeftColor: step === 'PLAN' ? '#5FAE9E' : 'transparent' }}>
+                                        <div className="lifecycle-step-num" style={{ background: step === 'PLAN' ? '#5FAE9E' : 'var(--color-border)', color: step === 'PLAN' ? 'white' : 'inherit' }}>{i + 1}</div>
+                                        <span>{step.charAt(0) + step.slice(1).toLowerCase()}</span>
+                                        {step !== 'PLAN' && <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{
+                            background: '#fff',
+                            borderRadius: '16px',
+                            border: '1px solid #e8ecf0',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                            padding: '1.75rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                                <span style={{ fontSize: '20px' }}></span>
+                                <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkTrigger')}</span>
+                            </div>
+                            <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
+
+                            <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                            <input
+                                type="date"
+                                value={planMeeting.checkTriggerDate}
+                                onChange={e => setPlanMeeting({ ...planMeeting, checkTriggerDate: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    padding: '0.65rem 0.9rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    background: '#f8fafc',
+                                    fontSize: '13px',
+                                    color: '#334155',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    marginBottom: '0.5rem'
+                                }}
+                            />
+                            <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                Please specify when the effectiveness check will be performed.
+                            </div>
+                        </div>
+
+                        <div style={{
+                            background: '#fff',
+                            borderRadius: '16px',
+                            border: '1px solid #e8ecf0',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                            padding: '1.75rem',
+                            position: 'relative'
+                        }}>
+                            <div
+                                onClick={() => setPlanMeetingExpanded(prev => !prev)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    marginBottom: planMeetingExpanded ? '1rem' : '0',
+                                    userSelect: 'none'
+                                }}
+                            >
+                                <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
+                                <ChevronDown
+                                    size={20}
+                                    color="#64748b"
+                                    style={{
+                                        transition: 'transform 0.25s ease',
+                                        transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                    }}
+                                />
+                            </div>
+                            {planMeetingExpanded && (
+                                <>
+                                    <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
+
+                                    <input
+                                        type="text"
+                                        value={planMeeting.title}
+                                        onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
+                                        placeholder="Meeting title"
+                                        style={{
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            padding: '0.75rem 1rem',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e2e8f0',
+                                            background: '#f8fafc',
+                                            fontSize: '14px',
+                                            color: '#334155',
+                                            outline: 'none',
+                                            marginBottom: '1.25rem'
+                                        }}
+                                    />
+
+                                    <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
+                                                {planMeeting.responsiblePersons.slice(0, 4).map((person, idx) => (
+                                                    <div
+                                                        key={person}
+                                                        title={person}
+                                                        style={{
+                                                            width: '32px', height: '32px', borderRadius: '50%',
+                                                            background: getAvatarColor(person), color: '#fff', fontSize: '11px',
+                                                            fontWeight: 700, display: 'flex', alignItems: 'center',
+                                                            justifyContent: 'center', border: '2px solid #fff',
+                                                            marginLeft: idx === 0 ? 0 : '-8px', zIndex: 10 - idx,
+                                                            position: 'relative', cursor: 'default', letterSpacing: '0.02em'
+                                                        }}
+                                                    >
+                                                        {getInitials(person)}
+                                                    </div>
+                                                ))}
+                                                {planMeeting.responsiblePersons.length > 4 && (
+                                                    <div style={{
+                                                        width: '32px', height: '32px', borderRadius: '50%', background: '#64748b',
+                                                        color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                        alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
+                                                        marginLeft: '-8px', zIndex: 5, position: 'relative', letterSpacing: '0.01em'
+                                                    }}>
+                                                        +{planMeeting.responsiblePersons.length - 4}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setPlanMeetingPickerOpen(prev => !prev)}
+                                                style={{
+                                                    background: 'transparent', border: '1.5px dashed #5FAE9E',
+                                                    borderRadius: '20px', padding: '4px 14px', fontSize: '13px',
+                                                    color: '#5FAE9E', cursor: 'pointer', fontWeight: 600,
+                                                    letterSpacing: '0.01em', transition: 'background 0.15s'
+                                                }}
+                                                onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                            >- Ndrysho</button>
+                                        </div>
+
+                                        {planMeetingPickerOpen && (
+                                            <div style={{
+                                                position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
+                                                background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
+                                                boxShadow: '0 8px 32px rgba(0,0,0,0.13)', minWidth: '300px',
+                                                height: '245px', maxHeight: '245px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column'
+                                            }}>
+                                                {PERSONS.map(person => {
+                                                    const isSelected = planMeeting.responsiblePersons.includes(person);
+                                                    return (
+                                                        <div
+                                                            key={person}
+                                                            onClick={() => {
+                                                                const updated = isSelected
+                                                                    ? planMeeting.responsiblePersons.filter(p => p !== person)
+                                                                    : [...planMeeting.responsiblePersons, person];
+                                                                const updatedChecked = isSelected
+                                                                    ? planMeeting.checkedPersons.filter(p => p !== person)
+                                                                    : planMeeting.checkedPersons;
+                                                                setPlanMeeting({ ...planMeeting, responsiblePersons: updated, checkedPersons: updatedChecked });
+                                                            }}
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px',
+                                                                cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                                                background: isSelected ? '#f0fdfa' : '#fff', transition: 'background 0.12s'
+                                                            }}
+                                                            onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f0fdfa' : '#fff'; }}
+                                                        >
+                                                            <input type="checkbox" readOnly checked={isSelected}
+                                                                style={{ width: '15px', height: '15px', accentColor: '#5FAE9E', cursor: 'pointer', flexShrink: 0, margin: 0 }}
+                                                            />
+                                                            <div style={{
+                                                                width: '28px', height: '28px', borderRadius: '50%', background: getAvatarColor(person),
+                                                                color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                                alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                                            }}>{getInitials(person)}</div>
+                                                            <span style={{ fontSize: '13px', color: '#334155', fontWeight: isSelected ? 600 : 400 }}>{person}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginBottom: '1.25rem' }}>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                        <div style={{ position: 'relative' }}>
+                                            <select
+                                                value={planMeeting.meetingType}
+                                                onChange={e => setPlanMeeting({ ...planMeeting, meetingType: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    appearance: 'none',
+                                                    WebkitAppearance: 'none',
+                                                    padding: '0.7rem 2.5rem 0.7rem 1rem',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e2e8f0',
+                                                    background: '#fff',
+                                                    fontSize: '13px',
+                                                    color: '#334155',
+                                                    cursor: 'pointer',
+                                                    outline: 'none'
+                                                }}
+                                            >
+                                                <option>In-Office (On-site)</option>
+                                                <option>Remote (Online)</option>
+                                                <option>Hybrid</option>
+                                            </select>
+                                            <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                                        <div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE & TIME</div>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                <DateTimePicker
+                                                    value={planMeeting.meetingDateTime}
+                                                    onChange={val => setPlanMeeting({ ...planMeeting, meetingDateTime: val })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                <input
+                                                    type="text"
+                                                    value={planMeeting.location}
+                                                    onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
+                                                    placeholder={planMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link... (https://)' : 'Location'}
+                                                    style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => { }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.85rem 1rem',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                background: 'linear-gradient(90deg, #3AAFA9 0%, #2B9E97 100%)',
+                                                color: '#fff',
+                                                fontSize: '14px',
+                                                fontWeight: 700,
+                                                letterSpacing: '0.02em',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                boxShadow: '0 2px 8px rgba(58,175,169,0.18)',
+                                                transition: 'opacity 0.15s, box-shadow 0.15s'
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.opacity = '0.92'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(58,175,169,0.28)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
+                                        >
+                                            <span style={{ fontSize: '15px' }}></span>
+                                            Send Meeting Invites
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div className="card" style={{ padding: 0, overflow: viewingStep === 'DO' ? 'visible' : 'hidden' }}>
                             <div style={{ padding: '1.25rem 1.75rem', borderBottom: '1px solid var(--color-border)', background: '#fcfcfd' }}>
                                 <h3 style={{ margin: 0 }}>{t('pdca.planData')}</h3>
                             </div>
@@ -748,6 +1065,307 @@ const Cockpit: React.FC = () => {
                                         </div>
                                     </div>
 
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ fontWeight: 600 }}>{t('pdca.cycle')}</label>
+                                        <textarea
+                                            rows={4}
+                                            value={createState.description || ''}
+                                            onChange={e => setCreateState({ ...createState, description: e.target.value })}
+                                            placeholder={t('pdca.cyclePlaceholder')}
+                                        />
+                                    </div>
+
+                                    <div style={{ marginBottom: '1.5rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                            <MapPin size={20} color="#5FAE9E" strokeWidth={2} />
+                                            <label style={{ fontWeight: 600, margin: 0 }}>Location & Department</label>
+                                        </div>
+                                        <div style={{
+                                            borderRadius: '12px',
+                                            border: '1px solid #e8ecf0',
+                                            padding: '1.5rem',
+                                            background: '#fff'
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '0',
+                                                borderBottom: '2px solid #e8ecf0',
+                                                marginBottom: '0.75rem'
+                                            }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setLocationDeptTab('locations')}
+                                                    style={{
+                                                        flex: 1,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        padding: '10px 0',
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        fontSize: '13px',
+                                                        fontWeight: 600,
+                                                        color: locationDeptTab === 'locations' ? '#5FAE9E' : '#94a3b8',
+                                                        borderBottom: locationDeptTab === 'locations' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                                        marginBottom: '-2px',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                >
+                                                    <Building2 size={15} />
+                                                    Locations
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setLocationDeptTab('departments')}
+                                                    style={{
+                                                        flex: 1,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        padding: '10px 0',
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        fontSize: '13px',
+                                                        fontWeight: 600,
+                                                        color: locationDeptTab === 'departments' ? '#5FAE9E' : '#94a3b8',
+                                                        borderBottom: locationDeptTab === 'departments' ? '2.5px solid #5FAE9E' : '2.5px solid transparent',
+                                                        marginBottom: '-2px',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                >
+                                                    <Users size={15} />
+                                                    Departments
+                                                </button>
+                                            </div>
+
+                                            {locationDeptTab === 'locations' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                    {LOCATION_OPTIONS.map((loc) => {
+                                                        const isSelected = selectedLocations.includes(loc);
+                                                        return (
+                                                            <label
+                                                                key={loc}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '12px',
+                                                                    padding: '12px 14px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer',
+                                                                    background: isSelected ? '#edf8f5' : 'transparent',
+                                                                    transition: 'background 0.18s ease',
+                                                                    marginBottom: '2px'
+                                                                }}
+                                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => {
+                                                                        setSelectedLocations(prev =>
+                                                                            prev.includes(loc)
+                                                                                ? prev.filter(l => l !== loc)
+                                                                                : [...prev, loc]
+                                                                        );
+                                                                    }}
+                                                                    style={{
+                                                                        width: '20px',
+                                                                        height: '20px',
+                                                                        cursor: 'pointer',
+                                                                        accentColor: '#5FAE9E',
+                                                                        borderRadius: '6px',
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                                <span style={{
+                                                                    fontSize: '14px',
+                                                                    color: isSelected ? '#1a202c' : '#475569',
+                                                                    fontWeight: isSelected ? 600 : 400
+                                                                }}>{loc}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {locationDeptTab === 'departments' && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                    {DEPARTMENT_OPTIONS.map((dept) => {
+                                                        const isSelected = selectedDepartments.includes(dept);
+                                                        return (
+                                                            <label
+                                                                key={dept}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '12px',
+                                                                    padding: '12px 14px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer',
+                                                                    background: isSelected ? '#edf8f5' : 'transparent',
+                                                                    transition: 'background 0.18s ease',
+                                                                    marginBottom: '2px'
+                                                                }}
+                                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafb'; }}
+                                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => {
+                                                                        setSelectedDepartments(prev =>
+                                                                            prev.includes(dept)
+                                                                                ? prev.filter(d => d !== dept)
+                                                                                : [...prev, dept]
+                                                                        );
+                                                                    }}
+                                                                    style={{
+                                                                        width: '20px',
+                                                                        height: '20px',
+                                                                        cursor: 'pointer',
+                                                                        accentColor: '#5FAE9E',
+                                                                        borderRadius: '6px',
+                                                                        flexShrink: 0
+                                                                    }}
+                                                                />
+                                                                <span style={{
+                                                                    fontSize: '14px',
+                                                                    color: isSelected ? '#1a202c' : '#475569',
+                                                                    fontWeight: isSelected ? 600 : 400
+                                                                }}>{dept}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            <div style={{ borderTop: '1px solid #e8ecf0', marginTop: '14px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                <div>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        color: '#94a3b8',
+                                                        letterSpacing: '0.08em',
+                                                        textTransform: 'uppercase',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <MapPin size={13} />
+                                                        SELECTED LOCATIONS
+                                                    </div>
+                                                    {selectedLocations.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {selectedLocations.map(loc => (
+                                                                <span
+                                                                    key={loc}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        background: '#5FAE9E',
+                                                                        color: '#fff',
+                                                                        borderRadius: '20px',
+                                                                        padding: '5px 12px',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 600,
+                                                                        lineHeight: '1.3'
+                                                                    }}
+                                                                >
+                                                                    {loc}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedLocations(prev => prev.filter(l => l !== loc))}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#fff',
+                                                                            cursor: 'pointer',
+                                                                            padding: '0',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            lineHeight: 1,
+                                                                            opacity: 0.85
+                                                                        }}
+                                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                                    >
+                                                                        <X size={14} strokeWidth={2.5} />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        color: '#94a3b8',
+                                                        letterSpacing: '0.08em',
+                                                        textTransform: 'uppercase',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <Users size={13} />
+                                                        SELECTED DEPARTMENTS
+                                                    </div>
+                                                    {selectedDepartments.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {selectedDepartments.map(dept => (
+                                                                <span
+                                                                    key={dept}
+                                                                    style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        background: '#5FAE9E',
+                                                                        color: '#fff',
+                                                                        borderRadius: '20px',
+                                                                        padding: '5px 12px',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 600,
+                                                                        lineHeight: '1.3'
+                                                                    }}
+                                                                >
+                                                                    {dept}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
+                                                                        style={{
+                                                                            background: 'none',
+                                                                            border: 'none',
+                                                                            color: '#fff',
+                                                                            cursor: 'pointer',
+                                                                            padding: '0',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            lineHeight: 1,
+                                                                            opacity: 0.85
+                                                                        }}
+                                                                        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                                                                        onMouseLeave={e => { e.currentTarget.style.opacity = '0.85'; }}
+                                                                    >
+                                                                        <X size={14} strokeWidth={2.5} />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
 
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>{t('common.status')}</label>
@@ -763,9 +1381,9 @@ const Cockpit: React.FC = () => {
                                                 color: getStatusColor(createState.status)
                                             }}
                                         >
-                                            <option value="Monitoring" style={{ color: getStatusColor('Monitoring'), fontWeight: 600 }}>{t('status.monitoring')}</option>
-                                            <option value="Warning" style={{ color: getStatusColor('Warning'), fontWeight: 600 }}>{t('status.warning')}</option>
-                                            <option value="Critical" style={{ color: getStatusColor('Critical'), fontWeight: 600 }}>{t('status.critical')}</option>
+                                            <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('pdca.monitoring')}</option>
+                                            <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
+                                            <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
                                         </select>
                                     </div>
 
@@ -867,455 +1485,53 @@ const Cockpit: React.FC = () => {
                         </div>
 
 
-                        {/* PLAN Phase Meeting Card */}
-                        {viewingStep === 'PLAN' && (
+                        {/* DO Phase Activation Card (sidebar) */}
+                        {viewingStep === 'DO' && (
                             <div style={{
                                 background: '#fff',
                                 borderRadius: '16px',
                                 border: '1px solid #e8ecf0',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                                padding: '1.75rem',
-                                position: 'relative'
+                                padding: '1.75rem'
                             }}>
-                                {/* Header — clickable toggle */}
-                                <div
-                                    onClick={() => setPlanMeetingExpanded(prev => !prev)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        cursor: 'pointer',
-                                        marginBottom: planMeetingExpanded ? '1rem' : '0',
-                                        userSelect: 'none'
-                                    }}
-                                >
-                                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
-                                    <ChevronDown
-                                        size={20}
-                                        color="#64748b"
-                                        style={{
-                                            transition: 'transform 0.25s ease',
-                                            transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                                        }}
-                                    />
+                                {/* Header — identical to PLAN/CHECK */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                                    <span style={{ fontSize: '20px' }}></span>
+                                    <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>Check Phase Activation</span>
                                 </div>
-                                {planMeetingExpanded && (
-                                    <>
-                                        <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
+                                <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
-                                        {/* A) Meeting Title Input */}
-                                        <input
-                                            type="text"
-                                            value={planMeeting.title}
-                                            onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
-                                            placeholder="Shkruaj titullin e mbledhjes..."
-                                            style={{
-                                                width: '100%',
-                                                boxSizing: 'border-box',
-                                                padding: '0.75rem 1rem',
-                                                borderRadius: '10px',
-                                                border: '1px solid #e2e8f0',
-                                                background: '#f8fafc',
-                                                fontSize: '14px',
-                                                color: '#334155',
-                                                outline: 'none',
-                                                marginBottom: '1.25rem'
-                                            }}
-                                        />
-
-                                        {/* B) Responsible Persons */}
-                                        <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
-
-                                            {/* Selected person chips */}
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                                                {planMeeting.responsiblePersons.map(person => (
-                                                    <div key={person} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '5px 12px', fontSize: '13px', color: '#334155' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={planMeeting.checkedPersons.includes(person)}
-                                                            onChange={e => {
-                                                                const updated = e.target.checked
-                                                                    ? [...planMeeting.checkedPersons, person]
-                                                                    : planMeeting.checkedPersons.filter(p => p !== person);
-                                                                setPlanMeeting({ ...planMeeting, checkedPersons: updated });
-                                                            }}
-                                                            style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#5FAE9E', margin: 0 }}
-                                                        />
-                                                        <span>{person}</span>
-                                                    </div>
-                                                ))}
-                                                {/* + Assign button */}
-                                                <button
-                                                    onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: !planMeeting.showDropdown })}
-                                                    style={{
-                                                        background: 'transparent',
-                                                        border: '1.5px dashed #cbd5e1',
-                                                        borderRadius: '8px',
-                                                        padding: '4px 12px',
-                                                        fontSize: '12px',
-                                                        color: '#64748b',
-                                                        cursor: 'pointer',
-                                                        fontWeight: 500
-                                                    }}
-                                                >+ Assign...</button>
-                                            </div>
-
-                                            {/* Remove x controls */}
-                                            {planMeeting.responsiblePersons.length > 0 && (
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                                                    {planMeeting.responsiblePersons.map(person => (
-                                                        <button
-                                                            key={person + '-remove'}
-                                                            onClick={() => setPlanMeeting({
-                                                                ...planMeeting,
-                                                                responsiblePersons: planMeeting.responsiblePersons.filter(p => p !== person),
-                                                                checkedPersons: planMeeting.checkedPersons.filter(p => p !== person)
-                                                            })}
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', padding: '0 3px', lineHeight: 1 }}
-                                                            title={`Remove ${person}`}
-                                                        >×</button>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {/* Dropdown overlay */}
-                                            {planMeeting.showDropdown && (
-                                                <div
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '100%',
-                                                        left: 0,
-                                                        zIndex: 9999,
-                                                        background: '#fff',
-                                                        borderRadius: '10px',
-                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                                                        minWidth: '240px',
-                                                        maxHeight: '280px',
-                                                        overflow: 'hidden',
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        marginTop: '6px'
-                                                    }}
-                                                >
-                                                    {/* Sticky teal header */}
-                                                    <div style={{
-                                                        background: '#0d9488',
-                                                        color: '#fff',
-                                                        fontWeight: 700,
-                                                        fontSize: '12px',
-                                                        letterSpacing: '0.05em',
-                                                        padding: '11px 16px',
-                                                        cursor: 'default',
-                                                        flexShrink: 0
-                                                    }}>+ ASSIGN PERSON...</div>
-                                                    {/* Scrollable list */}
-                                                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                                                        {PERSONS.filter(p => !planMeeting.responsiblePersons.includes(p)).map((person, idx) => (
-                                                            <div
-                                                                key={person}
-                                                                onClick={() => {
-                                                                    setPlanMeeting({
-                                                                        ...planMeeting,
-                                                                        responsiblePersons: [...planMeeting.responsiblePersons, person],
-                                                                        showDropdown: false
-                                                                    });
-                                                                }}
-                                                                style={{
-                                                                    padding: '10px 14px',
-                                                                    fontSize: '13px',
-                                                                    color: idx === 1 ? '#0d9488' : '#334155',
-                                                                    background: idx === 1 ? '#f0fdfa' : '#fff',
-                                                                    cursor: 'pointer',
-                                                                    borderBottom: '1px solid #f1f5f9',
-                                                                    transition: 'background 0.15s'
-                                                                }}
-                                                                onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
-                                                                onMouseLeave={e => (e.currentTarget.style.background = idx === 1 ? '#f0fdfa' : '#fff')}
-                                                            >{person}</div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* D) Meeting Type */}
-                                        <div style={{ marginBottom: '1.25rem' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
-                                            <div style={{ position: 'relative' }}>
-                                                <select
-                                                    value={planMeeting.meetingType}
-                                                    onChange={e => setPlanMeeting({ ...planMeeting, meetingType: e.target.value })}
-                                                    style={{
-                                                        width: '100%',
-                                                        appearance: 'none',
-                                                        WebkitAppearance: 'none',
-                                                        padding: '0.7rem 2.5rem 0.7rem 1rem',
-                                                        borderRadius: '10px',
-                                                        border: '1px solid #e2e8f0',
-                                                        background: '#fff',
-                                                        fontSize: '13px',
-                                                        color: '#334155',
-                                                        cursor: 'pointer',
-                                                        outline: 'none'
-                                                    }}
-                                                >
-                                                    <option>In-Office (On-site)</option>
-                                                    <option>Remote (Online)</option>
-                                                    <option>Hybrid</option>
-                                                </select>
-                                                <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
-                                            </div>
-                                        </div>
-
-                                        {/* E) Bottom row: Date & Location */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.5rem' }}>
-                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>MEETING DATE &amp; TIME</div>
-                                                <DateTimePicker
-                                                    value={planMeeting.meetingDateTime}
-                                                    onChange={val => setPlanMeeting({ ...planMeeting, meetingDateTime: val })}
-                                                />
-                                            </div>
-                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>OFFICE / LOCATION</div>
-                                                <input
-                                                    type="text"
-                                                    value={planMeeting.location}
-                                                    onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
-                                                    placeholder="Location"
-                                                    style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
-                                                />
-                                            </div>
-                                        </div>
-
-
-                                        {/* Close dropdown on outside click overlay */}
-                                        {planMeeting.showDropdown && (
-                                            <div
-                                                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                                                onClick={() => setPlanMeeting({ ...planMeeting, showDropdown: false })}
-                                            />
-                                        )}
-                                    </>
-                                )}
+                                {/* Due Date */}
+                                <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                <input
+                                    type="date"
+                                    value={formState.checkDate}
+                                    onChange={e => setFormState({ ...formState, checkDate: e.target.value })}
+                                    disabled={selectedTopic.status === 'Done'}
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        padding: '0.65rem 0.9rem',
+                                        borderRadius: '8px',
+                                        border: '1px solid #e2e8f0',
+                                        background: '#f8fafc',
+                                        fontSize: '13px',
+                                        color: '#334155',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        marginBottom: '0.5rem'
+                                    }}
+                                />
+                                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                    Please specify when the effectiveness check will be performed.
+                                </div>
                             </div>
                         )}
 
 
-                        {/* CHECK Phase VERSION of side cards */}
-                        {viewingStep === 'CHECK' && (
+                        {/* PLAN Phase Meeting Card */}
+                        {viewingStep === 'PLAN' && (
                             <>
-                                {/* CHECK Phase Meeting Card */}
-                                <div style={{
-                                    background: '#fff',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e8ecf0',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                                    padding: '1.75rem',
-                                    position: 'relative'
-                                }}>
-                                    {/* Header */}
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>CHECK Phase Meeting</span>
-                                    </div>
-                                    <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
-
-                                    {/* A) Meeting Title Input */}
-                                    <input
-                                        type="text"
-                                        value={checkMeeting.title}
-                                        onChange={e => setCheckMeeting({ ...checkMeeting, title: e.target.value })}
-                                        placeholder="Shkruaj titullin e mbledhjes..."
-                                        style={{
-                                            width: '100%',
-                                            boxSizing: 'border-box',
-                                            padding: '0.75rem 1rem',
-                                            borderRadius: '10px',
-                                            border: '1px solid #e2e8f0',
-                                            background: '#f8fafc',
-                                            fontSize: '14px',
-                                            color: '#334155',
-                                            outline: 'none',
-                                            marginBottom: '1.25rem'
-                                        }}
-                                    />
-
-                                    {/* B) Responsible Persons */}
-                                    <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
-
-                                        {/* Selected person chips */}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                                            {checkMeeting.responsiblePersons.map(person => (
-                                                <div key={person} style={{ display: 'flex', alignItems: 'center', gap: '7px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '5px 12px', fontSize: '13px', color: '#334155' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={checkMeeting.checkedPersons.includes(person)}
-                                                        onChange={e => {
-                                                            const updated = e.target.checked
-                                                                ? [...checkMeeting.checkedPersons, person]
-                                                                : checkMeeting.checkedPersons.filter(p => p !== person);
-                                                            setCheckMeeting({ ...checkMeeting, checkedPersons: updated });
-                                                        }}
-                                                        style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#5FAE9E', margin: 0 }}
-                                                    />
-                                                    <span>{person}</span>
-                                                </div>
-                                            ))}
-                                            {/* + Assign button */}
-                                            <button
-                                                onClick={() => setCheckMeeting({ ...checkMeeting, showDropdown: !checkMeeting.showDropdown })}
-                                                style={{
-                                                    background: 'transparent',
-                                                    border: '1.5px dashed #cbd5e1',
-                                                    borderRadius: '8px',
-                                                    padding: '4px 12px',
-                                                    fontSize: '12px',
-                                                    color: '#64748b',
-                                                    cursor: 'pointer',
-                                                    fontWeight: 500
-                                                }}
-                                            >+ Assign...</button>
-                                        </div>
-
-                                        {/* Remove x controls */}
-                                        {checkMeeting.responsiblePersons.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                                                {checkMeeting.responsiblePersons.map(person => (
-                                                    <button
-                                                        key={person + '-remove'}
-                                                        onClick={() => setCheckMeeting({
-                                                            ...checkMeeting,
-                                                            responsiblePersons: checkMeeting.responsiblePersons.filter(p => p !== person),
-                                                            checkedPersons: checkMeeting.checkedPersons.filter(p => p !== person)
-                                                        })}
-                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', padding: '0 3px', lineHeight: 1 }}
-                                                        title={`Remove ${person}`}
-                                                    >×</button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Dropdown overlay */}
-                                        {checkMeeting.showDropdown && (
-                                            <div
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '100%',
-                                                    left: 0,
-                                                    zIndex: 9999,
-                                                    background: '#fff',
-                                                    borderRadius: '10px',
-                                                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                                                    minWidth: '240px',
-                                                    maxHeight: '280px',
-                                                    overflow: 'hidden',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    marginTop: '6px'
-                                                }}
-                                            >
-                                                {/* Sticky teal header */}
-                                                <div style={{
-                                                    background: '#0d9488',
-                                                    color: '#fff',
-                                                    fontWeight: 700,
-                                                    fontSize: '12px',
-                                                    letterSpacing: '0.05em',
-                                                    padding: '11px 16px',
-                                                    cursor: 'default',
-                                                    flexShrink: 0
-                                                }}>+ ASSIGN PERSON...</div>
-                                                {/* Scrollable list */}
-                                                <div style={{ overflowY: 'auto', flex: 1 }}>
-                                                    {PERSONS.filter(p => !checkMeeting.responsiblePersons.includes(p)).map((person, idx) => (
-                                                        <div
-                                                            key={person}
-                                                            onClick={() => {
-                                                                setCheckMeeting({
-                                                                    ...checkMeeting,
-                                                                    responsiblePersons: [...checkMeeting.responsiblePersons, person],
-                                                                    showDropdown: false
-                                                                });
-                                                            }}
-                                                            style={{
-                                                                padding: '10px 14px',
-                                                                fontSize: '13px',
-                                                                color: idx === 1 ? '#0d9488' : '#334155',
-                                                                background: idx === 1 ? '#f0fdfa' : '#fff',
-                                                                cursor: 'pointer',
-                                                                borderBottom: '1px solid #f1f5f9',
-                                                                transition: 'background 0.15s'
-                                                            }}
-                                                            onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
-                                                            onMouseLeave={e => (e.currentTarget.style.background = idx === 1 ? '#f0fdfa' : '#fff')}
-                                                        >{person}</div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* D) Meeting Type */}
-                                    <div style={{ marginBottom: '1.25rem' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
-                                        <div style={{ position: 'relative' }}>
-                                            <select
-                                                value={checkMeeting.meetingType}
-                                                onChange={e => setCheckMeeting({ ...checkMeeting, meetingType: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    appearance: 'none',
-                                                    WebkitAppearance: 'none',
-                                                    padding: '0.7rem 2.5rem 0.7rem 1rem',
-                                                    borderRadius: '10px',
-                                                    border: '1px solid #e2e8f0',
-                                                    background: '#fff',
-                                                    fontSize: '13px',
-                                                    color: '#334155',
-                                                    cursor: 'pointer',
-                                                    outline: 'none'
-                                                }}
-                                            >
-                                                <option>In-Office (On-site)</option>
-                                                <option>Remote (Online)</option>
-                                                <option>Hybrid</option>
-                                            </select>
-                                            <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
-                                        </div>
-                                    </div>
-
-                                    {/* E) Bottom row: Date & Location */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.5rem' }}>
-                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                            <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>MEETING DATE &amp; TIME</div>
-                                            <DateTimePicker
-                                                value={checkMeeting.meetingDateTime}
-                                                onChange={val => setCheckMeeting({ ...checkMeeting, meetingDateTime: val })}
-                                            />
-                                        </div>
-                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem 1rem' }}>
-                                            <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>OFFICE / LOCATION</div>
-                                            <input
-                                                type="text"
-                                                value={checkMeeting.location}
-                                                onChange={e => setCheckMeeting({ ...checkMeeting, location: e.target.value })}
-                                                placeholder="Location"
-                                                style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Close dropdown on outside click overlay */}
-                                    {checkMeeting.showDropdown && (
-                                        <div
-                                            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                                            onClick={() => setCheckMeeting({ ...checkMeeting, showDropdown: false })}
-                                        />
-                                    )}
-                                </div>
-
                                 {/* DO Phase Activation Card (separate) */}
                                 <div style={{
                                     background: '#fff',
@@ -1326,8 +1542,278 @@ const Cockpit: React.FC = () => {
                                 }}>
                                     {/* Header */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
-                                        <span style={{ fontSize: '20px' }}>📅</span>
+                                        <span style={{ fontSize: '20px' }}></span>
                                         <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkTrigger')}</span>
+                                    </div>
+                                    <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
+
+                                    {/* Due Date */}
+                                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                    <input
+                                        type="date"
+                                        value={planMeeting.checkTriggerDate}
+                                        onChange={e => setPlanMeeting({ ...planMeeting, checkTriggerDate: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            padding: '0.65rem 0.9rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            background: '#f8fafc',
+                                            fontSize: '13px',
+                                            color: '#334155',
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                            marginBottom: '0.5rem'
+                                        }}
+                                    />
+                                    <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                        Please specify when the effectiveness check will be performed.
+                                    </div>
+                                </div>
+
+                                {/* PLAN Phase Meeting Card */}
+                                <div style={{
+                                    background: '#fff',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e8ecf0',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                                    padding: '1.75rem',
+                                    position: 'relative'
+                                }}>
+                                    {/* Header — clickable toggle */}
+                                    <div
+                                        onClick={() => setPlanMeetingExpanded(prev => !prev)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            cursor: 'pointer',
+                                            marginBottom: planMeetingExpanded ? '1rem' : '0',
+                                            userSelect: 'none'
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
+                                        <ChevronDown
+                                            size={20}
+                                            color="#64748b"
+                                            style={{
+                                                transition: 'transform 0.25s ease',
+                                                transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                            }}
+                                        />
+                                    </div>
+                                    {planMeetingExpanded && (
+                                        <>
+                                            <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
+
+                                            {/* A) Meeting Title Input */}
+                                            <input
+                                                type="text"
+                                                value={planMeeting.title}
+                                                onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
+                                                placeholder="Meeting title"
+                                                style={{
+                                                    width: '100%',
+                                                    boxSizing: 'border-box',
+                                                    padding: '0.75rem 1rem',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e2e8f0',
+                                                    background: '#f8fafc',
+                                                    fontSize: '14px',
+                                                    color: '#334155',
+                                                    outline: 'none',
+                                                    marginBottom: '1.25rem'
+                                                }}
+                                            />
+
+                                            {/* B) Responsible Persons — Avatar-chip summary + Ndrysho picker */}
+                                            <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+
+                                                {/* Collapsed summary row: avatars + Ndrysho button */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
+                                                        {planMeeting.responsiblePersons.slice(0, 4).map((person, idx) => (
+                                                            <div
+                                                                key={person}
+                                                                title={person}
+                                                                style={{
+                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                    background: getAvatarColor(person), color: '#fff', fontSize: '11px',
+                                                                    fontWeight: 700, display: 'flex', alignItems: 'center',
+                                                                    justifyContent: 'center', border: '2px solid #fff',
+                                                                    marginLeft: idx === 0 ? 0 : '-8px', zIndex: 10 - idx,
+                                                                    position: 'relative', cursor: 'default', letterSpacing: '0.02em'
+                                                                }}
+                                                            >
+                                                                {getInitials(person)}
+                                                            </div>
+                                                        ))}
+                                                        {planMeeting.responsiblePersons.length > 4 && (
+                                                            <div style={{
+                                                                width: '32px', height: '32px', borderRadius: '50%', background: '#64748b',
+                                                                color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                                alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
+                                                                marginLeft: '-8px', zIndex: 5, position: 'relative', letterSpacing: '0.01em'
+                                                            }}>
+                                                                +{planMeeting.responsiblePersons.length - 4}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Ndrysho (edit) button */}
+                                                    <button
+                                                        onClick={() => setPlanMeetingPickerOpen(prev => !prev)}
+                                                        style={{
+                                                            background: 'transparent', border: '1.5px dashed #5FAE9E',
+                                                            borderRadius: '20px', padding: '4px 14px', fontSize: '13px',
+                                                            color: '#5FAE9E', cursor: 'pointer', fontWeight: 600,
+                                                            letterSpacing: '0.01em', transition: 'background 0.15s'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                    >– Ndrysho</button>
+                                                </div>
+
+                                                {/* Picker dropdown */}
+                                                {planMeetingPickerOpen && (
+                                                    <div style={{
+                                                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
+                                                        background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
+                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.13)', minWidth: '300px',
+                                                        height: '245px', maxHeight: '245px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column'
+                                                    }}>
+                                                        {PERSONS.map(person => {
+                                                            const isSelected = planMeeting.responsiblePersons.includes(person);
+                                                            return (
+                                                                <div
+                                                                    key={person}
+                                                                    onClick={() => {
+                                                                        const updated = isSelected
+                                                                            ? planMeeting.responsiblePersons.filter(p => p !== person)
+                                                                            : [...planMeeting.responsiblePersons, person];
+                                                                        const updatedChecked = isSelected
+                                                                            ? planMeeting.checkedPersons.filter(p => p !== person)
+                                                                            : planMeeting.checkedPersons;
+                                                                        setPlanMeeting({ ...planMeeting, responsiblePersons: updated, checkedPersons: updatedChecked });
+                                                                    }}
+                                                                    style={{
+                                                                        display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px',
+                                                                        cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                                                        background: isSelected ? '#f0fdfa' : '#fff', transition: 'background 0.12s'
+                                                                    }}
+                                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f0fdfa' : '#fff'; }}
+                                                                >
+                                                                    <input type="checkbox" readOnly checked={isSelected}
+                                                                        style={{ width: '15px', height: '15px', accentColor: '#5FAE9E', cursor: 'pointer', flexShrink: 0, margin: 0 }}
+                                                                    />
+                                                                    <div style={{
+                                                                        width: '28px', height: '28px', borderRadius: '50%', background: getAvatarColor(person),
+                                                                        color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                                        alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                                                    }}>{getInitials(person)}</div>
+                                                                    <span style={{ fontSize: '13px', color: '#334155', fontWeight: isSelected ? 600 : 400, flex: 1 }}>{person}</span>
+                                                                    <span style={{ fontSize: '11px', color: '#94a3b8', flexShrink: 0 }}>{PERSON_DEPT[person] || ''}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Outside-click overlay to close picker */}
+                                                {planMeetingPickerOpen && (
+                                                    <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setPlanMeetingPickerOpen(false)} />
+                                                )}
+                                            </div>
+
+                                            {/* D) Meeting Type */}
+                                            <div style={{ marginBottom: '1.25rem' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                                <div style={{ position: 'relative' }}>
+                                                    <select
+                                                        value={planMeeting.meetingType}
+                                                        onChange={e => setPlanMeeting({ ...planMeeting, meetingType: e.target.value })}
+                                                        style={{
+                                                            width: '100%', appearance: 'none', WebkitAppearance: 'none',
+                                                            padding: '0.7rem 2.5rem 0.7rem 1rem', borderRadius: '10px',
+                                                            border: '1px solid #e2e8f0', background: '#fff',
+                                                            fontSize: '13px', color: '#334155', cursor: 'pointer', outline: 'none'
+                                                        }}
+                                                    >
+                                                        <option>In-Office (On-site)</option>
+                                                        <option>Remote (Online)</option>
+                                                        <option>Hybrid</option>
+                                                    </select>
+                                                    <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
+                                                </div>
+                                            </div>
+
+                                            {/* E) Date stacked above Location – labels outside border, same as CHECK */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE &amp; TIME</div>
+                                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                        <DateTimePicker
+                                                            value={planMeeting.meetingDateTime}
+                                                            onChange={val => setPlanMeeting({ ...planMeeting, meetingDateTime: val })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                        <input
+                                                            id="plan-meeting-location"
+                                                            type="text"
+                                                            value={planMeeting.location}
+                                                            onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
+                                                            placeholder={planMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link… (https://)' : 'Location'}
+                                                            style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Send Meeting Invites button */}
+                                                <button
+                                                    onClick={() => {/* placeholder – wire to invite handler when ready */ }}
+                                                    style={{
+                                                        width: '100%', padding: '0.85rem 1rem', borderRadius: '12px', border: 'none',
+                                                        background: 'linear-gradient(90deg, #3AAFA9 0%, #2B9E97 100%)',
+                                                        color: '#fff', fontSize: '14px', fontWeight: 700, letterSpacing: '0.02em',
+                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        gap: '8px', boxShadow: '0 2px 8px rgba(58,175,169,0.18)', transition: 'opacity 0.15s, box-shadow 0.15s'
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.92'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(58,175,169,0.28)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
+                                                >
+                                                    <span style={{ fontSize: '15px' }}></span>
+                                                    Send Meeting Invites
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+
+                        {/* CHECK Phase VERSION of side cards */}
+                        {viewingStep === 'CHECK' && (
+                            <>
+                                {/* DO Phase Activation Card (separate) */}
+                                <div style={{
+                                    background: '#fff',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e8ecf0',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                                    padding: '1.75rem'
+                                }}>
+                                    {/* Header */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+                                        <span style={{ fontSize: '20px' }}></span>
+                                        <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>Act Phase Activation</span>
                                     </div>
                                     <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
@@ -1355,6 +1841,317 @@ const Cockpit: React.FC = () => {
                                         Please specify when the effectiveness check will be performed.
                                     </div>
                                 </div>
+
+                                {/* CHECK Phase Meeting Card */}
+                                <div style={{
+                                    background: '#fff',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e8ecf0',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                                    padding: '1.75rem',
+                                    position: 'relative'
+                                }}>
+                                    {/* Header — clickable toggle (same as PLAN) */}
+                                    <div
+                                        onClick={() => setCheckMeetingExpanded(prev => !prev)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            cursor: 'pointer',
+                                            marginBottom: checkMeetingExpanded ? '1rem' : '0',
+                                            userSelect: 'none'
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>CHECK Phase Meeting</span>
+                                        <ChevronDown
+                                            size={20}
+                                            color="#64748b"
+                                            style={{
+                                                transition: 'transform 0.25s ease',
+                                                transform: checkMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                            }}
+                                        />
+                                    </div>
+                                    {checkMeetingExpanded && (
+                                        <>
+                                            <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.5rem' }} />
+
+                                            {/* A) Meeting Title Input */}
+                                            <input
+                                                type="text"
+                                                value={checkMeeting.title}
+                                                onChange={e => setCheckMeeting({ ...checkMeeting, title: e.target.value })}
+                                                placeholder="Shkruaj titullin e mbledhjes..."
+                                                style={{
+                                                    width: '100%',
+                                                    boxSizing: 'border-box',
+                                                    padding: '0.75rem 1rem',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e2e8f0',
+                                                    background: '#f8fafc',
+                                                    fontSize: '14px',
+                                                    color: '#334155',
+                                                    outline: 'none',
+                                                    marginBottom: '1.25rem'
+                                                }}
+                                            />
+
+                                            {/* B) Responsible Persons — Avatar-chip summary + Ndrysho picker (CHECK only) */}
+                                            <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+
+                                                {/* ── Collapsed summary row: avatars + Ndrysho button ── */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    {/* Overlapping avatar stack – fixed minWidth keeps Ndrysho button pinned */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
+                                                        {checkMeeting.responsiblePersons.slice(0, 4).map((person, idx) => (
+                                                            <div
+                                                                key={person}
+                                                                title={person}
+                                                                style={{
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    borderRadius: '50%',
+                                                                    background: getAvatarColor(person),
+                                                                    color: '#fff',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 700,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    border: '2px solid #fff',
+                                                                    marginLeft: idx === 0 ? 0 : '-8px',
+                                                                    zIndex: 10 - idx,
+                                                                    position: 'relative',
+                                                                    cursor: 'default',
+                                                                    letterSpacing: '0.02em'
+                                                                }}
+                                                            >
+                                                                {getInitials(person)}
+                                                            </div>
+                                                        ))}
+                                                        {checkMeeting.responsiblePersons.length > 4 && (
+                                                            <div
+                                                                style={{
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    borderRadius: '50%',
+                                                                    background: '#64748b',
+                                                                    color: '#fff',
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 700,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    border: '2px solid #fff',
+                                                                    marginLeft: '-8px',
+                                                                    zIndex: 5,
+                                                                    position: 'relative',
+                                                                    letterSpacing: '0.01em'
+                                                                }}
+                                                            >
+                                                                +{checkMeeting.responsiblePersons.length - 4}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Ndrysho (edit) button */}
+                                                    <button
+                                                        onClick={() => setCheckMeetingPickerOpen(prev => !prev)}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: '1.5px dashed #5FAE9E',
+                                                            borderRadius: '20px',
+                                                            padding: '4px 14px',
+                                                            fontSize: '13px',
+                                                            color: '#5FAE9E',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 600,
+                                                            letterSpacing: '0.01em',
+                                                            transition: 'background 0.15s'
+                                                        }}
+                                                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                    >– Ndrysho</button>
+                                                </div>
+
+                                                {/* ── Picker dropdown (Photo 3 style) ── */}
+                                                {checkMeetingPickerOpen && (
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 'calc(100% + 6px)',
+                                                            left: 0,
+                                                            zIndex: 9999,
+                                                            background: '#fff',
+                                                            borderRadius: '12px',
+                                                            border: '1px solid #e2e8f0',
+                                                            boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+                                                            minWidth: '300px',
+                                                            height: '245px',
+                                                            maxHeight: '245px',
+                                                            overflowY: 'auto',
+                                                            overflowX: 'hidden',
+                                                            display: 'flex',
+                                                            flexDirection: 'column'
+                                                        }}
+                                                    >
+                                                        {PERSONS.map(person => {
+                                                            const isSelected = checkMeeting.responsiblePersons.includes(person);
+                                                            return (
+                                                                <div
+                                                                    key={person}
+                                                                    onClick={() => {
+                                                                        const updated = isSelected
+                                                                            ? checkMeeting.responsiblePersons.filter(p => p !== person)
+                                                                            : [...checkMeeting.responsiblePersons, person];
+                                                                        const updatedChecked = isSelected
+                                                                            ? checkMeeting.checkedPersons.filter(p => p !== person)
+                                                                            : checkMeeting.checkedPersons;
+                                                                        setCheckMeeting({ ...checkMeeting, responsiblePersons: updated, checkedPersons: updatedChecked });
+                                                                    }}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '10px',
+                                                                        padding: '9px 14px',
+                                                                        cursor: 'pointer',
+                                                                        borderBottom: '1px solid #f1f5f9',
+                                                                        background: isSelected ? '#f0fdfa' : '#fff',
+                                                                        transition: 'background 0.12s'
+                                                                    }}
+                                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f0fdfa' : '#fff'; }}
+                                                                >
+                                                                    {/* Checkbox */}
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        readOnly
+                                                                        checked={isSelected}
+                                                                        style={{ width: '15px', height: '15px', accentColor: '#5FAE9E', cursor: 'pointer', flexShrink: 0, margin: 0 }}
+                                                                    />
+                                                                    {/* Avatar initials */}
+                                                                    <div style={{
+                                                                        width: '28px',
+                                                                        height: '28px',
+                                                                        borderRadius: '50%',
+                                                                        background: getAvatarColor(person),
+                                                                        color: '#fff',
+                                                                        fontSize: '10px',
+                                                                        fontWeight: 700,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        {getInitials(person)}
+                                                                    </div>
+                                                                    {/* Name */}
+                                                                    <span style={{ fontSize: '13px', color: '#334155', fontWeight: isSelected ? 600 : 400, flex: 1 }}>{person}</span>
+                                                                    {/* Department (right-aligned) */}
+                                                                    <span style={{ fontSize: '11px', color: '#94a3b8', flexShrink: 0 }}>{PERSON_DEPT[person] || ''}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+
+                                                {/* Outside-click overlay to close picker */}
+                                                {checkMeetingPickerOpen && (
+                                                    <div
+                                                        style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                                                        onClick={() => setCheckMeetingPickerOpen(false)}
+                                                    />
+                                                )}
+                                            </div>
+
+                                            {/* D) Meeting Type */}
+                                            <div style={{ marginBottom: '1.25rem' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                                <div style={{ position: 'relative' }}>
+                                                    <select
+                                                        value={checkMeeting.meetingType}
+                                                        onChange={e => setCheckMeeting({ ...checkMeeting, meetingType: e.target.value })}
+                                                        style={{
+                                                            width: '100%',
+                                                            appearance: 'none',
+                                                            WebkitAppearance: 'none',
+                                                            padding: '0.7rem 2.5rem 0.7rem 1rem',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid #e2e8f0',
+                                                            background: '#fff',
+                                                            fontSize: '13px',
+                                                            color: '#334155',
+                                                            cursor: 'pointer',
+                                                            outline: 'none'
+                                                        }}
+                                                    >
+                                                        <option>In-Office (On-site)</option>
+                                                        <option>Remote (Online)</option>
+                                                        <option>Hybrid</option>
+                                                    </select>
+                                                    <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
+                                                </div>
+                                            </div>
+
+                                            {/* E) Date stacked above Location – labels outside border like Meeting Type */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE &amp; TIME</div>
+                                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                        <DateTimePicker
+                                                            value={checkMeeting.meetingDateTime}
+                                                            onChange={val => setCheckMeeting({ ...checkMeeting, meetingDateTime: val })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{checkMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
+                                                        <input
+                                                            id="check-meeting-location"
+                                                            type="text"
+                                                            value={checkMeeting.location}
+                                                            onChange={e => setCheckMeeting({ ...checkMeeting, location: e.target.value })}
+                                                            placeholder={checkMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link… (https://)' : 'Location'}
+                                                            style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* F) Send invites button */}
+                                                <button
+                                                    onClick={() => {/* placeholder – wire to invite handler when ready */ }}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.85rem 1rem',
+                                                        borderRadius: '12px',
+                                                        border: 'none',
+                                                        background: 'linear-gradient(90deg, #3AAFA9 0%, #2B9E97 100%)',
+                                                        color: '#fff',
+                                                        fontSize: '14px',
+                                                        fontWeight: 700,
+                                                        letterSpacing: '0.02em',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        boxShadow: '0 2px 8px rgba(58,175,169,0.18)',
+                                                        transition: 'opacity 0.15s, box-shadow 0.15s'
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.92'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(58,175,169,0.28)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
+                                                >
+                                                    <span style={{ fontSize: '15px' }}></span>
+                                                    Send Meeting Invites
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                </div>
                             </>
                         )}
 
@@ -1362,7 +2159,7 @@ const Cockpit: React.FC = () => {
 
                     {/* Main content column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div className="card" style={{ padding: 0, overflow: viewingStep === 'DO' ? 'visible' : 'hidden' }}>
 
                             <div style={{ padding: '1.75rem' }}>
                                 {viewingStep !== 'PLAN' && (
@@ -1833,47 +2630,6 @@ const Cockpit: React.FC = () => {
                                                 <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
                                             </select>
                                         </div>
-
-                                        {/* DO Phase Activation Card (moved from sidebar) */}
-                                        <div style={{
-                                            background: '#fff',
-                                            borderRadius: '16px',
-                                            border: '1px solid #e8ecf0',
-                                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                                            padding: '1.75rem',
-                                            marginTop: '0.5rem'
-                                        }}>
-                                            {/* Header */}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
-                                                <span style={{ fontSize: '20px' }}>📅</span>
-                                                <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkTrigger')}</span>
-                                            </div>
-                                            <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
-
-                                            {/* Due Date */}
-                                            <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
-                                            <input
-                                                type="date"
-                                                value={planMeeting.checkTriggerDate}
-                                                onChange={e => setPlanMeeting({ ...planMeeting, checkTriggerDate: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    boxSizing: 'border-box',
-                                                    padding: '0.65rem 0.9rem',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '13px',
-                                                    color: '#334155',
-                                                    outline: 'none',
-                                                    cursor: 'pointer',
-                                                    marginBottom: '0.5rem'
-                                                }}
-                                            />
-                                            <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                                Please specify when the effectiveness check will be performed.
-                                            </div>
-                                        </div>
                                     </div>
                                 )}
                                 {viewingStep === 'DO' && (
@@ -1923,7 +2679,7 @@ const Cockpit: React.FC = () => {
                                         ) : (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
                                                 {formState.actions.map((action: any, idx: number) => (
-                                                    <div key={action.id} className="card" style={{ padding: '1rem', border: '1px solid #e2e8f0' }}>
+                                                    <div key={action.id} className="card" style={{ padding: '1rem', border: '1px solid #e2e8f0', overflow: 'visible' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
                                                             <input
                                                                 type="text"
@@ -1958,85 +2714,113 @@ const Cockpit: React.FC = () => {
                                                             style={{ width: '100%', marginBottom: '1rem', fontSize: '13px', padding: '8px', border: '1px solid #e2e8f0', borderRadius: '4px' }}
                                                         />
 
-                                                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-                                                            <div style={{ flex: 2 }}>
-                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.responsiblePersons')}</label>
-                                                                <select
-                                                                    style={{ marginBottom: '8px', width: '100%', fontSize: '12px' }}
-                                                                    onChange={e => {
-                                                                        if (!e.target.value) return;
-                                                                        const existing = action.assignments.find((a: any) => a.userId === e.target.value);
-                                                                        if (existing) return;
-                                                                        const user = authService.getAllUsers().find(u => u.id === e.target.value);
-                                                                        if (user) {
-                                                                            const updated = [...formState.actions];
-                                                                            updated[idx].assignments.push({ userId: user.id, userName: user.name, completed: false, completedAt: undefined });
-                                                                            setFormState({ ...formState, actions: updated });
-                                                                        }
-                                                                        e.target.value = '';
-                                                                    }}
-                                                                >
-                                                                    <option value="">{t('pdca.assignPerson')}</option>
-                                                                    {authService.getAllUsers().map(u => (
-                                                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                                                    ))}
-                                                                </select>
-                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                                    {action.assignments.map((assign: any, aIdx: number) => (
-                                                                        <div key={assign.userId} style={{
-                                                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                                                            background: assign.completed ? '#dcfce7' : '#f1f5f9',
-                                                                            padding: '2px 8px', borderRadius: '12px', fontSize: '12px',
-                                                                            border: assign.completed ? '1px solid #86efac' : '1px solid #e2e8f0'
-                                                                        }}>
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={assign.completed}
-                                                                                onChange={e => {
-                                                                                    const updated = [...formState.actions];
-                                                                                    const isCompleted = e.target.checked;
-                                                                                    updated[idx].assignments[aIdx].completed = isCompleted;
-                                                                                    updated[idx].assignments[aIdx].completedAt = isCompleted ? new Date().toISOString() : undefined;
+                                                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', overflow: 'visible' }}>
+                                                            <div style={{ flex: 2, position: 'relative' }}>
+                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '0.6rem' }}>{t('pdca.responsiblePersons')}</label>
 
-                                                                                    // Auto-update status
-                                                                                    const allDone = updated[idx].assignments.length > 0 && updated[idx].assignments.every((a: any) => a.completed);
-                                                                                    // If all done, mark Done. If unchecking and it was Done, revert to On Track. Preserve Critical/Warning.
-                                                                                    if (allDone) {
-                                                                                        updated[idx].status = 'Done';
-                                                                                    } else if (updated[idx].status === 'Done') {
-                                                                                        updated[idx].status = 'On Track';
-                                                                                    }
+                                                                {/* Avatar chips row + Ndrysho button */}
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
+                                                                        {action.assignments.slice(0, 4).map((assign: any, aIdx: number) => (
+                                                                            <div
+                                                                                key={assign.userId}
+                                                                                title={assign.userName}
+                                                                                style={{
+                                                                                    width: '32px', height: '32px', borderRadius: '50%',
+                                                                                    background: getAvatarColor(assign.userName), color: '#fff', fontSize: '11px',
+                                                                                    fontWeight: 700, display: 'flex', alignItems: 'center',
+                                                                                    justifyContent: 'center', border: '2px solid #fff',
+                                                                                    marginLeft: aIdx === 0 ? 0 : '-8px', zIndex: 10 - aIdx,
+                                                                                    position: 'relative', cursor: 'default', letterSpacing: '0.02em'
+                                                                                }}
+                                                                            >
+                                                                                {getInitials(assign.userName)}
+                                                                            </div>
+                                                                        ))}
+                                                                        {action.assignments.length > 4 && (
+                                                                            <div style={{
+                                                                                width: '32px', height: '32px', borderRadius: '50%', background: '#64748b',
+                                                                                color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                                                alignItems: 'center', justifyContent: 'center', border: '2px solid #fff',
+                                                                                marginLeft: '-8px', zIndex: 5, position: 'relative', letterSpacing: '0.01em'
+                                                                            }}>
+                                                                                +{action.assignments.length - 4}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
 
-                                                                                    setFormState({ ...formState, actions: updated });
-                                                                                }}
-                                                                            />
-                                                                            <span style={{ textDecoration: assign.completed ? 'line-through' : 'none', color: assign.completed ? '#166534' : '#334155' }}>{assign.userName}</span>
-                                                                            <X
-                                                                                size={10}
-                                                                                style={{ cursor: 'pointer', marginLeft: '4px', opacity: 0.5 }}
-                                                                                onClick={() => {
-                                                                                    const updated = [...formState.actions];
-                                                                                    updated[idx].assignments = updated[idx].assignments.filter((_: any, i: number) => i !== aIdx);
-                                                                                    setFormState({ ...formState, actions: updated });
-                                                                                }}
-                                                                            />
-                                                                        </div>
-                                                                    ))}
+                                                                    {/* Ndrysho (edit) button */}
+                                                                    <button
+                                                                        onClick={() => setDoActionPickerOpenIdx(doActionPickerOpenIdx === idx ? null : idx)}
+                                                                        style={{
+                                                                            background: 'transparent', border: '1.5px dashed #5FAE9E',
+                                                                            borderRadius: '20px', padding: '4px 14px', fontSize: '13px',
+                                                                            color: '#5FAE9E', cursor: 'pointer', fontWeight: 600,
+                                                                            letterSpacing: '0.01em', transition: 'background 0.15s'
+                                                                        }}
+                                                                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                                                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                                                    >– Ndrysho</button>
                                                                 </div>
-                                                            </div>
 
-                                                            <div style={{ flex: 1 }}>
-                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('common.dueDate').toUpperCase()}</label>
-                                                                <input
-                                                                    type="date"
-                                                                    value={action.dueDate}
-                                                                    onChange={e => {
-                                                                        const updated = [...formState.actions];
-                                                                        updated[idx].dueDate = e.target.value;
-                                                                        setFormState({ ...formState, actions: updated });
-                                                                    }}
-                                                                    style={{ fontSize: '12px', padding: '4px', width: '100%' }}
-                                                                />
+                                                                {/* Picker dropdown */}
+                                                                {doActionPickerOpenIdx === idx && (
+                                                                    <div
+                                                                        ref={doResponsiblePickerRef}
+                                                                        style={{
+                                                                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
+                                                                        background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
+                                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.13)', minWidth: '300px',
+                                                                        height: '245px', maxHeight: '245px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column'
+                                                                    }}>
+                                                                        {PERSONS.map(person => {
+                                                                            const isSelected = action.assignments.some((a: any) => a.userName === person);
+                                                                            return (
+                                                                                <div
+                                                                                    key={person}
+                                                                                    onClick={() => {
+                                                                                        const updated = [...formState.actions];
+                                                                                        if (isSelected) {
+                                                                                            updated[idx].assignments = updated[idx].assignments.filter((a: any) => a.userName !== person);
+                                                                                        } else {
+                                                                                            const user = authService.getAllUsers().find(u => u.name === person);
+                                                                                            updated[idx].assignments.push({
+                                                                                                userId: user?.id || person,
+                                                                                                userName: person,
+                                                                                                completed: false,
+                                                                                                completedAt: undefined
+                                                                                            });
+                                                                                        }
+                                                                                        setFormState({ ...formState, actions: updated });
+                                                                                    }}
+                                                                                    style={{
+                                                                                        display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px',
+                                                                                        cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                                                                        background: isSelected ? '#f0fdfa' : '#fff', transition: 'background 0.12s'
+                                                                                    }}
+                                                                                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                                                                                    onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f0fdfa' : '#fff'; }}
+                                                                                >
+                                                                                    <input type="checkbox" readOnly checked={isSelected}
+                                                                                        style={{ width: '15px', height: '15px', accentColor: '#5FAE9E', cursor: 'pointer', flexShrink: 0, margin: 0 }}
+                                                                                    />
+                                                                                    <div style={{
+                                                                                        width: '28px', height: '28px', borderRadius: '50%', background: getAvatarColor(person),
+                                                                                        color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex',
+                                                                                        alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                                                                    }}>{getInitials(person)}</div>
+                                                                                    <span style={{ fontSize: '13px', color: '#334155', fontWeight: isSelected ? 600 : 400, flex: 1 }}>{person}</span>
+                                                                                    <span style={{ fontSize: '11px', color: '#94a3b8', flexShrink: 0 }}>{PERSON_DEPT[person] || ''}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Outside-click overlay to close picker */}
+                                                                {doActionPickerOpenIdx === idx && (
+                                                                    <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setDoActionPickerOpenIdx(null)} />
+                                                                )}
                                                             </div>
 
                                                             <div style={{ flex: 1 }}>
@@ -2046,12 +2830,6 @@ const Cockpit: React.FC = () => {
                                                                     onChange={e => {
                                                                         const updated = [...formState.actions];
                                                                         updated[idx].meetingType = e.target.value as 'In-Office' | 'Online';
-                                                                        // Clear fields when switching type
-                                                                        if (e.target.value === 'In-Office') {
-                                                                            updated[idx].teamsMeetingLink = '';
-                                                                        } else if (e.target.value === 'Online') {
-                                                                            updated[idx].meetingLocation = '';
-                                                                        }
                                                                         setFormState({ ...formState, actions: updated });
                                                                     }}
                                                                     style={{
@@ -2068,56 +2846,53 @@ const Cockpit: React.FC = () => {
                                                                 </select>
                                                             </div>
 
-                                                            {action.meetingType && (
-                                                                <>
-                                                                    <div style={{ flex: 1 }}>
-                                                                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingDateTime')}</label>
-                                                                        <input
-                                                                            type="datetime-local"
-                                                                            value={action.teamsMeeting || ''}
-                                                                            onChange={e => {
-                                                                                const updated = [...formState.actions];
-                                                                                updated[idx].teamsMeeting = e.target.value;
-                                                                                setFormState({ ...formState, actions: updated });
-                                                                            }}
-                                                                            style={{ fontSize: '12px', padding: '4px', width: '100%', border: '1px solid #cbd5e1' }}
-                                                                        />
-                                                                    </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.meetingDateTime')}</label>
+                                                                <input
+                                                                    type="datetime-local"
+                                                                    value={action.teamsMeeting || ''}
+                                                                    onChange={e => {
+                                                                        const updated = [...formState.actions];
+                                                                        updated[idx].teamsMeeting = e.target.value;
+                                                                        setFormState({ ...formState, actions: updated });
+                                                                    }}
+                                                                    placeholder="mm/dd/yyyy --:-- --"
+                                                                    style={{ fontSize: '12px', padding: '4px', width: '100%', border: '1px solid #cbd5e1' }}
+                                                                />
+                                                            </div>
 
-                                                                    {action.meetingType === 'In-Office' && (
-                                                                        <div style={{ flex: 1 }}>
-                                                                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.officeLocation')}</label>
-                                                                            <input
-                                                                                type="text"
-                                                                                placeholder={t('pdca.officeLocationPlaceholder')}
-                                                                                value={action.meetingLocation || ''}
-                                                                                onChange={e => {
-                                                                                    const updated = [...formState.actions];
-                                                                                    updated[idx].meetingLocation = e.target.value;
-                                                                                    setFormState({ ...formState, actions: updated });
-                                                                                }}
-                                                                                style={{ fontSize: '12px', padding: '4px', width: '100%' }}
-                                                                            />
-                                                                        </div>
-                                                                    )}
+                                                            {action.meetingType === 'Online' && (
+                                                                <div style={{ flex: 1 }}>
+                                                                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.onlineLink')}</label>
+                                                                    <input
+                                                                        type="url"
+                                                                        placeholder={t('pdca.onlineLinkPlaceholder')}
+                                                                        value={action.teamsMeetingLink || ''}
+                                                                        onChange={e => {
+                                                                            const updated = [...formState.actions];
+                                                                            updated[idx].teamsMeetingLink = e.target.value;
+                                                                            setFormState({ ...formState, actions: updated });
+                                                                        }}
+                                                                        style={{ fontSize: '12px', padding: '4px', width: '100%' }}
+                                                                    />
+                                                                </div>
+                                                            )}
 
-                                                                    {action.meetingType === 'Online' && (
-                                                                        <div style={{ flex: 1 }}>
-                                                                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.onlineLink')}</label>
-                                                                            <input
-                                                                                type="url"
-                                                                                placeholder={t('pdca.onlineLinkPlaceholder')}
-                                                                                value={action.teamsMeetingLink || ''}
-                                                                                onChange={e => {
-                                                                                    const updated = [...formState.actions];
-                                                                                    updated[idx].teamsMeetingLink = e.target.value;
-                                                                                    setFormState({ ...formState, actions: updated });
-                                                                                }}
-                                                                                style={{ fontSize: '12px', padding: '4px', width: '100%' }}
-                                                                            />
-                                                                        </div>
-                                                                    )}
-                                                                </>
+                                                            {action.meetingType === 'In-Office' && (
+                                                                <div style={{ flex: 1 }}>
+                                                                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>{t('pdca.officeLocation')}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder={t('pdca.officeLocationPlaceholder')}
+                                                                        value={action.meetingLocation || ''}
+                                                                        onChange={e => {
+                                                                            const updated = [...formState.actions];
+                                                                            updated[idx].meetingLocation = e.target.value;
+                                                                            setFormState({ ...formState, actions: updated });
+                                                                        }}
+                                                                        style={{ fontSize: '12px', padding: '4px', width: '100%' }}
+                                                                    />
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -2125,30 +2900,6 @@ const Cockpit: React.FC = () => {
                                             </div>
                                         )}
 
-                                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                            <h4 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <Calendar size={18} /> {t('pdca.checkTrigger')}
-                                            </h4>
-                                            <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>{t('common.dueDate')}</label>
-                                                    <input
-                                                        type="date"
-                                                        value={formState.checkDate}
-                                                        onChange={e => setFormState({ ...formState, checkDate: e.target.value })}
-                                                        disabled={selectedTopic.status === 'Done'}
-                                                    />
-                                                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
-                                                        {t('pdca.specifyCheckDate')}
-                                                    </div>
-                                                </div>
-                                                <div style={{ flex: 2, background: '#e0f2fe', padding: '1rem', borderRadius: '6px', borderLeft: '4px solid #0369a1' }}>
-                                                    <p style={{ margin: 0, fontSize: '13px', color: '#0369a1', lineHeight: '1.5' }}>
-                                                        <strong>{t('pdca.requirementDoCheck')}</strong>
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 )}
                                 {viewingStep === 'CHECK' && (
@@ -2158,18 +2909,11 @@ const Cockpit: React.FC = () => {
                                             <h4 style={{ margin: '0 0 1rem 0', fontSize: '14px', color: '#64748b', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <PlayCircle size={16} /> {t('pdca.executionSummary')}
                                             </h4>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                                 <div style={{ background: 'white', padding: '1rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                                                     <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>{t('pdca.totalActions')}</div>
                                                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
                                                         {selectedTopic.do.actions?.length || 0}
-                                                    </div>
-                                                </div>
-                                                <div style={{ background: 'white', padding: '1rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                                                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>{t('pdca.completedActions')}</div>
-                                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#166534' }}>
-                                                        {selectedTopic.do.actions?.filter(a => a.status === 'Done').length || 0}
-                                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 500 }}> / {selectedTopic.do.actions?.length || 0}</span>
                                                     </div>
                                                 </div>
                                                 <div style={{ background: 'white', padding: '1rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
@@ -2590,7 +3334,7 @@ const Cockpit: React.FC = () => {
                                                 check: { ...selectedTopic.check, effectivenessStatus: formState.effectivenessStatus, kpiEvaluations: formState.kpiEvaluations, effectivenessReview: formState.effectivenessReview },
                                                 act: { ...selectedTopic.act, actOutcome: formState.actOutcome, lessonsLearned: formState.lessonsLearned }
                                             };
-                                            generatePDCAPdf(topicForPdf);
+                                            generatePlanDoCheckCombinedPdf(topicForPdf);
                                             setShowPdfModal(false);
                                         }}
                                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
