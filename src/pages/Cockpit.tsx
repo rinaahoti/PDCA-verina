@@ -503,7 +503,7 @@ const Cockpit: React.FC = () => {
                 }
             } else {
                 // For Non-Standardize outcomes (Improve / Close)
-                if (!formState.actConfirmation.noActionsPending) {
+                if (formState.actOutcome !== 'Close without Standardization' && !formState.actConfirmation.noActionsPending) {
                     alert('Validation Error: You must confirm that ' + (formState.actOutcome === 'Improve & Re-run PDCA' ? 'the PDCA will be rerun for improvements.' : 'no further operational actions are pending.'));
                     return;
                 }
@@ -2768,11 +2768,11 @@ const Cockpit: React.FC = () => {
                                                                     <div
                                                                         ref={doResponsiblePickerRef}
                                                                         style={{
-                                                                        position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
-                                                                        background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
-                                                                        boxShadow: '0 8px 32px rgba(0,0,0,0.13)', minWidth: '300px',
-                                                                        height: '245px', maxHeight: '245px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column'
-                                                                    }}>
+                                                                            position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
+                                                                            background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0',
+                                                                            boxShadow: '0 8px 32px rgba(0,0,0,0.13)', minWidth: '300px',
+                                                                            height: '245px', maxHeight: '245px', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column'
+                                                                        }}>
                                                                         {PERSONS.map(person => {
                                                                             const isSelected = action.assignments.some((a: any) => a.userName === person);
                                                                             return (
@@ -3258,15 +3258,17 @@ const Cockpit: React.FC = () => {
                                                 )}
                                                 {formState.actOutcome !== 'Standardize' && (
                                                     <>
-                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={formState.actConfirmation?.noActionsPending}
-                                                                onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, noActionsPending: e.target.checked } })}
-                                                                disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
-                                                            />
-                                                            {formState.actOutcome === 'Improve & Re-run PDCA' ? t('pdca.confirmRerunPDCA') : t('pdca.confirmNoActions')}
-                                                        </label>
+                                                        {formState.actOutcome !== 'Close without Standardization' && (
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formState.actConfirmation?.noActionsPending}
+                                                                    onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, noActionsPending: e.target.checked } })}
+                                                                    disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
+                                                                />
+                                                                {formState.actOutcome === 'Improve & Re-run PDCA' ? t('pdca.confirmRerunPDCA') : t('pdca.confirmNoActions')}
+                                                            </label>
+                                                        )}
                                                         {formState.actOutcome === 'Close without Standardization' && (
                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
                                                                 <input
