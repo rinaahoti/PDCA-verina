@@ -876,10 +876,6 @@ export default function Dashboard() {
                 <div className="card" style={{ marginBottom: 0, padding: '1.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
                         <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#3e4c5a' }}>{t('dashboard.complianceLifecycle')}</h3>
-                        <div style={{ fontSize: '11px', color: 'var(--color-primary)', background: 'var(--color-primary-light)', padding: '4px 12px', borderRadius: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)' }} />
-                            {t('dashboard.activePhase')}
-                        </div>
                     </div>
                     <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '3rem', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.pdcaWorkflowDescription')}</p>
 
