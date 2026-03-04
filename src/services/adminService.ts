@@ -1,4 +1,4 @@
-import { Location, Department, AppUser } from '../types/admin';
+﻿import { Location, Department, AppUser } from '../types/admin';
 import { activityService } from './activityService';
 
 const KEYS = {
@@ -7,45 +7,104 @@ const KEYS = {
     USERS: 'mso_v6_users'
 };
 
+const REMOVED_LOCATION_CODES = new Set(['BE', 'BS', 'VD']);
+const REMOVED_LOCATION_NAMES = new Set([
+    'Inselspital Bern (BE)',
+    'University Hospital Basel (BS)',
+    'CHUV Lausanne (VD)'
+]);
+
+const isRemovedLocation = (loc: Location | { name?: string; code?: string }): boolean => {
+    const code = (loc.code || '').trim().toUpperCase();
+    const name = (loc.name || '').trim();
+    return REMOVED_LOCATION_CODES.has(code) || REMOVED_LOCATION_NAMES.has(name);
+};
+
+const sanitizeLocations = (locations: Location[]): Location[] => {
+    return locations.filter(loc => !isRemovedLocation(loc));
+};
+
+const normalizeLocations = (locations: Location[]): Location[] => {
+    return locations.map(loc => {
+        if ((loc.code || '').toUpperCase() === 'GE') {
+            return { ...loc, city: 'Bern' };
+        }
+        return loc;
+    });
+};
+
+const normalizeDepartments = (departments: Department[], locations: Location[]): Department[] => {
+    const hasZurich = locations.some(l => l.id === 'LOC-001');
+
+    let next = [...departments];
+
+    const hasRestelbergZurich = next.some(
+        d => d.locationId === 'LOC-001' && d.name === 'Tertianum Restelberg'
+    );
+    if (hasZurich && !hasRestelbergZurich) {
+        next.push({ id: 'DEP-RESTELBERG', name: 'Tertianum Restelberg', locationId: 'LOC-001' });
+    }
+
+    return next;
+};
+
 const SEED = {
     LOCATIONS: [
         { id: 'LOC-001', name: 'University Hospital Zurich (ZH)', city: 'Zurich', country: 'Switzerland', code: 'ZH' },
-        { id: 'LOC-002', name: 'Geneva University Hospitals (GE)', city: 'Geneva', country: 'Switzerland', code: 'GE' },
-        { id: 'LOC-003', name: 'Inselspital Bern (BE)', city: 'Bern', country: 'Switzerland', code: 'BE' },
-        { id: 'LOC-004', name: 'University Hospital Basel (BS)', city: 'Basel', country: 'Switzerland', code: 'BS' },
-        { id: 'LOC-005', name: 'CHUV Lausanne (VD)', city: 'Lausanne', country: 'Switzerland', code: 'VD' }
+        { id: 'LOC-002', name: 'Geneva University Hospitals (GE)', city: 'Geneva', country: 'Switzerland', code: 'GE' }
     ] as Location[],
     DEPARTMENTS: [
         { id: 'DEP-001', name: 'Quality & Patient Safety', locationId: 'LOC-001' },
-        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-002' },
-        { id: 'DEP-003', name: 'Main Pharmacy', locationId: 'LOC-003' },
-        { id: 'DEP-004', name: 'Infectious Diseases', locationId: 'LOC-004' },
-        { id: 'DEP-005', name: 'Emergency Medicine', locationId: 'LOC-005' }
+        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-001' },
+        { id: 'DEP-BERN-001', name: 'Tertianum Fischermätteli', locationId: 'LOC-002' },
+        { id: 'DEP-BERN-002', name: 'Tertianum Viktoria', locationId: 'LOC-002' }
     ] as Department[],
     USERS: [
         { id: 'USR-001', fullName: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
-        { id: 'USR-002', fullName: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-002', departmentId: 'DEP-002' },
-        { id: 'USR-003', fullName: 'Sarah Johnson (RN)', email: 'sarah.johnson@hospital.ch', role: 'Viewer', locationId: 'LOC-003', departmentId: 'DEP-003' }
+        { id: 'USR-002', fullName: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' }
     ] as AppUser[]
 };
 
 export const adminService = {
     init: () => {
-        if (!localStorage.getItem(KEYS.LOCATIONS)) {
-            localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(SEED.LOCATIONS));
-        }
-        if (!localStorage.getItem(KEYS.DEPARTMENTS)) {
-            localStorage.setItem(KEYS.DEPARTMENTS, JSON.stringify(SEED.DEPARTMENTS));
-        }
-        if (!localStorage.getItem(KEYS.USERS)) {
-            localStorage.setItem(KEYS.USERS, JSON.stringify(SEED.USERS));
-        }
+        const rawLocations = localStorage.getItem(KEYS.LOCATIONS);
+        const locations = rawLocations
+            ? normalizeLocations(sanitizeLocations(JSON.parse(rawLocations) as Location[]))
+            : normalizeLocations(SEED.LOCATIONS);
+        localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(locations));
+
+        const validLocationIds = new Set(locations.map(l => l.id));
+
+        const rawDepartments = localStorage.getItem(KEYS.DEPARTMENTS);
+        const departments = normalizeDepartments(
+            rawDepartments ? JSON.parse(rawDepartments) as Department[] : SEED.DEPARTMENTS,
+            locations
+        )
+            .filter(d => validLocationIds.has(d.locationId));
+        localStorage.setItem(KEYS.DEPARTMENTS, JSON.stringify(departments));
+
+        const validDepartmentIds = new Set(departments.map(d => d.id));
+
+        const rawUsers = localStorage.getItem(KEYS.USERS);
+        const users = (rawUsers ? JSON.parse(rawUsers) as AppUser[] : SEED.USERS)
+            .filter(u => u.locationId !== 'LOC-002')
+            .filter(u => validLocationIds.has(u.locationId))
+            .map(u => ({
+                ...u,
+                departmentId: u.departmentId && validDepartmentIds.has(u.departmentId) ? u.departmentId : undefined
+            }));
+        localStorage.setItem(KEYS.USERS, JSON.stringify(users));
     },
 
     // LOCATIONS
     getLocations: (): Location[] => {
         adminService.init();
-        return JSON.parse(localStorage.getItem(KEYS.LOCATIONS) || '[]');
+        const locations = JSON.parse(localStorage.getItem(KEYS.LOCATIONS) || '[]') as Location[];
+        const sanitized = normalizeLocations(sanitizeLocations(locations));
+        if (JSON.stringify(sanitized) !== JSON.stringify(locations)) {
+            localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(sanitized));
+        }
+        return sanitized;
     },
     saveLocation: (loc: Location) => {
         const list = adminService.getLocations();
@@ -95,10 +154,11 @@ export const adminService = {
         adminService.init();
         const deps = JSON.parse(localStorage.getItem(KEYS.DEPARTMENTS) || '[]') as Department[];
         const locs = adminService.getLocations();
+        const validLocationIds = new Set(locs.map(l => l.id));
         return deps.map(d => ({
             ...d,
             locationName: locs.find(l => l.id === d.locationId)?.name || 'Unknown'
-        }));
+        })).filter(d => validLocationIds.has(d.locationId));
     },
     saveDepartment: (dep: Department) => {
         const list = JSON.parse(localStorage.getItem(KEYS.DEPARTMENTS) || '[]') as Department[];
@@ -149,11 +209,12 @@ export const adminService = {
         const users = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]') as AppUser[];
         const locs = adminService.getLocations();
         const deps = adminService.getDepartments();
+        const validLocationIds = new Set(locs.map(l => l.id));
         return users.map(u => ({
             ...u,
             locationName: locs.find(l => l.id === u.locationId)?.name || 'Unknown',
             departmentName: deps.find(d => d.id === u.departmentId)?.name || '-'
-        }));
+        })).filter(u => validLocationIds.has(u.locationId));
     },
     saveUser: (user: AppUser) => {
         const list = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]') as AppUser[];
@@ -201,3 +262,4 @@ export const adminService = {
         window.location.reload();
     }
 };
+

@@ -88,7 +88,6 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
             <main className="main-content">
                 <header className="topbar">
                     <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                        {t('header.breadcrumb')}
                     </div>
                     <div style={{
                         display: 'flex',

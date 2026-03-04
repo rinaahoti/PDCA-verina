@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService, authService, todosService } from '../services';
+import { adminService } from '../services/adminService';
 import { notificationService } from '../services/notifications';
-import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea } from '../types';
+import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea, PhaseMeetingData, ExternalMeetingUser } from '../types';
+import { Location as AdminLocation, Department as AdminDepartment } from '../types/admin';
 import { Save, Printer, Mail, ArrowLeft, ChevronRight, ChevronDown, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp, MapPin, Building2, Users } from 'lucide-react';
 import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, normalizeStatus } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -23,6 +25,7 @@ const Cockpit: React.FC = () => {
     const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
     const [viewingStep, setViewingStep] = useState<Step>('PLAN');
     const [showPdfModal, setShowPdfModal] = useState(false);
+    const [pdfModalContext, setPdfModalContext] = useState<'standardize' | 'close'>('standardize');
 
     // Create Mode State
     const [createState, setCreateState] = useState({
@@ -66,6 +69,9 @@ const Cockpit: React.FC = () => {
     const [locationDeptTab, setLocationDeptTab] = useState<'locations' | 'departments'>('locations');
     const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
     const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+    const [hasInitializedPlanDefaults, setHasInitializedPlanDefaults] = useState(false);
+    const [adminLocations, setAdminLocations] = useState<AdminLocation[]>([]);
+    const [adminDepartments, setAdminDepartments] = useState<AdminDepartment[]>([]);
     const [planMeetingExpanded, setPlanMeetingExpanded] = useState(false);
     const [checkMeetingExpanded, setCheckMeetingExpanded] = useState(false);
     const [checkMeetingPickerOpen, setCheckMeetingPickerOpen] = useState(false);
@@ -73,63 +79,92 @@ const Cockpit: React.FC = () => {
     const [doActionPickerOpenIdx, setDoActionPickerOpenIdx] = useState<number | null>(null);
     const doResponsiblePickerRef = useRef<HTMLDivElement | null>(null);
 
-    const LOCATION_OPTIONS = [
-        'Prishtina ',
-        'Prizren ',
-        'Peja ',
-        'Mitrovica ',
-        'Gjakova '
-    ];
-    const DEPARTMENT_OPTIONS = [
-        'Finance',
-        'HR & Staff',
-        'IT & Development',
-        'Marketing',
-        'Communications',
-        'Senior Management'
-    ];
+    const locationRecords = useMemo(
+        () =>
+            adminLocations
+                .map(loc => ({
+                    id: loc.id,
+                    label: (loc.city || '').trim() || (loc.name || '').replace(/ \([A-Z]+\)$/, '').trim()
+                }))
+                .filter(loc => !!loc.label),
+        [adminLocations]
+    );
+    const LOCATION_OPTIONS = useMemo(
+        () => Array.from(new Set(locationRecords.map(loc => loc.label))).sort((a, b) => a.localeCompare(b)),
+        [locationRecords]
+    );
+    const DEPARTMENT_OPTIONS = useMemo(() => {
+        const selectedLocationIds = locationRecords
+            .filter(loc => selectedLocations.includes(loc.label))
+            .map(loc => loc.id);
+        const scopedDepartments = selectedLocationIds.length > 0
+            ? adminDepartments.filter(dep => selectedLocationIds.includes(dep.locationId))
+            : adminDepartments;
+        return Array.from(new Set(scopedDepartments.map(dep => dep.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [adminDepartments, locationRecords, selectedLocations]);
+
+    type MeetingState = {
+        title: string;
+        responsiblePersons: string[];
+        checkedPersons: string[];
+        meetingType: string;
+        meetingDateTime: string;
+        location: string;
+        showDropdown: boolean;
+        checkTriggerDate: string;
+        externalEnabled: boolean;
+        externalUsers: ExternalMeetingUser[];
+    };
+
+    const createExternalUserRow = (): ExternalMeetingUser => ({
+        id: `ext-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        fullName: '',
+        email: '',
+        note: ''
+    });
+
+    const createDefaultMeetingState = (): MeetingState => ({
+        title: '',
+        responsiblePersons: [],
+        checkedPersons: [],
+        meetingType: 'In-Office (On-site)',
+        meetingDateTime: '',
+        location: '',
+        showDropdown: false,
+        checkTriggerDate: '',
+        externalEnabled: false,
+        externalUsers: []
+    });
+
+    const hydrateMeetingState = (meeting?: PhaseMeetingData): MeetingState => ({
+        ...createDefaultMeetingState(),
+        title: meeting?.title || '',
+        responsiblePersons: meeting?.responsiblePersons || [],
+        meetingType: meeting?.meetingType || 'In-Office (On-site)',
+        meetingDateTime: meeting?.meetingDateTime || '',
+        location: meeting?.location || '',
+        checkTriggerDate: meeting?.checkTriggerDate || '',
+        // Always start collapsed; user opens external section manually via arrow/button.
+        externalEnabled: false,
+        externalUsers: meeting?.externalUsers || []
+    });
+
+    const toPhaseMeetingData = (meeting: MeetingState): PhaseMeetingData => ({
+        title: meeting.title,
+        responsiblePersons: meeting.responsiblePersons,
+        meetingType: meeting.meetingType,
+        meetingDateTime: meeting.meetingDateTime,
+        location: meeting.location,
+        checkTriggerDate: meeting.checkTriggerDate,
+        externalEnabled: meeting.externalEnabled,
+        externalUsers: meeting.externalUsers
+    });
 
     // PLAN Phase Meeting state
-    const [planMeeting, setPlanMeeting] = useState<{
-        title: string;
-        responsiblePersons: string[];
-        checkedPersons: string[];
-        meetingType: string;
-        meetingDateTime: string;
-        location: string;
-        showDropdown: boolean;
-        checkTriggerDate: string;
-    }>({
-        title: '',
-        responsiblePersons: [],
-        checkedPersons: [],
-        meetingType: 'In-Office (On-site)',
-        meetingDateTime: '',
-        location: '',
-        showDropdown: false,
-        checkTriggerDate: ''
-    });
+    const [planMeeting, setPlanMeeting] = useState<MeetingState>(createDefaultMeetingState);
 
     // CHECK Phase Meeting state (replicated from PLAN)
-    const [checkMeeting, setCheckMeeting] = useState<{
-        title: string;
-        responsiblePersons: string[];
-        checkedPersons: string[];
-        meetingType: string;
-        meetingDateTime: string;
-        location: string;
-        showDropdown: boolean;
-        checkTriggerDate: string;
-    }>({
-        title: '',
-        responsiblePersons: [],
-        checkedPersons: [],
-        meetingType: 'In-Office (On-site)',
-        meetingDateTime: '',
-        location: '',
-        showDropdown: false,
-        checkTriggerDate: ''
-    });
+    const [checkMeeting, setCheckMeeting] = useState<MeetingState>(createDefaultMeetingState);
 
     const PERSONS = [
         'Dr. Elena Rossi',
@@ -174,10 +209,216 @@ const Cockpit: React.FC = () => {
         return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
     };
 
+    const addExternalUserRow = (phase: 'plan' | 'check') => {
+        const row = createExternalUserRow();
+        if (phase === 'plan') {
+            setPlanMeeting(prev => ({ ...prev, externalUsers: [...prev.externalUsers, row] }));
+            return;
+        }
+        setCheckMeeting(prev => ({ ...prev, externalUsers: [...prev.externalUsers, row] }));
+    };
+
+    const removeExternalUserRow = (phase: 'plan' | 'check', id: string) => {
+        if (phase === 'plan') {
+            setPlanMeeting(prev => ({ ...prev, externalUsers: prev.externalUsers.filter(userItem => userItem.id !== id) }));
+            return;
+        }
+        setCheckMeeting(prev => ({ ...prev, externalUsers: prev.externalUsers.filter(userItem => userItem.id !== id) }));
+    };
+
+    const updateExternalUserField = (
+        phase: 'plan' | 'check',
+        id: string,
+        field: 'fullName' | 'email' | 'note',
+        value: string
+    ) => {
+        if (phase === 'plan') {
+            setPlanMeeting(prev => ({
+                ...prev,
+                externalUsers: prev.externalUsers.map(userItem => userItem.id === id ? { ...userItem, [field]: value } : userItem)
+            }));
+            return;
+        }
+        setCheckMeeting(prev => ({
+            ...prev,
+            externalUsers: prev.externalUsers.map(userItem => userItem.id === id ? { ...userItem, [field]: value } : userItem)
+        }));
+    };
+
+    const toggleExternalUsers = (phase: 'plan' | 'check') => {
+        if (phase === 'plan') {
+            setPlanMeeting(prev => {
+                const nextEnabled = !prev.externalEnabled;
+                return {
+                    ...prev,
+                    externalEnabled: nextEnabled,
+                    externalUsers: nextEnabled && prev.externalUsers.length === 0 ? [createExternalUserRow()] : prev.externalUsers
+                };
+            });
+            return;
+        }
+        setCheckMeeting(prev => {
+            const nextEnabled = !prev.externalEnabled;
+            return {
+                ...prev,
+                externalEnabled: nextEnabled,
+                externalUsers: nextEnabled && prev.externalUsers.length === 0 ? [createExternalUserRow()] : prev.externalUsers
+            };
+        });
+    };
+
+    const renderExternalUsersPanel = (phase: 'plan' | 'check', meeting: MeetingState) => (
+        <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', color: '#2f7a6b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Mail size={16} />
+                    </div>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2f7a6b', fontWeight: 700, fontSize: '15px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                            <span>{t('pdca.inviteExternalUsers')}</span>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => addExternalUserRow(phase)}
+                    style={{
+                        border: 'none',
+                        borderRadius: '999px',
+                        padding: '0 14px',
+                        height: '30px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        lineHeight: 1,
+                        color: '#2f7a6b',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    + {t('pdca.addPerson')}
+                </button>
+            </div>
+
+            {meeting.externalUsers.map((externalUser, idx) => (
+                <div key={externalUser.id} style={{ border: '1px solid #d7ebe5', borderRadius: '10px', padding: '0.75rem', background: '#ffffff', marginBottom: '0.6rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '999px', background: '#5FAE9E', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {idx + 1}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => removeExternalUserRow(phase, externalUser.id)}
+                            style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1px solid #fecaca', background: '#fff1f2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+
+                    <div style={{ marginBottom: '0.55rem' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#5FAE9E', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('pdca.fullName')}</div>
+                        <input
+                            type="text"
+                            value={externalUser.fullName}
+                            onChange={e => updateExternalUserField(phase, externalUser.id, 'fullName', e.target.value)}
+                            placeholder="Jane Smith"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #d7ebe5', background: '#fff', fontSize: '13px', color: '#334155', outline: 'none' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '0.55rem' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#5FAE9E', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('pdca.emailAddress')}</div>
+                        <input
+                            type="email"
+                            value={externalUser.email}
+                            onChange={e => updateExternalUserField(phase, externalUser.id, 'email', e.target.value)}
+                            placeholder="email@example.com"
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #d7ebe5', background: '#fff', fontSize: '13px', color: '#334155', outline: 'none' }}
+                        />
+                    </div>
+
+                    <div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#5FAE9E', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('pdca.note')}</div>
+                        <input
+                            type="text"
+                            value={externalUser.note || ''}
+                            onChange={e => updateExternalUserField(phase, externalUser.id, 'note', e.target.value)}
+                            placeholder="Note..."
+                            style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #d7ebe5', background: '#fff', fontSize: '13px', color: '#334155', outline: 'none' }}
+                        />
+                    </div>
+                </div>
+            ))}
+
+            <button
+                type="button"
+                onClick={() => { }}
+                style={{
+                    width: '100%',
+                    marginTop: '0.35rem',
+                    padding: '0.68rem 0.9rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(90deg, #3AAFA9 0%, #2B9E97 100%)',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                }}
+            >
+                {t('pdca.confirmExternalUsers', { count: meeting.externalUsers.length })}
+            </button>
+        </div>
+    );
+
+    const toggleDoExternalUsers = (idx: number) => {
+        const updated = [...formState.actions];
+        const action = updated[idx];
+        const nextEnabled = !action.externalEnabled;
+        updated[idx] = {
+            ...action,
+            externalEnabled: nextEnabled,
+            externalUsers: nextEnabled && (!action.externalUsers || action.externalUsers.length === 0)
+                ? [createExternalUserRow()]
+                : (action.externalUsers || [])
+        };
+        setFormState({ ...formState, actions: updated });
+    };
+
+    const addDoExternalUserRow = (idx: number) => {
+        const updated = [...formState.actions];
+        const action = updated[idx];
+        updated[idx] = { ...action, externalUsers: [...(action.externalUsers || []), createExternalUserRow()] };
+        setFormState({ ...formState, actions: updated });
+    };
+
+    const removeDoExternalUserRow = (idx: number, id: string) => {
+        const updated = [...formState.actions];
+        const action = updated[idx];
+        updated[idx] = { ...action, externalUsers: (action.externalUsers || []).filter((u: ExternalMeetingUser) => u.id !== id) };
+        setFormState({ ...formState, actions: updated });
+    };
+
+    const updateDoExternalUserField = (idx: number, id: string, field: 'fullName' | 'email' | 'note', value: string) => {
+        const updated = [...formState.actions];
+        const action = updated[idx];
+        updated[idx] = {
+            ...action,
+            externalUsers: (action.externalUsers || []).map((u: ExternalMeetingUser) => u.id === id ? { ...u, [field]: value } : u)
+        };
+        setFormState({ ...formState, actions: updated });
+    };
+
     const loadData = () => {
         const allTopics = topicsService.getAll();
         setTopics(allTopics);
         setTodos(todosService.getAll());
+        setAdminLocations(adminService.getLocations());
+        setAdminDepartments(adminService.getDepartments());
         if (selectedTopic) {
             const updated = allTopics.find(t => t.id === selectedTopic.id);
             if (updated) setSelectedTopic(updated);
@@ -188,12 +429,51 @@ const Cockpit: React.FC = () => {
         topicsService.init();
         loadData();
         window.addEventListener('storage', loadData);
-        return () => window.removeEventListener('storage', loadData);
+        window.addEventListener('storage-admin', loadData);
+        return () => {
+            window.removeEventListener('storage', loadData);
+            window.removeEventListener('storage-admin', loadData);
+        };
     }, [selectedTopic?.id]);
+
+    useEffect(() => {
+        setSelectedDepartments(prev => prev.filter(dep => DEPARTMENT_OPTIONS.includes(dep)));
+    }, [DEPARTMENT_OPTIONS]);
+
+    useEffect(() => {
+        if (mode !== 'create' || hasInitializedPlanDefaults) return;
+        if (selectedLocations.length > 0 || selectedDepartments.length > 0) return;
+        if (locationRecords.length === 0) return;
+
+        const bernLocation = locationRecords.find(loc => loc.label.toLowerCase() === 'bern');
+        const defaultLocation = bernLocation?.label || locationRecords[0].label;
+        const defaultLocationIds = locationRecords
+            .filter(loc => loc.label === defaultLocation)
+            .map(loc => loc.id);
+        const defaultDepartments = adminDepartments
+            .filter(dep => defaultLocationIds.includes(dep.locationId))
+            .map(dep => dep.name)
+            .filter(Boolean)
+            .slice(0, 2);
+
+        setSelectedLocations([defaultLocation]);
+        setSelectedDepartments(defaultDepartments);
+        setHasInitializedPlanDefaults(true);
+    }, [mode, hasInitializedPlanDefaults, selectedLocations.length, selectedDepartments.length, locationRecords, adminDepartments]);
 
     useEffect(() => {
         if (selectedTopic) {
             setViewingStep(selectedTopic.step);
+            setSelectedLocations(
+                selectedTopic.location
+                    ? selectedTopic.location.split(',').map(v => v.trim()).filter(Boolean)
+                    : []
+            );
+            setSelectedDepartments(
+                selectedTopic.departmentId
+                    ? selectedTopic.departmentId.split(',').map(v => v.trim()).filter(Boolean)
+                    : []
+            );
             setFormState({
                 title: selectedTopic.title || '',
                 dueDate: selectedTopic.dueDate || '',
@@ -221,6 +501,11 @@ const Cockpit: React.FC = () => {
                 standardization: selectedTopic.act.standardization || '',
                 lessonsLearned: selectedTopic.act.lessonsLearned || ''
             });
+            setPlanMeeting(hydrateMeetingState(selectedTopic.plan.meeting));
+            setCheckMeeting(hydrateMeetingState(selectedTopic.check.meeting));
+        } else {
+            setPlanMeeting(createDefaultMeetingState());
+            setCheckMeeting(createDefaultMeetingState());
         }
     }, [selectedTopic?.id, selectedTopic?.step]);
 
@@ -255,16 +540,6 @@ const Cockpit: React.FC = () => {
         };
         return kpiMap[kpi] || kpi;
     };
-
-    const getTranslatedTaskTitle = (title: string) => {
-        const taskMap: Record<string, string> = {
-            'Audit Sterile Field Documentation': 'Audit der Dokumentation des sterilen Feldes',
-            'Validate Barcode Scanner Calibration': 'Validierung der Kalibrierung des Barcode-Scanners'
-        };
-        return taskMap[title] || title;
-    };
-
-    const myToDos = todos.filter((t: ToDo) => t.status !== 'Critical');
 
     // Derived: My Assigned Actions from Topics
     const myActions = topics.flatMap(t =>
@@ -306,7 +581,18 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            plan: { description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [] } as any,
+            location: selectedLocations.join(', '),
+            departmentId: selectedDepartments.join(', '),
+            plan: {
+                description: formState.description,
+                goal: formState.goal,
+                asIs: formState.asIs,
+                toBe: formState.toBe,
+                rootCause: formState.rootCause,
+                improvementPurpose: formState.improvementPurpose || [],
+                objectives: formState.improvementPurpose || [],
+                meeting: toPhaseMeetingData(planMeeting)
+            } as any,
             do: { checkDate: formState.checkDate, actions: formState.actions || [] },
 
             check: {
@@ -315,6 +601,7 @@ const Cockpit: React.FC = () => {
                 effectivenessReview: formState.effectivenessReview,
                 effectivenessStatus: formState.effectivenessStatus,
                 kpiEvaluations: formState.kpiEvaluations || [],
+                meeting: toPhaseMeetingData(checkMeeting),
                 audit: { checkedBy: user?.name || 'Unknown', checkedOn: new Date().toISOString() }
             },
             act: {
@@ -417,6 +704,7 @@ const Cockpit: React.FC = () => {
                 rootCause: createState.rootCause,
                 improvementPurpose: createState.improvementPurpose,
                 objectives: createState.improvementPurpose,
+                meeting: toPhaseMeetingData(planMeeting),
                 completedAt: new Date().toISOString()
             },
             step: 'DO'
@@ -522,7 +810,18 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, {
             title: formState.title,
             dueDate: formState.dueDate,
-            plan: { description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [] },
+            location: selectedLocations.join(', '),
+            departmentId: selectedDepartments.join(', '),
+            plan: {
+                description: formState.description,
+                goal: formState.goal,
+                asIs: formState.asIs,
+                toBe: formState.toBe,
+                rootCause: formState.rootCause,
+                improvementPurpose: formState.improvementPurpose || [],
+                objectives: formState.improvementPurpose || [],
+                meeting: toPhaseMeetingData(planMeeting)
+            },
             do: { checkDate: formState.checkDate, actions: formState.actions },
             check: {
                 kpis: formState.kpis,
@@ -530,6 +829,7 @@ const Cockpit: React.FC = () => {
                 effectivenessReview: formState.effectivenessReview,
                 effectivenessStatus: formState.effectivenessStatus,
                 kpiEvaluations: formState.kpiEvaluations,
+                meeting: toPhaseMeetingData(checkMeeting),
                 audit: { checkedBy: user?.name || 'Unknown', checkedOn: new Date().toISOString() }
             },
             act: {
@@ -549,6 +849,7 @@ const Cockpit: React.FC = () => {
 
             if (selectedTopic.step === 'PLAN') (updates as any).plan = {
                 description: formState.description, goal: formState.goal, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, improvementPurpose: formState.improvementPurpose || [], objectives: formState.improvementPurpose || [],
+                meeting: toPhaseMeetingData(planMeeting),
                 completedAt: new Date().toISOString()
             };
             if (selectedTopic.step === 'DO') (updates as any).do = {
@@ -562,6 +863,7 @@ const Cockpit: React.FC = () => {
                     effectivenessReview: formState.effectivenessReview,
                     effectivenessStatus: formState.effectivenessStatus,
                     kpiEvaluations: formState.kpiEvaluations,
+                    meeting: toPhaseMeetingData(checkMeeting),
                     audit: { checkedBy: user?.name || 'Unknown', checkedOn: new Date().toISOString() },
                     completedAt: new Date().toISOString()
                 };
@@ -603,6 +905,47 @@ const Cockpit: React.FC = () => {
         topicsService.update(selectedTopic.id, { status: 'Monitoring' });
         loadData();
         window.dispatchEvent(new Event('storage'));
+    };
+
+    const buildTopicForPdf = (overrides?: { actConfirmation?: { standardized: boolean; noActionsPending: boolean; readyToClose: boolean } }) => {
+        if (!selectedTopic) return null;
+        const improvementPurpose = formState.improvementPurpose || selectedTopic.plan.improvementPurpose || selectedTopic.plan.objectives || [];
+        return {
+            ...selectedTopic,
+            title: formState.title || selectedTopic.title,
+            dueDate: formState.dueDate || selectedTopic.dueDate,
+            location: selectedLocations.join(', '),
+            departmentId: selectedDepartments.join(', '),
+            plan: {
+                ...selectedTopic.plan,
+                description: formState.description,
+                goal: formState.goal,
+                asIs: formState.asIs,
+                toBe: formState.toBe,
+                rootCause: formState.rootCause,
+                improvementPurpose,
+                objectives: improvementPurpose,
+                meeting: toPhaseMeetingData(planMeeting)
+            },
+            do: { ...selectedTopic.do, actions: formState.actions, checkDate: formState.checkDate },
+            check: {
+                ...selectedTopic.check,
+                effectivenessStatus: formState.effectivenessStatus,
+                kpiEvaluations: formState.kpiEvaluations,
+                effectivenessReview: formState.effectivenessReview,
+                meeting: toPhaseMeetingData(checkMeeting)
+            },
+            act: {
+                ...selectedTopic.act,
+                actOutcome: formState.actOutcome,
+                standardizationScope: formState.standardizationScope,
+                affectedAreas: formState.affectedAreas,
+                standardizationDescription: formState.standardizationDescription,
+                lessonsLearned: formState.lessonsLearned,
+                actConfirmation: overrides?.actConfirmation ?? formState.actConfirmation,
+                standardization: formState.standardization
+            }
+        };
     };
 
     const getStatusClass = (status: string, dueDate?: string, completed?: boolean) => {
@@ -654,6 +997,7 @@ const Cockpit: React.FC = () => {
                                         rootCause: createState.rootCause,
                                         improvementPurpose: createState.improvementPurpose,
                                         objectives: createState.improvementPurpose,
+                                        meeting: toPhaseMeetingData(planMeeting),
                                         completedAt: new Date().toISOString()
                                     }
                                 });
@@ -682,7 +1026,6 @@ const Cockpit: React.FC = () => {
                 <div className="detail-view">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div className="card" style={{ padding: '0.5rem 0' }}>
-                            <div style={{ padding: '1rem', fontWeight: 700, fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('pdca.processLifecycle')}</div>
                             <div className="lifecycle-stepper">
                                 {['PLAN', 'DO', 'CHECK', 'ACT'].map((step, i) => (
                                     <div key={step} className={`lifecycle-step ${step === 'PLAN' ? 'active' : ''}`} style={{ cursor: 'default', background: step === 'PLAN' ? '#cbeee2' : 'transparent', color: step === 'PLAN' ? '#5FAE9E' : 'inherit', borderLeftColor: step === 'PLAN' ? '#5FAE9E' : 'transparent' }}>
@@ -707,7 +1050,7 @@ const Cockpit: React.FC = () => {
                             </div>
                             <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
-                            <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                            <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>{t('common.dueDate')}</label>
                             <input
                                 type="date"
                                 value={planMeeting.checkTriggerDate}
@@ -727,7 +1070,7 @@ const Cockpit: React.FC = () => {
                                 }}
                             />
                             <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                Please specify when the effectiveness check will be performed.
+                                {t('pdca.specifyCheckDate')}
                             </div>
                         </div>
 
@@ -750,15 +1093,41 @@ const Cockpit: React.FC = () => {
                                     userSelect: 'none'
                                 }}
                             >
-                                <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
-                                <ChevronDown
-                                    size={20}
-                                    color="#64748b"
-                                    style={{
-                                        transition: 'transform 0.25s ease',
-                                        transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                                    }}
-                                />
+                                <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>{t('pdca.planPhaseMeeting')}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {planMeetingExpanded && (
+                                        <button
+                                            type="button"
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                toggleExternalUsers('plan');
+                                            }}
+                                            style={{
+                                                border: 'none',
+                                                borderRadius: 0,
+                                                padding: 0,
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                color: '#5FAE9E',
+                                                background: 'transparent',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 0
+                                            }}
+                                        >
+                                            {planMeeting.externalEnabled ? t('pdca.hideExternal') : t('pdca.externalUsers')}
+                                        </button>
+                                    )}
+                                    <ChevronDown
+                                        size={20}
+                                        color="#64748b"
+                                        style={{
+                                            transition: 'transform 0.25s ease',
+                                            transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                        }}
+                                    />
+                                </div>
                             </div>
                             {planMeetingExpanded && (
                                 <>
@@ -768,7 +1137,7 @@ const Cockpit: React.FC = () => {
                                         type="text"
                                         value={planMeeting.title}
                                         onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
-                                        placeholder="Meeting title"
+                                        placeholder={t('pdca.meetingTitlePlaceholder')}
                                         style={{
                                             width: '100%',
                                             boxSizing: 'border-box',
@@ -784,7 +1153,7 @@ const Cockpit: React.FC = () => {
                                     />
 
                                     <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.responsiblePersons')}</div>
 
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
@@ -827,7 +1196,7 @@ const Cockpit: React.FC = () => {
                                                 }}
                                                 onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
                                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                            >- Ndrysho</button>
+                                            >- {t('pdca.changeLabel')}</button>
                                         </div>
 
                                         {planMeetingPickerOpen && (
@@ -876,7 +1245,7 @@ const Cockpit: React.FC = () => {
                                     </div>
 
                                     <div style={{ marginBottom: '1.25rem' }}>
-                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingType')}</div>
                                         <div style={{ position: 'relative' }}>
                                             <select
                                                 value={planMeeting.meetingType}
@@ -895,8 +1264,8 @@ const Cockpit: React.FC = () => {
                                                     outline: 'none'
                                                 }}
                                             >
-                                                <option>In-Office (On-site)</option>
-                                                <option>Remote (Online)</option>
+                                                <option value="In-Office (On-site)">{t('pdca.inOffice')}</option>
+                                                <option value="Remote (Online)">{t('pdca.online')}</option>
                                                 <option>Hybrid</option>
                                             </select>
                                             <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
@@ -905,7 +1274,7 @@ const Cockpit: React.FC = () => {
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
                                         <div>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE & TIME</div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingDateTime')}</div>
                                             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                 <DateTimePicker
                                                     value={planMeeting.meetingDateTime}
@@ -914,17 +1283,18 @@ const Cockpit: React.FC = () => {
                                             </div>
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? t('pdca.onlineLink') : t('pdca.officeLocation')}</div>
                                             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                 <input
                                                     type="text"
                                                     value={planMeeting.location}
                                                     onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
-                                                    placeholder={planMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link... (https://)' : 'Location'}
+                                                    placeholder={planMeeting.meetingType === 'Remote (Online)' ? t('pdca.meetingLinkPlaceholder') : t('pdca.locationPlaceholder')}
                                                     style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
                                                 />
                                             </div>
                                         </div>
+                                        {planMeeting.externalEnabled && renderExternalUsersPanel('plan', planMeeting)}
 
                                         <button
                                             type="button"
@@ -951,7 +1321,7 @@ const Cockpit: React.FC = () => {
                                             onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
                                         >
                                             <span style={{ fontSize: '15px' }}></span>
-                                            Send Meeting Invites
+                                            {t('pdca.sendMeetingInvites')}
                                         </button>
                                     </div>
                                 </>
@@ -1025,60 +1395,63 @@ const Cockpit: React.FC = () => {
                                             <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.improvementPurpose')}</label>
                                         </div>
                                         <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
-                                            {[
-                                                { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
-                                                { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
-                                                { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
-                                                { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
-                                            ].map(option => (
-                                                <label
-                                                    key={option.value}
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        padding: '0.75rem 0',
-                                                        cursor: 'pointer',
-                                                        gap: '0.75rem'
-                                                    }}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={createState.improvementPurpose.includes(option.value)}
-                                                        onChange={e => {
-                                                            const newPurposes = e.target.checked
-                                                                ? [...createState.improvementPurpose, option.value]
-                                                                : createState.improvementPurpose.filter((p: string) => p !== option.value);
-                                                            setCreateState({ ...createState, improvementPurpose: newPurposes });
-                                                        }}
-                                                        style={{
-                                                            width: '18px',
-                                                            height: '18px',
-                                                            cursor: 'pointer',
-                                                            accentColor: '#5FAE9E'
-                                                        }}
-                                                    />
-                                                    <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
-                                                        {option.label}
-                                                    </span>
-                                                </label>
-                                            ))}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 2rem', alignItems: 'start' }}>
+                                                {[
+                                                    [
+                                                        { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
+                                                        { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
+                                                        { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
+                                                        { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
+                                                    ],
+                                                    [
+                                                        { value: 'GUEST_SATISFACTION', label: t('pdca.improvementPurposeGuestSatisfaction') },
+                                                        { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') },
+                                                        { value: 'QUALITY_VERBESSERN', label: t('pdca.improvementPurposeQualityVerbessern') }
+                                                    ]
+                                                ].map((column, columnIndex) => (
+                                                    <div key={`create-purpose-col-${columnIndex}`}>
+                                                        {column.map(option => (
+                                                            <label
+                                                                key={option.value}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    padding: '0.35rem 0',
+                                                                    cursor: 'pointer',
+                                                                    gap: '0.75rem'
+                                                                }}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={createState.improvementPurpose.includes(option.value)}
+                                                                    onChange={e => {
+                                                                        const newPurposes = e.target.checked
+                                                                            ? [...createState.improvementPurpose, option.value]
+                                                                            : createState.improvementPurpose.filter((p: string) => p !== option.value);
+                                                                        setCreateState({ ...createState, improvementPurpose: newPurposes });
+                                                                    }}
+                                                                    style={{
+                                                                        width: '18px',
+                                                                        height: '18px',
+                                                                        cursor: 'pointer',
+                                                                        accentColor: '#5FAE9E'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
+                                                                    {option.label}
+                                                                </span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    <div style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ fontWeight: 600 }}>{t('pdca.cycle')}</label>
-                                        <textarea
-                                            rows={4}
-                                            value={createState.description || ''}
-                                            onChange={e => setCreateState({ ...createState, description: e.target.value })}
-                                            placeholder={t('pdca.cyclePlaceholder')}
-                                        />
                                     </div>
 
                                     <div style={{ marginBottom: '1.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                                             <MapPin size={20} color="#5FAE9E" strokeWidth={2} />
-                                            <label style={{ fontWeight: 600, margin: 0 }}>Location & Department</label>
+                                            <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.locationDepartment')}</label>
                                         </div>
                                         <div style={{
                                             borderRadius: '12px',
@@ -1258,7 +1631,7 @@ const Cockpit: React.FC = () => {
                                                         marginBottom: '8px'
                                                     }}>
                                                         <MapPin size={13} />
-                                                        SELECTED LOCATIONS
+                                                        {t('pdca.selectedLocations')}
                                                     </div>
                                                     {selectedLocations.length > 0 && (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -1317,7 +1690,7 @@ const Cockpit: React.FC = () => {
                                                         marginBottom: '8px'
                                                     }}>
                                                         <Users size={13} />
-                                                        SELECTED DEPARTMENTS
+                                                        {t('pdca.selectedDepartments')}
                                                     </div>
                                                     {selectedDepartments.length > 0 && (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -1381,9 +1754,9 @@ const Cockpit: React.FC = () => {
                                                 color: getStatusColor(createState.status)
                                             }}
                                         >
-                                            <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('pdca.monitoring')}</option>
-                                            <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
-                                            <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
+                                            <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('status.monitoring')}</option>
+                                            <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('status.warning')}</option>
+                                            <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('status.critical')}</option>
                                         </select>
                                     </div>
 
@@ -1438,7 +1811,6 @@ const Cockpit: React.FC = () => {
                     {/* Stepper column */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div className="card" style={{ padding: '0.5rem 0' }}>
-                            <div style={{ padding: '1rem', fontWeight: 700, fontSize: '12px', color: '#94a3b8' }}>{t('pdca.processLifecycle')}</div>
                             <div className="lifecycle-stepper">
                                 {(['PLAN', 'DO', 'CHECK', 'ACT'] as Step[]).map((step, i) => {
                                     const isCurrent = selectedTopic.step === step;
@@ -1497,12 +1869,12 @@ const Cockpit: React.FC = () => {
                                 {/* Header — identical to PLAN/CHECK */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
                                     <span style={{ fontSize: '20px' }}></span>
-                                    <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>Check Phase Activation</span>
+                                    <span style={{ fontWeight: 700, fontSize: '16px', color: '#1a202c' }}>{t('pdca.checkPhaseActivation')}</span>
                                 </div>
                                 <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
                                 {/* Due Date */}
-                                <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>{t('common.dueDate')}</label>
                                 <input
                                     type="date"
                                     value={formState.checkDate}
@@ -1523,7 +1895,7 @@ const Cockpit: React.FC = () => {
                                     }}
                                 />
                                 <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                    Please specify when the effectiveness check will be performed.
+                                    {t('pdca.specifyCheckDate')}
                                 </div>
                             </div>
                         )}
@@ -1548,7 +1920,7 @@ const Cockpit: React.FC = () => {
                                     <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
                                     {/* Due Date */}
-                                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>{t('common.dueDate')}</label>
                                     <input
                                         type="date"
                                         value={planMeeting.checkTriggerDate}
@@ -1568,7 +1940,7 @@ const Cockpit: React.FC = () => {
                                         }}
                                     />
                                     <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                        Please specify when the effectiveness check will be performed.
+                                        {t('pdca.specifyCheckDate')}
                                     </div>
                                 </div>
 
@@ -1593,15 +1965,41 @@ const Cockpit: React.FC = () => {
                                             userSelect: 'none'
                                         }}
                                     >
-                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>PLAN Phase Meeting</span>
-                                        <ChevronDown
-                                            size={20}
-                                            color="#64748b"
-                                            style={{
-                                                transition: 'transform 0.25s ease',
-                                                transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                                            }}
-                                        />
+                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>{t('pdca.planPhaseMeeting')}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            {planMeetingExpanded && (
+                                                <button
+                                                    type="button"
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        toggleExternalUsers('plan');
+                                                    }}
+                                                    style={{
+                                                        border: 'none',
+                                                        borderRadius: 0,
+                                                        padding: 0,
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        color: '#5FAE9E',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 0
+                                                    }}
+                                                >
+                                                    {planMeeting.externalEnabled ? t('pdca.hideExternal') : t('pdca.externalUsers')}
+                                                </button>
+                                            )}
+                                            <ChevronDown
+                                                size={20}
+                                                color="#64748b"
+                                                style={{
+                                                    transition: 'transform 0.25s ease',
+                                                    transform: planMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                     {planMeetingExpanded && (
                                         <>
@@ -1612,7 +2010,7 @@ const Cockpit: React.FC = () => {
                                                 type="text"
                                                 value={planMeeting.title}
                                                 onChange={e => setPlanMeeting({ ...planMeeting, title: e.target.value })}
-                                                placeholder="Meeting title"
+                                                placeholder={t('pdca.meetingTitlePlaceholder')}
                                                 style={{
                                                     width: '100%',
                                                     boxSizing: 'border-box',
@@ -1627,11 +2025,11 @@ const Cockpit: React.FC = () => {
                                                 }}
                                             />
 
-                                            {/* B) Responsible Persons — Avatar-chip summary + Ndrysho picker */}
+                                            {/* B) Responsible Persons — Avatar-chip summary + {t('pdca.changeLabel')} picker */}
                                             <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.responsiblePersons')}</div>
 
-                                                {/* Collapsed summary row: avatars + Ndrysho button */}
+                                                {/* Collapsed summary row: avatars + {t('pdca.changeLabel')} button */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
                                                         {planMeeting.responsiblePersons.slice(0, 4).map((person, idx) => (
@@ -1662,7 +2060,7 @@ const Cockpit: React.FC = () => {
                                                         )}
                                                     </div>
 
-                                                    {/* Ndrysho (edit) button */}
+                                                    {/* {t('pdca.changeLabel')} (edit) button */}
                                                     <button
                                                         onClick={() => setPlanMeetingPickerOpen(prev => !prev)}
                                                         style={{
@@ -1673,7 +2071,7 @@ const Cockpit: React.FC = () => {
                                                         }}
                                                         onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
                                                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                                    >– Ndrysho</button>
+                                                    >- {t('pdca.changeLabel')}</button>
                                                 </div>
 
                                                 {/* Picker dropdown */}
@@ -1730,7 +2128,7 @@ const Cockpit: React.FC = () => {
 
                                             {/* D) Meeting Type */}
                                             <div style={{ marginBottom: '1.25rem' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingType')}</div>
                                                 <div style={{ position: 'relative' }}>
                                                     <select
                                                         value={planMeeting.meetingType}
@@ -1742,8 +2140,8 @@ const Cockpit: React.FC = () => {
                                                             fontSize: '13px', color: '#334155', cursor: 'pointer', outline: 'none'
                                                         }}
                                                     >
-                                                        <option>In-Office (On-site)</option>
-                                                        <option>Remote (Online)</option>
+                                                        <option value="In-Office (On-site)">{t('pdca.inOffice')}</option>
+                                                        <option value="Remote (Online)">{t('pdca.online')}</option>
                                                         <option>Hybrid</option>
                                                     </select>
                                                     <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
@@ -1753,7 +2151,7 @@ const Cockpit: React.FC = () => {
                                             {/* E) Date stacked above Location – labels outside border, same as CHECK */}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
                                                 <div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE &amp; TIME</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingDateTime')}</div>
                                                     <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                         <DateTimePicker
                                                             value={planMeeting.meetingDateTime}
@@ -1762,20 +2160,21 @@ const Cockpit: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{planMeeting.meetingType === 'Remote (Online)' ? t('pdca.onlineLink') : t('pdca.officeLocation')}</div>
                                                     <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                         <input
                                                             id="plan-meeting-location"
                                                             type="text"
                                                             value={planMeeting.location}
                                                             onChange={e => setPlanMeeting({ ...planMeeting, location: e.target.value })}
-                                                            placeholder={planMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link… (https://)' : 'Location'}
+                                                            placeholder={planMeeting.meetingType === 'Remote (Online)' ? t('pdca.meetingLinkPlaceholder') : t('pdca.locationPlaceholder')}
                                                             style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
                                                         />
                                                     </div>
                                                 </div>
+                                                {planMeeting.externalEnabled && renderExternalUsersPanel('plan', planMeeting)}
 
-                                                {/* Send Meeting Invites button */}
+                                                {/* {t('pdca.sendMeetingInvites')} button */}
                                                 <button
                                                     onClick={() => {/* placeholder – wire to invite handler when ready */ }}
                                                     style={{
@@ -1789,7 +2188,7 @@ const Cockpit: React.FC = () => {
                                                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
                                                 >
                                                     <span style={{ fontSize: '15px' }}></span>
-                                                    Send Meeting Invites
+                                                    {t('pdca.sendMeetingInvites')}
                                                 </button>
                                             </div>
                                         </>
@@ -1818,7 +2217,7 @@ const Cockpit: React.FC = () => {
                                     <div style={{ borderTop: '1px solid #e8ecf0', marginBottom: '1.25rem' }} />
 
                                     {/* Due Date */}
-                                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>Due Date</label>
+                                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.5rem' }}>{t('common.dueDate')}</label>
                                     <input
                                         type="date"
                                         value={checkMeeting.checkTriggerDate}
@@ -1838,7 +2237,7 @@ const Cockpit: React.FC = () => {
                                         }}
                                     />
                                     <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                                        Please specify when the effectiveness check will be performed.
+                                        {t('pdca.specifyCheckDate')}
                                     </div>
                                 </div>
 
@@ -1863,15 +2262,41 @@ const Cockpit: React.FC = () => {
                                             userSelect: 'none'
                                         }}
                                     >
-                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>CHECK Phase Meeting</span>
-                                        <ChevronDown
-                                            size={20}
-                                            color="#64748b"
-                                            style={{
-                                                transition: 'transform 0.25s ease',
-                                                transform: checkMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                                            }}
-                                        />
+                                        <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a202c' }}>{t('pdca.checkPhaseMeeting')}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            {checkMeetingExpanded && (
+                                                <button
+                                                    type="button"
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        toggleExternalUsers('check');
+                                                    }}
+                                                    style={{
+                                                        border: 'none',
+                                                        borderRadius: 0,
+                                                        padding: 0,
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        color: '#5FAE9E',
+                                                        background: 'transparent',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 0
+                                                    }}
+                                                >
+                                                    {checkMeeting.externalEnabled ? t('pdca.hideExternal') : t('pdca.externalUsers')}
+                                                </button>
+                                            )}
+                                            <ChevronDown
+                                                size={20}
+                                                color="#64748b"
+                                                style={{
+                                                    transition: 'transform 0.25s ease',
+                                                    transform: checkMeetingExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                     {checkMeetingExpanded && (
                                         <>
@@ -1882,7 +2307,7 @@ const Cockpit: React.FC = () => {
                                                 type="text"
                                                 value={checkMeeting.title}
                                                 onChange={e => setCheckMeeting({ ...checkMeeting, title: e.target.value })}
-                                                placeholder="Shkruaj titullin e mbledhjes..."
+                                                placeholder={t('pdca.meetingTitlePlaceholder')}
                                                 style={{
                                                     width: '100%',
                                                     boxSizing: 'border-box',
@@ -1897,13 +2322,13 @@ const Cockpit: React.FC = () => {
                                                 }}
                                             />
 
-                                            {/* B) Responsible Persons — Avatar-chip summary + Ndrysho picker (CHECK only) */}
+                                            {/* B) Responsible Persons — Avatar-chip summary + {t('pdca.changeLabel')} picker (CHECK only) */}
                                             <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>RESPONSIBLE PERSONS</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.responsiblePersons')}</div>
 
-                                                {/* ── Collapsed summary row: avatars + Ndrysho button ── */}
+                                                {/* ── Collapsed summary row: avatars + {t('pdca.changeLabel')} button ── */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    {/* Overlapping avatar stack – fixed minWidth keeps Ndrysho button pinned */}
+                                                    {/* Overlapping avatar stack – fixed minWidth keeps {t('pdca.changeLabel')} button pinned */}
                                                     <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
                                                         {checkMeeting.responsiblePersons.slice(0, 4).map((person, idx) => (
                                                             <div
@@ -1956,7 +2381,7 @@ const Cockpit: React.FC = () => {
                                                         )}
                                                     </div>
 
-                                                    {/* Ndrysho (edit) button */}
+                                                    {/* {t('pdca.changeLabel')} (edit) button */}
                                                     <button
                                                         onClick={() => setCheckMeetingPickerOpen(prev => !prev)}
                                                         style={{
@@ -1973,7 +2398,7 @@ const Cockpit: React.FC = () => {
                                                         }}
                                                         onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
                                                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                                    >– Ndrysho</button>
+                                                    >- {t('pdca.changeLabel')}</button>
                                                 </div>
 
                                                 {/* ── Picker dropdown (Photo 3 style) ── */}
@@ -2068,7 +2493,7 @@ const Cockpit: React.FC = () => {
 
                                             {/* D) Meeting Type */}
                                             <div style={{ marginBottom: '1.25rem' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING TYPE</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingType')}</div>
                                                 <div style={{ position: 'relative' }}>
                                                     <select
                                                         value={checkMeeting.meetingType}
@@ -2087,8 +2512,8 @@ const Cockpit: React.FC = () => {
                                                             outline: 'none'
                                                         }}
                                                     >
-                                                        <option>In-Office (On-site)</option>
-                                                        <option>Remote (Online)</option>
+                                                        <option value="In-Office (On-site)">{t('pdca.inOffice')}</option>
+                                                        <option value="Remote (Online)">{t('pdca.online')}</option>
                                                         <option>Hybrid</option>
                                                     </select>
                                                     <ChevronDown size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }} />
@@ -2098,7 +2523,7 @@ const Cockpit: React.FC = () => {
                                             {/* E) Date stacked above Location – labels outside border like Meeting Type */}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
                                                 <div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>MEETING DATE &amp; TIME</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{t('pdca.meetingDateTime')}</div>
                                                     <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                         <DateTimePicker
                                                             value={checkMeeting.meetingDateTime}
@@ -2107,18 +2532,19 @@ const Cockpit: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{checkMeeting.meetingType === 'Remote (Online)' ? 'MEETING LINK' : 'OFFICE / LOCATION'}</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>{checkMeeting.meetingType === 'Remote (Online)' ? t('pdca.onlineLink') : t('pdca.officeLocation')}</div>
                                                     <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.7rem 1rem' }}>
                                                         <input
                                                             id="check-meeting-location"
                                                             type="text"
                                                             value={checkMeeting.location}
                                                             onChange={e => setCheckMeeting({ ...checkMeeting, location: e.target.value })}
-                                                            placeholder={checkMeeting.meetingType === 'Remote (Online)' ? 'Paste meeting link… (https://)' : 'Location'}
+                                                            placeholder={checkMeeting.meetingType === 'Remote (Online)' ? t('pdca.meetingLinkPlaceholder') : t('pdca.locationPlaceholder')}
                                                             style={{ border: 'none', background: 'transparent', fontSize: '13px', color: '#64748b', outline: 'none', width: '100%', padding: 0 }}
                                                         />
                                                     </div>
                                                 </div>
+                                                {checkMeeting.externalEnabled && renderExternalUsersPanel('check', checkMeeting)}
 
                                                 {/* F) Send invites button */}
                                                 <button
@@ -2145,7 +2571,7 @@ const Cockpit: React.FC = () => {
                                                     onMouseLeave={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(58,175,169,0.18)'; }}
                                                 >
                                                     <span style={{ fontSize: '15px' }}></span>
-                                                    Send Meeting Invites
+                                                    {t('pdca.sendMeetingInvites')}
                                                 </button>
                                             </div>
                                         </>
@@ -2252,58 +2678,59 @@ const Cockpit: React.FC = () => {
                                                 <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.improvementPurpose')}</label>
                                             </div>
                                             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
-                                                {[
-                                                    { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
-                                                    { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
-                                                    { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
-                                                    { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
-                                                ].map(option => (
-                                                    <label
-                                                        key={option.value}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            padding: '0.75rem 0',
-                                                            cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
-                                                            gap: '0.75rem',
-                                                            opacity: selectedTopic.status === 'Done' ? 0.6 : 1
-                                                        }}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={(formState.improvementPurpose || []).includes(option.value)}
-                                                            onChange={e => {
-                                                                const newPurposes = e.target.checked
-                                                                    ? [...(formState.improvementPurpose || []), option.value]
-                                                                    : (formState.improvementPurpose || []).filter((p: string) => p !== option.value);
-                                                                setFormState({ ...formState, improvementPurpose: newPurposes });
-                                                            }}
-                                                            disabled={selectedTopic.status === 'Done'}
-                                                            style={{
-                                                                width: '18px',
-                                                                height: '18px',
-                                                                cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
-                                                                accentColor: '#5FAE9E'
-                                                            }}
-                                                        />
-                                                        <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
-                                                            {option.label}
-                                                        </span>
-                                                    </label>
-                                                ))}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 2rem', alignItems: 'start' }}>
+                                                    {[
+                                                        [
+                                                            { value: 'SAFETY_CRITICAL', label: t('pdca.improvementPurposeSafetyCritical'), bold: true },
+                                                            { value: 'SAVE_TIME', label: t('pdca.improvementPurposeSaveTime') },
+                                                            { value: 'REDUCE_COSTS', label: t('pdca.improvementPurposeReduceCosts') },
+                                                            { value: 'INCREASE_QUALITY', label: t('pdca.improvementPurposeIncreaseQuality') }
+                                                        ],
+                                                        [
+                                                            { value: 'GUEST_SATISFACTION', label: t('pdca.improvementPurposeGuestSatisfaction') },
+                                                            { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') },
+                                                            { value: 'QUALITY_VERBESSERN', label: t('pdca.improvementPurposeQualityVerbessern') }
+                                                        ]
+                                                    ].map((column, columnIndex) => (
+                                                        <div key={`edit-purpose-col-${columnIndex}`}>
+                                                            {column.map(option => (
+                                                                <label
+                                                                    key={option.value}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        padding: '0.35rem 0',
+                                                                        cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
+                                                                        gap: '0.75rem',
+                                                                        opacity: selectedTopic.status === 'Done' ? 0.6 : 1
+                                                                    }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={(formState.improvementPurpose || []).includes(option.value)}
+                                                                        onChange={e => {
+                                                                            const newPurposes = e.target.checked
+                                                                                ? [...(formState.improvementPurpose || []), option.value]
+                                                                                : (formState.improvementPurpose || []).filter((p: string) => p !== option.value);
+                                                                            setFormState({ ...formState, improvementPurpose: newPurposes });
+                                                                        }}
+                                                                        disabled={selectedTopic.status === 'Done'}
+                                                                        style={{
+                                                                            width: '18px',
+                                                                            height: '18px',
+                                                                            cursor: selectedTopic.status === 'Done' ? 'not-allowed' : 'pointer',
+                                                                            accentColor: '#5FAE9E'
+                                                                        }}
+                                                                    />
+                                                                    <span style={{ fontWeight: option.bold ? 600 : 400, fontSize: '14px' }}>
+                                                                        {option.label}
+                                                                    </span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        {/* CYCLE (Description) */}
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ fontWeight: 600 }}>{t('pdca.cycle')}</label>
-                                            <textarea
-                                                rows={4}
-                                                value={formState.description || ''}
-                                                onChange={e => setFormState({ ...formState, description: e.target.value })}
-                                                placeholder={t('pdca.cyclePlaceholder')}
-                                                disabled={selectedTopic.status === 'Done'}
-                                            />
                                         </div>
 
                                         {/* LOCATION & DEPARTMENT (moved from sidebar) */}
@@ -2311,7 +2738,7 @@ const Cockpit: React.FC = () => {
                                             {/* Header — outside bordered container */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                                                 <MapPin size={20} color="#5FAE9E" strokeWidth={2} />
-                                                <label style={{ fontWeight: 600, margin: 0 }}>Location & Department</label>
+                                                <label style={{ fontWeight: 600, margin: 0 }}>{t('pdca.locationDepartment')}</label>
                                             </div>
                                             <div style={{
                                                 borderRadius: '12px',
@@ -2496,7 +2923,7 @@ const Cockpit: React.FC = () => {
                                                         marginBottom: '8px'
                                                     }}>
                                                         <MapPin size={13} />
-                                                        SELECTED LOCATIONS
+                                                        {t('pdca.selectedLocations')}
                                                     </div>
                                                     {selectedLocations.length > 0 && (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -2555,7 +2982,7 @@ const Cockpit: React.FC = () => {
                                                         marginBottom: '8px'
                                                     }}>
                                                         <Users size={13} />
-                                                        SELECTED DEPARTMENTS
+                                                        {t('pdca.selectedDepartments')}
                                                     </div>
                                                     {selectedDepartments.length > 0 && (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -2625,9 +3052,9 @@ const Cockpit: React.FC = () => {
                                                             selectedTopic.status === 'Critical' ? '#dc2626' : 'inherit'
                                                 }}
                                             >
-                                                <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('pdca.monitoring')}</option>
-                                                <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('pdca.warningNearAlert')}</option>
-                                                <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('pdca.criticalAlert')}</option>
+                                                <option value="Monitoring" style={{ color: '#16a34a', fontWeight: 600 }}>{t('status.monitoring')}</option>
+                                                <option value="Warning" style={{ color: '#ca8a04', fontWeight: 600 }}>{t('status.warning')}</option>
+                                                <option value="Critical" style={{ color: '#dc2626', fontWeight: 600 }}>{t('status.critical')}</option>
                                             </select>
                                         </div>
                                     </div>
@@ -2659,6 +3086,8 @@ const Cockpit: React.FC = () => {
                                                             teamsMeetingLink: '',
                                                             meetingType: undefined,
                                                             meetingLocation: '',
+                                                            externalEnabled: false,
+                                                            externalUsers: [],
                                                             status: 'Open'
                                                         };
                                                         setFormState({ ...formState, actions: [...formState.actions, newAction] });
@@ -2718,7 +3147,7 @@ const Cockpit: React.FC = () => {
                                                             <div style={{ flex: 2, position: 'relative' }}>
                                                                 <label style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '0.6rem' }}>{t('pdca.responsiblePersons')}</label>
 
-                                                                {/* Avatar chips row + Ndrysho button */}
+                                                                {/* Avatar chips row + {t('pdca.changeLabel')} button */}
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', minWidth: '140px' }}>
                                                                         {action.assignments.slice(0, 4).map((assign: any, aIdx: number) => (
@@ -2749,18 +3178,23 @@ const Cockpit: React.FC = () => {
                                                                         )}
                                                                     </div>
 
-                                                                    {/* Ndrysho (edit) button */}
+                                                                    {/* {t('pdca.changeLabel')} (edit) button */}
                                                                     <button
                                                                         onClick={() => setDoActionPickerOpenIdx(doActionPickerOpenIdx === idx ? null : idx)}
                                                                         style={{
-                                                                            background: 'transparent', border: '1.5px dashed #5FAE9E',
-                                                                            borderRadius: '20px', padding: '4px 14px', fontSize: '13px',
-                                                                            color: '#5FAE9E', cursor: 'pointer', fontWeight: 600,
-                                                                            letterSpacing: '0.01em', transition: 'background 0.15s'
+                                                                            background: 'transparent',
+                                                                            border: 'none',
+                                                                            borderRadius: 0,
+                                                                            padding: 0,
+                                                                            fontSize: '13px',
+                                                                            color: '#5FAE9E',
+                                                                            cursor: 'pointer',
+                                                                            fontWeight: 600,
+                                                                            letterSpacing: '0.01em'
                                                                         }}
-                                                                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
-                                                                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                                                    >– Ndrysho</button>
+                                                                    >
+                                                                        - {doActionPickerOpenIdx === idx ? t('common.close') : t('pdca.changeLabel')}
+                                                                    </button>
                                                                 </div>
 
                                                                 {/* Picker dropdown */}
@@ -2892,6 +3326,111 @@ const Cockpit: React.FC = () => {
                                                                         }}
                                                                         style={{ fontSize: '12px', padding: '4px', width: '100%' }}
                                                                     />
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div style={{ marginTop: '1rem' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleDoExternalUsers(idx)}
+                                                                style={{
+                                                                    border: 'none',
+                                                                    background: 'transparent',
+                                                                    padding: 0,
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    color: '#5FAE9E',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                {action.externalEnabled ? t('pdca.hideExternal') : t('pdca.externalUsers')}
+                                                            </button>
+
+                                                            {action.externalEnabled && (
+                                                                <div style={{ marginTop: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '0.75rem', background: '#fff' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1a202c', fontWeight: 700, fontSize: '13px' }}>
+                                                                            <Mail size={14} color="#64748b" />
+                                                                            <span>{t('pdca.inviteExternalUsers')}</span>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => addDoExternalUserRow(idx)}
+                                                                            style={{ border: 'none', background: 'transparent', padding: 0, fontSize: '12px', fontWeight: 500, color: '#64748b', cursor: 'pointer' }}
+                                                                        >
+                                                                            + {t('pdca.addPerson')}
+                                                                        </button>
+                                                                    </div>
+
+                                                                    {(action.externalUsers || []).map((externalUser: ExternalMeetingUser, extIdx: number) => (
+                                                                        <div key={externalUser.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem', marginBottom: '0.55rem' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.55rem' }}>
+                                                                                <div style={{ width: '24px', height: '24px', borderRadius: '999px', background: '#5FAE9E', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                    {extIdx + 1}
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => removeDoExternalUserRow(idx, externalUser.id)}
+                                                                                    style={{ width: '26px', height: '26px', borderRadius: '7px', border: '1px solid #fecaca', background: '#fff1f2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                                >
+                                                                                    <X size={13} />
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div style={{ marginBottom: '0.45rem' }}>
+                                                                                <label style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '3px' }}>{t('pdca.fullName')}</label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={externalUser.fullName}
+                                                                                    onChange={e => updateDoExternalUserField(idx, externalUser.id, 'fullName', e.target.value)}
+                                                                                    placeholder="Jane Smith"
+                                                                                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                                                                />
+                                                                            </div>
+
+                                                                            <div style={{ marginBottom: '0.45rem' }}>
+                                                                                <label style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '3px' }}>{t('pdca.emailAddress')}</label>
+                                                                                <input
+                                                                                    type="email"
+                                                                                    value={externalUser.email}
+                                                                                    onChange={e => updateDoExternalUserField(idx, externalUser.id, 'email', e.target.value)}
+                                                                                    placeholder="email@example.com"
+                                                                                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                                                                />
+                                                                            </div>
+
+                                                                            <div>
+                                                                                <label style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'block', marginBottom: '3px' }}>{t('pdca.note')}</label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={externalUser.note || ''}
+                                                                                    onChange={e => updateDoExternalUserField(idx, externalUser.id, 'note', e.target.value)}
+                                                                                    placeholder="Note..."
+                                                                                    style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px' }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { }}
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            marginTop: '0.25rem',
+                                                                            padding: '0.55rem 0.7rem',
+                                                                            border: 'none',
+                                                                            borderRadius: '8px',
+                                                                            background: 'linear-gradient(90deg, #3AAFA9 0%, #2B9E97 100%)',
+                                                                            color: '#fff',
+                                                                            fontSize: '12px',
+                                                                            fontWeight: 700,
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        {t('pdca.confirmExternalUsers', { count: (action.externalUsers || []).length })}
+                                                                    </button>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -3249,7 +3788,10 @@ const Cockpit: React.FC = () => {
                                                             onChange={e => {
                                                                 const checked = e.target.checked;
                                                                 setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, standardized: checked } });
-                                                                if (checked) setShowPdfModal(true);
+                                                                if (checked) {
+                                                                    setPdfModalContext('standardize');
+                                                                    setShowPdfModal(true);
+                                                                }
                                                             }}
                                                             disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
                                                         />
@@ -3271,12 +3813,20 @@ const Cockpit: React.FC = () => {
                                                         )}
                                                         {formState.actOutcome === 'Close without Standardization' && (
                                                             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#334155' }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={formState.actConfirmation?.readyToClose}
-                                                                    onChange={e => setFormState({ ...formState, actConfirmation: { ...formState.actConfirmation, readyToClose: e.target.checked } })}
-                                                                    disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
-                                                                />
+                                                                  <input
+                                                                      type="checkbox"
+                                                                      checked={formState.actConfirmation?.readyToClose}
+                                                                      onChange={e => {
+                                                                          const checked = e.target.checked;
+                                                                          const updatedActConfirmation = { ...formState.actConfirmation, readyToClose: checked };
+                                                                          setFormState({ ...formState, actConfirmation: updatedActConfirmation });
+                                                                            if (checked) {
+                                                                                setPdfModalContext('close');
+                                                                                setShowPdfModal(true);
+                                                                            }
+                                                                        }}
+                                                                        disabled={selectedTopic.status === 'Done' && !!selectedTopic.act?.completedAt}
+                                                                    />
                                                                 {t('pdca.confirmReadyClose')}
                                                             </label>
                                                         )}
@@ -3316,8 +3866,10 @@ const Cockpit: React.FC = () => {
                                 </h2>
 
                                 <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
-                                    The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?
-                                </p>
+                                      {pdfModalContext === 'standardize'
+                                          ? 'The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?'
+                                          : 'The topic is ready to be closed without standardization. Would you like to generate a complete PDF document with all process details?'}
+                                  </p>
 
                                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                                     <button
@@ -3326,19 +3878,13 @@ const Cockpit: React.FC = () => {
                                     >
                                         Not Now
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            // Merge current form state into topic for PDF generation to ensure latest edits are included
-                                            const topicForPdf = {
-                                                ...selectedTopic,
-                                                plan: { ...selectedTopic.plan, asIs: formState.asIs, toBe: formState.toBe, rootCause: formState.rootCause, description: formState.description },
-                                                do: { ...selectedTopic.do, actions: formState.actions, checkDate: formState.checkDate },
-                                                check: { ...selectedTopic.check, effectivenessStatus: formState.effectivenessStatus, kpiEvaluations: formState.kpiEvaluations, effectivenessReview: formState.effectivenessReview },
-                                                act: { ...selectedTopic.act, actOutcome: formState.actOutcome, lessonsLearned: formState.lessonsLearned }
-                                            };
-                                            generatePlanDoCheckCombinedPdf(topicForPdf);
-                                            setShowPdfModal(false);
-                                        }}
+                                      <button
+                                          onClick={() => {
+                                              const topicForPdf = buildTopicForPdf();
+                                              if (!topicForPdf) return;
+                                              generatePlanDoCheckCombinedPdf(topicForPdf);
+                                              setShowPdfModal(false);
+                                          }}
                                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
                                     >
                                         Yes, Generate PDF
@@ -3354,65 +3900,6 @@ const Cockpit: React.FC = () => {
 
     return (
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            {/* My ToDos Section */}
-            <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pdca.myToDos')}</h3>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: '#F8FAFC',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '8px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: '#334155',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                    }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAE9E' }}></div>
-                        {myToDos.length} {t('common.activeTasks')}
-                    </div>
-                </div>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', minWidth: '1000px' }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc' }}>
-                                <th>{t('common.status')}</th>
-                                <th>{t('common.title')}</th>
-                                <th>{t('pdca.topicTitle')}</th>
-                                <th>{t('common.step')}</th>
-                                <th>{t('common.dueDate')}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {myToDos.length === 0 ? (
-                                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('landing.keineAufgaben')}</td></tr>
-                            ) : (
-                                myToDos.map((todo: ToDo) => (
-                                    <tr key={todo.id}>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span className="status-dot" style={{ backgroundColor: getStatusColor(todo.status, todo.dueDate) }}></span>
-                                                <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(todo.status, todo.dueDate, undefined, t).label}</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ fontWeight: 600, color: '#1a202c' }}>{getTranslatedTaskTitle(todo.title)}</td>
-                                        <td style={{ color: '#4a5568', fontSize: '13px' }}>{getTranslatedTopicTitle(todo.topicTitle)}</td>
-                                        <td>{t(`phases.${todo.step.toLowerCase()}`).toUpperCase()}</td>
-                                        <td style={{ color: todo.status === 'Critical' ? 'var(--color-status-red)' : 'inherit', fontWeight: todo.status === 'Critical' ? 600 : 400 }}>
-                                            {new Date(todo.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             {/* My Actions Section (New Worker View) */}
             <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem' }}>
                 <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
@@ -3628,3 +4115,8 @@ const Cockpit: React.FC = () => {
 };
 
 export default Cockpit;
+
+
+
+
+

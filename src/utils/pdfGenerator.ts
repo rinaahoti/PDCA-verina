@@ -1,5 +1,152 @@
-import jsPDF from 'jspdf';
+﻿import jsPDF from 'jspdf';
 import { Topic } from '../types';
+import i18n from '../i18n';
+
+const getPdfLanguage = (): 'en' | 'de' => {
+    const current = (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase();
+    return current.startsWith('de') ? 'de' : 'en';
+};
+
+const translatePdfText = (input: string): string => {
+    if (getPdfLanguage() !== 'de' || !input) return input;
+
+    const replacements: Array<[string, string]> = [
+        ['PDCA Plan Protocol', 'PDCA Plan-Protokoll'],
+        ['Plan Phase Meeting', 'PLAN-Phasen-Meeting'],
+        ['Check Phase Activation', 'Check-Phase Aktivierung'],
+        ['CHECK Phase Meeting', 'CHECK-Phasen-Meeting'],
+        ['CHECK PHASE', 'CHECK-PHASE'],
+        ['DO PHASE', 'DO-PHASE'],
+        ['ACT PHASE', 'ACT-PHASE'],
+        ['Plan Phase', 'Plan-Phase'],
+        ['Do Phase', 'Do-Phase'],
+        ['Check Phase', 'Check-Phase'],
+        ['Act Phase', 'Act-Phase'],
+        ['Input from Check', 'Input aus CHECK'],
+        ['Topic Title', 'Thementitel'],
+        ['Topic', 'Thema'],
+        ['Title', 'Titel'],
+        ['Goal', 'Ziel'],
+        ['Target Goal (From Plan)', 'Zielvorgabe (aus PLAN)'],
+        ['Plan Data', 'Planungsdaten'],
+        ['Root Cause', 'Hauptursache'],
+        ['Improvement Purpose', 'Verbesserungszweck'],
+        ['Cycle Description', 'Zyklusbeschreibung'],
+        ['Location & Department', 'Standort & Betriebe'],
+        ['Locations', 'Standorte'],
+        ['Departments', 'Betriebe'],
+        ['Status', 'Status'],
+        ['Meeting Type', 'Sitzungstyp'],
+        ['Responsible Person', 'Verantwortliche Person'],
+        ['Responsible Persons', 'VERANTWORTLICHE PERSONEN'],
+        ['Meeting Date & Time', 'Sitzungstermin'],
+        ['Office / Location', 'BÃ¼ro / Standort'],
+        ['Due Date', 'FÃ¤lligkeitsdatum'],
+        ['DO Phase Activation', 'DO-Phasen-Aktivierung'],
+        ['Execution Summary (From DO Phase)', 'Zusammenfassung der AusfÃ¼hrung (aus DO-Phase)'],
+        ['Total Actions', 'Gesamtzahl MaÃŸnahmen'],
+        ['Involved Users', 'Beteiligte Benutzer'],
+        ['Effectiveness Assessment', 'Wirksamkeitsbewertung'],
+        ['Assessment Result', 'Bewertungsergebnis'],
+        ['Assessment Description', 'Bewertungsbeschreibung'],
+        ['KPI Evaluation', 'KPI-Bewertung'],
+        ['Indicator', 'Indikator'],
+        ['Target', 'Zielwert'],
+        ['Result', 'Ergebnis'],
+        ['Effectiveness Review', 'WirksamkeitsprÃ¼fung'],
+        ['Review', 'PrÃ¼fung'],
+        ['ACT Phase Activation', 'ACT-Phasen-Aktivierung'],
+        ['DO & Execution Actions', 'DO & AusfÃ¼hrungsmaÃŸnahmen'],
+        ['Description', 'Beschreibung'],
+        ['Outcome Decision', 'Outcome-Entscheidung'],
+        ['Decision', 'Entscheidung'],
+        ['Standardization Scope', 'Standardisierungs-Umfang'],
+        ['Affected Areas / Rollout', 'Betroffene Bereiche / Rollout'],
+        ['Standardization Description', 'Beschreibung Standardisierung'],
+        ['Lessons Learned', 'Erkenntnisse'],
+        ['Key Takeaways', 'Wichtigste Erkenntnisse'],
+        ['ACT Phase Confirmation & Sign-off', 'BestÃ¤tigung & Abschluss ACT-Phase'],
+        ['Confirmation', 'BestÃ¤tigung'],
+        ['Signed By', 'Abgeschlossen von'],
+        ['Date', 'Datum'],
+        ['Objective fully met. Proceed to Standardization.', 'Ziel vollstÃ¤ndig erreicht. Weiter zur Standardisierung.'],
+        ['Objective partially met. Improvements needed before full standardization.', 'Ziel teilweise erreicht. Verbesserungen vor vollstÃ¤ndiger Standardisierung erforderlich.'],
+        ['Objective not met. Re-planning and corrective action required.', 'Ziel nicht erreicht. Neuplanung und KorrekturmaÃŸnahmen erforderlich.'],
+        ['Measure is successful. Roll out and update standards.', 'MaÃŸnahme ist erfolgreich. Rollout und Aktualisierung der Standards.'],
+        ['Improve and re-run PDCA based on findings.', 'Verbessern und PDCA auf Basis der Erkenntnisse erneut durchfÃ¼hren.'],
+        ['Close process without standardization.', 'Prozess ohne Standardisierung abschlieÃŸen.'],
+        ['I confirm that the improvement has been standardized and documented.', 'Ich bestÃ¤tige, dass die Verbesserung standardisiert und dokumentiert wurde.'],
+        ['I confirm that the PDCA will be rerun for improvements.', 'Ich bestÃ¤tige, dass der PDCA fÃ¼r Verbesserungen erneut durchgefÃ¼hrt wird.'],
+        ['I confirm that the topic is ready to be closed.', 'Ich bestÃ¤tige, dass das Thema zur SchlieÃŸung bereit ist.'],
+        ['[ ] Confirmation not provided.', '[ ] BestÃ¤tigung nicht angegeben.'],
+        ['Standardize', 'Standardisieren'],
+        ['Improve & Re-run PDCA', 'Verbessern & PDCA wiederholen'],
+        ['Close without Standardization', 'AbschlieÃŸen ohne Standardisierung'],
+        ['Effective', 'Wirksam'],
+        ['Partially Effective', 'Teilweise wirksam'],
+        ['Not Effective', 'Nicht wirksam'],
+        ['Monitoring', 'Monitoring'],
+        ['Warning', 'Warnung'],
+        ['Critical', 'Kritisch'],
+        ['Done', 'Abgeschlossen'],
+        ['Safety-critical', 'Sicherheitskritisch'],
+        ['Save time', 'Zeit sparen'],
+        ['Reduce costs', 'Kosten senken'],
+        ['Increase quality', 'QualitÃ¤t steigern'],
+        ['Gästezufriedenheit', 'Gästezufriedenheit'],
+        ['Mitarberiterzufriedenheit', 'Mitarberiterzufriedenheit'],
+        ['Qualität verbessern', 'Qualität verbessern'],
+        ['Process', 'Prozess'],
+        ['Clinical Guide', 'Klinischer Leitfaden'],
+        ['Policy', 'Richtlinie'],
+        ['Checklist', 'Checkliste'],
+        ['Training', 'Schulung'],
+        ['EHR Configuration', 'EHR-Konfiguration'],
+        ['Nursing', 'Pflege'],
+        ['Surgery', 'Chirurgie'],
+        ['Emergency', 'Notaufnahme'],
+        ['Inpatient Ward', 'Station'],
+        ['Outpatient Clinic', 'Ambulanz'],
+        ['Pharmacy', 'Apotheke'],
+        ['Diagnostics', 'Diagnostik'],
+        ['Administration', 'Verwaltung'],
+        ['Other', 'Andere'],
+        ['Patient Fall Prevention Protocol Compliance', 'Einhaltung des SturzprÃ¤ventionsprotokolls'],
+        ['Reduction of Post-operative Infection Rates', 'Reduktion postoperativer Infektionsraten'],
+        ['Medication Administration Error Reduction', 'Reduktion von Medikationsfehlern'],
+        ['Infection rate < 0.5%', 'Infektionsrate < 0,5 %'],
+        ['Zero high-risk medication errors', 'Keine Hochrisiko-Medikationsfehler'],
+        ['100% compliance with fall risk assessments', '100 % Einhaltung der Sturzrisikobewertungen'],
+        ['Audit Sterile Field Documentation', 'Audit der Dokumentation des sterilen Feldes'],
+        ['Validate Barcode Scanner Calibration', 'Validierung der Kalibrierung des Barcode-Scanners']
+    ];
+
+    // Longer entries first to avoid partial replacements.
+    replacements.sort((a, b) => b[0].length - a[0].length);
+    let output = input;
+    replacements.forEach(([from, to]) => {
+        output = output.split(from).join(to);
+    });
+    return output;
+};
+
+const localizePdfDoc = (doc: jsPDF) => {
+    if (getPdfLanguage() !== 'de') return;
+
+    const originalText = doc.text.bind(doc) as any;
+    const originalSplit = doc.splitTextToSize.bind(doc);
+
+    (doc as any).text = (text: string | string[], ...rest: any[]) => {
+        if (Array.isArray(text)) {
+            return originalText(text.map(line => translatePdfText(String(line))), ...(rest as any[]));
+        }
+        return originalText(translatePdfText(String(text)), ...(rest as any[]));
+    };
+
+    (doc as any).splitTextToSize = (text: string, size: number, options?: any) => {
+        return originalSplit(translatePdfText(String(text)), size, options);
+    };
+};
 
 const cleanValue = (value?: string): string => {
     if (!value) return '-';
@@ -8,23 +155,26 @@ const cleanValue = (value?: string): string => {
 };
 
 const formatLongDateUpper = (value?: string): string => {
+    const locale = getPdfLanguage() === 'de' ? 'de-DE' : 'en-GB';
     const d = value ? new Date(value) : new Date();
-    if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString('en-GB').toUpperCase();
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase();
+    if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString(locale).toUpperCase();
+    return d.toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase();
 };
 
 const formatDate = (value?: string): string => {
     if (!value) return 'TBD';
+    const locale = getPdfLanguage() === 'de' ? 'de-DE' : 'en-GB';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleDateString('en-GB');
+    return d.toLocaleDateString(locale);
 };
 
 const formatDateTime = (value?: string): string => {
     if (!value) return 'TBD';
+    const locale = getPdfLanguage() === 'de' ? 'de-DE' : 'en-GB';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return value;
-    return d.toLocaleString('en-GB', {
+    return d.toLocaleString(locale, {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -38,9 +188,44 @@ const mapImprovementPurpose = (raw: string): string => {
         SAFETY_CRITICAL: 'Safety-critical',
         SAVE_TIME: 'Save time',
         REDUCE_COSTS: 'Reduce costs',
-        INCREASE_QUALITY: 'Increase quality'
+        INCREASE_QUALITY: 'Increase quality',
+        GUEST_SATISFACTION: 'Gästezufriedenheit',
+        MITARBERITERZUFRIEDENHEIT: 'Mitarberiterzufriedenheit',
+        QUALITY_VERBESSERN: 'Qualität verbessern'
     };
     return dict[raw] || raw.replace(/_/g, ' ');
+};
+
+const getActOutcomeDescription = (actOutcome: string): string => {
+    if (actOutcome === 'Standardize') {
+        return 'Measure is successful. Roll out and update standards.';
+    }
+    if (actOutcome === 'Improve & Re-run PDCA') {
+        return 'Improve and re-run PDCA based on findings.';
+    }
+    if (actOutcome === 'Close without Standardization') {
+        return 'Close process without standardization.';
+    }
+    return '-';
+};
+
+const getActConfirmationLine = (actOutcome: string, confirmation?: Topic['act']['actConfirmation']): string => {
+    if (actOutcome === 'Standardize') {
+        return confirmation?.standardized
+            ? 'I confirm that the improvement has been standardized and documented.'
+            : '[ ] Confirmation not provided.';
+    }
+    if (actOutcome === 'Improve & Re-run PDCA') {
+        return confirmation?.noActionsPending
+            ? 'I confirm that the PDCA will be rerun for improvements.'
+            : '[ ] Confirmation not provided.';
+    }
+    if (actOutcome === 'Close without Standardization') {
+        return confirmation?.readyToClose
+            ? 'I confirm that the topic is ready to be closed.'
+            : '[ ] Confirmation not provided.';
+    }
+    return '[ ] Confirmation not provided.';
 };
 
 const renderPlanPage = (doc: jsPDF, topic: Topic) => {
@@ -86,7 +271,7 @@ const renderPlanPage = (doc: jsPDF, topic: Topic) => {
     const owner = topic.ownerName || 'Sophia Mayer';
     const refId = topic.id || 'NEW';
     const status = topic.status || 'Monitoring';
-    const phaseLine = `Plan Phase · ${status}`;
+    const phaseLine = `Plan Phase Â· ${status}`;
 
     const improvementPurpose = (
         topic.plan?.improvementPurpose?.length
@@ -104,7 +289,7 @@ const renderPlanPage = (doc: jsPDF, topic: Topic) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text(`REF ${refId} · OWNER: ${owner.toUpperCase()}`, margin, y);
+    doc.text(`REF ${refId} Â· OWNER: ${owner.toUpperCase()}`, margin, y);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
     doc.text(formatLongDateUpper(), rightX, y, { align: 'right' });
     y += 12;
@@ -129,8 +314,8 @@ const renderPlanPage = (doc: jsPDF, topic: Topic) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('AS-IS — CURRENT STATE', margin, y);
-    doc.text('TO-BE — TARGET STATE', margin + colW + colGap, y);
+    doc.text('AS-IS â€” CURRENT STATE', margin, y);
+    doc.text('TO-BE â€” TARGET STATE', margin + colW + colGap, y);
     y += 5.5;
 
     doc.setFont('helvetica', 'normal');
@@ -149,11 +334,11 @@ const renderPlanPage = (doc: jsPDF, topic: Topic) => {
     doc.setFontSize(10.5);
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     if (improvementPurpose.length === 0) {
-        doc.text('— -', margin, y);
+        doc.text('â€” -', margin, y);
         y += 6;
     } else {
         improvementPurpose.forEach(item => {
-            const lines = doc.splitTextToSize(`— ${item}`, contentW);
+            const lines = doc.splitTextToSize(`â€” ${item}`, contentW);
             doc.text(lines, margin, y);
             y += Math.max(5.2, lines.length * 5.2);
         });
@@ -200,7 +385,7 @@ const renderPlanPage = (doc: jsPDF, topic: Topic) => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('DUE DATE — DO PHASE ACTIVATION', margin, y);
+    doc.text('DUE DATE â€” DO PHASE ACTIVATION', margin, y);
     doc.text('MEETING DATE & TIME', margin + colW + colGap, y);
     y += 5.5;
 
@@ -275,7 +460,7 @@ const renderDoPage = (doc: jsPDF, topic: Topic) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    doc.text(`Do Phase · ${phaseStatus}`, margin, y);
+    doc.text(`Do Phase Â· ${phaseStatus}`, margin, y);
     y += 14;
 
     sectionLabel('Topic');
@@ -304,8 +489,8 @@ const renderDoPage = (doc: jsPDF, topic: Topic) => {
         actions.forEach((a) => {
             ensureSpace(18);
             const actionTitle = cleanValue(a.title || '-');
-            const titleLines = bodyLines(`•  ${actionTitle}`, contentW);
-            drawBody(`•  ${actionTitle}`, margin + 2, y);
+            const titleLines = bodyLines(`â€¢  ${actionTitle}`, contentW);
+            drawBody(`â€¢  ${actionTitle}`, margin + 2, y);
             y += titleLines.length * 5.4 + 4;
 
             smallLabel('Description', margin, y);
@@ -336,18 +521,21 @@ const renderDoPage = (doc: jsPDF, topic: Topic) => {
 
 export const generatePDCAPdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     renderPlanPage(doc, topic);
     doc.save(`PDCA_Plan_Protocol_${topic.id || 'NEW'}.pdf`);
 };
 
 export const generateDOPhasePdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     renderDoPage(doc, topic);
     doc.save(`PDCA_Do_Protocol_${topic.id || 'NEW'}.pdf`);
 };
 
 export const generateCheckPhasePdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const margin = 22;
@@ -429,7 +617,7 @@ export const generateCheckPhasePdf = (topic: Topic) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    doc.text(`Check Phase · ${status}`, margin, y);
+    doc.text(`Check Phase Â· ${status}`, margin, y);
     y += 14;
 
     sectionLabel('Topic Title');
@@ -512,6 +700,7 @@ export const generateCheckPhasePdf = (topic: Topic) => {
 
 export const generatePlanDoCombinedPdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     renderPlanPage(doc, topic);
     doc.addPage();
     renderDoPage(doc, topic);
@@ -520,6 +709,7 @@ export const generatePlanDoCombinedPdf = (topic: Topic) => {
 
 export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     renderPlanPage(doc, topic);
     doc.addPage();
     renderDoPage(doc, topic);
@@ -605,7 +795,7 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    doc.text(`Check Phase · ${status}`, margin, y);
+    doc.text(`Check Phase Â· ${status}`, margin, y);
     y += 14;
 
     sectionLabel('Topic Title');
@@ -730,14 +920,9 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
 
     const actStatus = topic.status || 'Monitoring';
     const inputFromCheck = cleanValue(topic.check?.effectivenessStatus || '');
-    const actOutcome = cleanValue(topic.act?.actOutcome || '');
-    const outcomeDescription = actOutcome === 'Standardize'
-        ? 'Measure is successful. Roll out and update standards.'
-        : actOutcome === 'Improve & Re-run PDCA'
-            ? 'Improve and re-run PDCA based on findings.'
-            : actOutcome === 'Close without Standardization'
-                ? 'Close process without standardization.'
-                : '-';
+    const rawActOutcome = topic.act?.actOutcome || '';
+    const actOutcome = cleanValue(rawActOutcome);
+    const outcomeDescription = getActOutcomeDescription(rawActOutcome);
 
     const scopeMap: Record<string, string> = {
         process: 'Process',
@@ -776,11 +961,19 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
         Other: 'Other'
     };
 
-    const standardizationScope = (topic.act?.standardizationScope || []).map(v => scopeMap[String(v)] || String(v));
-    const affectedAreas = (topic.act?.affectedAreas || []).map(v => areaMap[String(v)] || String(v));
-    const standardizationDescription = cleanValue(topic.act?.standardizationDescription || topic.act?.standardization || '');
+    const standardizationScope = (rawActOutcome === 'Standardize'
+        ? (topic.act?.standardizationScope || [])
+        : []).map(v => scopeMap[String(v)] || String(v));
+    const affectedAreas = (rawActOutcome === 'Standardize'
+        ? (topic.act?.affectedAreas || [])
+        : []).map(v => areaMap[String(v)] || String(v));
+    const standardizationDescription = cleanValue(
+        rawActOutcome === 'Standardize'
+            ? (topic.act?.standardizationDescription || topic.act?.standardization || '')
+            : ''
+    );
     const lessonsLearned = cleanValue(topic.act?.lessonsLearned || '');
-    const confirmed = !!topic.act?.actConfirmation?.standardized;
+    const confirmationLine = getActConfirmationLine(rawActOutcome, topic.act?.actConfirmation);
     const signedBy = cleanValue(topic.act?.audit?.closedBy || topic.ownerName || '');
     const signedOn = cleanValue(topic.act?.audit?.closedOn ? formatDate(topic.act.audit.closedOn) : formatDate());
 
@@ -793,7 +986,7 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(actMutedColor[0], actMutedColor[1], actMutedColor[2]);
-    doc.text(`Act Phase · ${actStatus} · Input from Check: ${inputFromCheck}`, actMargin, actY);
+    doc.text(`Act Phase Â· ${actStatus} Â· Input from Check: ${inputFromCheck}`, actMargin, actY);
     actY += 14;
 
     actSectionLabel('Topic Title');
@@ -810,37 +1003,39 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
     drawActBody(outcomeDescription, actMargin, actY);
     actY += actBodyLines(outcomeDescription, actContentW).length * 5.4 + 9;
 
-    actSectionLabel('Standardization Scope');
-    if (standardizationScope.length === 0) {
-        drawActBody('— -', actMargin, actY);
-        actY += 8;
-    } else {
-        standardizationScope.forEach(item => {
-            const line = `— ${item}`;
-            drawActBody(line, actMargin, actY);
-            actY += actBodyLines(line, actContentW).length * 5.4;
-        });
-        actY += 4;
-    }
+    if (rawActOutcome === 'Standardize') {
+        actSectionLabel('Standardization Scope');
+        if (standardizationScope.length === 0) {
+            drawActBody('â€” -', actMargin, actY);
+            actY += 8;
+        } else {
+            standardizationScope.forEach(item => {
+                const line = `â€” ${item}`;
+                drawActBody(line, actMargin, actY);
+                actY += actBodyLines(line, actContentW).length * 5.4;
+            });
+            actY += 4;
+        }
 
-    actSectionLabel('Affected Areas / Rollout');
-    if (affectedAreas.length === 0) {
-        drawActBody('— -', actMargin, actY);
-        actY += 8;
-    } else {
-        affectedAreas.forEach(item => {
-            const line = `— ${item}`;
-            drawActBody(line, actMargin, actY);
-            actY += actBodyLines(line, actContentW).length * 5.4;
-        });
-        actY += 4;
-    }
+        actSectionLabel('Affected Areas / Rollout');
+        if (affectedAreas.length === 0) {
+            drawActBody('â€” -', actMargin, actY);
+            actY += 8;
+        } else {
+            affectedAreas.forEach(item => {
+                const line = `â€” ${item}`;
+                drawActBody(line, actMargin, actY);
+                actY += actBodyLines(line, actContentW).length * 5.4;
+            });
+            actY += 4;
+        }
 
-    actSectionLabel('Standardization Description');
-    actSmallLabel('Description', actMargin, actY);
-    actY += 6;
-    drawActBody(standardizationDescription, actMargin, actY);
-    actY += actBodyLines(standardizationDescription, actContentW).length * 5.4 + 9;
+        actSectionLabel('Standardization Description');
+        actSmallLabel('Description', actMargin, actY);
+        actY += 6;
+        drawActBody(standardizationDescription, actMargin, actY);
+        actY += actBodyLines(standardizationDescription, actContentW).length * 5.4 + 9;
+    }
 
     actSectionLabel('Lessons Learned');
     actSmallLabel('Key Takeaways', actMargin, actY);
@@ -851,8 +1046,8 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
     actSectionLabel('ACT Phase Confirmation & Sign-off');
     actSmallLabel('Confirmation', actMargin, actY);
     actY += 6;
-    drawActBody(confirmed ? '✓ I confirm that the improvement has been standardized and documented.' : '□ Confirmation not provided.', actMargin, actY);
-    actY += actBodyLines(confirmed ? '✓ I confirm that the improvement has been standardized and documented.' : '□ Confirmation not provided.', actContentW).length * 5.4 + 8;
+    drawActBody(confirmationLine, actMargin, actY);
+    actY += actBodyLines(confirmationLine, actContentW).length * 5.4 + 8;
 
     actSmallLabel('Signed By', actMargin, actY);
     actSmallLabel('Date', actMargin + actHalfW + actColGap, actY);
@@ -865,6 +1060,7 @@ export const generatePlanDoCheckCombinedPdf = (topic: Topic) => {
 
 export const generateActPhasePdf = (topic: Topic) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    localizePdfDoc(doc);
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
     const margin = 22;
@@ -910,14 +1106,9 @@ export const generateActPhasePdf = (topic: Topic) => {
 
     const status = topic.status || 'Monitoring';
     const inputFromCheck = cleanValue(topic.check?.effectivenessStatus || '');
-    const actOutcome = cleanValue(topic.act?.actOutcome || '');
-    const outcomeDescription = actOutcome === 'Standardize'
-        ? 'Measure is successful. Roll out and update standards.'
-        : actOutcome === 'Improve & Re-run PDCA'
-            ? 'Improve and re-run PDCA based on findings.'
-            : actOutcome === 'Close without Standardization'
-                ? 'Close process without standardization.'
-                : '-';
+    const rawActOutcome = topic.act?.actOutcome || '';
+    const actOutcome = cleanValue(rawActOutcome);
+    const outcomeDescription = getActOutcomeDescription(rawActOutcome);
 
     const scopeMap: Record<string, string> = {
         process: 'Process',
@@ -956,11 +1147,19 @@ export const generateActPhasePdf = (topic: Topic) => {
         Other: 'Other'
     };
 
-    const standardizationScope = (topic.act?.standardizationScope || []).map(v => scopeMap[String(v)] || String(v));
-    const affectedAreas = (topic.act?.affectedAreas || []).map(v => areaMap[String(v)] || String(v));
-    const standardizationDescription = cleanValue(topic.act?.standardizationDescription || topic.act?.standardization || '');
+    const standardizationScope = (rawActOutcome === 'Standardize'
+        ? (topic.act?.standardizationScope || [])
+        : []).map(v => scopeMap[String(v)] || String(v));
+    const affectedAreas = (rawActOutcome === 'Standardize'
+        ? (topic.act?.affectedAreas || [])
+        : []).map(v => areaMap[String(v)] || String(v));
+    const standardizationDescription = cleanValue(
+        rawActOutcome === 'Standardize'
+            ? (topic.act?.standardizationDescription || topic.act?.standardization || '')
+            : ''
+    );
     const lessonsLearned = cleanValue(topic.act?.lessonsLearned || '');
-    const confirmed = !!topic.act?.actConfirmation?.standardized;
+    const confirmationLine = getActConfirmationLine(rawActOutcome, topic.act?.actConfirmation);
     const signedBy = cleanValue(topic.act?.audit?.closedBy || topic.ownerName || '');
     const signedOn = cleanValue(topic.act?.audit?.closedOn ? formatDate(topic.act.audit.closedOn) : formatDate());
 
@@ -973,7 +1172,7 @@ export const generateActPhasePdf = (topic: Topic) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    doc.text(`Act Phase · ${status} · Input from Check: ${inputFromCheck}`, margin, y);
+    doc.text(`Act Phase Â· ${status} Â· Input from Check: ${inputFromCheck}`, margin, y);
     y += 14;
 
     sectionLabel('Topic Title');
@@ -990,37 +1189,39 @@ export const generateActPhasePdf = (topic: Topic) => {
     drawBody(outcomeDescription, margin, y);
     y += bodyLines(outcomeDescription, contentW).length * 5.4 + 9;
 
-    sectionLabel('Standardization Scope');
-    if (standardizationScope.length === 0) {
-        drawBody('— -', margin, y);
-        y += 8;
-    } else {
-        standardizationScope.forEach(item => {
-            const line = `— ${item}`;
-            drawBody(line, margin, y);
-            y += bodyLines(line, contentW).length * 5.4;
-        });
-        y += 4;
-    }
+    if (rawActOutcome === 'Standardize') {
+        sectionLabel('Standardization Scope');
+        if (standardizationScope.length === 0) {
+            drawBody('â€” -', margin, y);
+            y += 8;
+        } else {
+            standardizationScope.forEach(item => {
+                const line = `â€” ${item}`;
+                drawBody(line, margin, y);
+                y += bodyLines(line, contentW).length * 5.4;
+            });
+            y += 4;
+        }
 
-    sectionLabel('Affected Areas / Rollout');
-    if (affectedAreas.length === 0) {
-        drawBody('— -', margin, y);
-        y += 8;
-    } else {
-        affectedAreas.forEach(item => {
-            const line = `— ${item}`;
-            drawBody(line, margin, y);
-            y += bodyLines(line, contentW).length * 5.4;
-        });
-        y += 4;
-    }
+        sectionLabel('Affected Areas / Rollout');
+        if (affectedAreas.length === 0) {
+            drawBody('â€” -', margin, y);
+            y += 8;
+        } else {
+            affectedAreas.forEach(item => {
+                const line = `â€” ${item}`;
+                drawBody(line, margin, y);
+                y += bodyLines(line, contentW).length * 5.4;
+            });
+            y += 4;
+        }
 
-    sectionLabel('Standardization Description');
-    smallLabel('Description', margin, y);
-    y += 6;
-    drawBody(standardizationDescription, margin, y);
-    y += bodyLines(standardizationDescription, contentW).length * 5.4 + 9;
+        sectionLabel('Standardization Description');
+        smallLabel('Description', margin, y);
+        y += 6;
+        drawBody(standardizationDescription, margin, y);
+        y += bodyLines(standardizationDescription, contentW).length * 5.4 + 9;
+    }
 
     sectionLabel('Lessons Learned');
     smallLabel('Key Takeaways', margin, y);
@@ -1031,8 +1232,8 @@ export const generateActPhasePdf = (topic: Topic) => {
     sectionLabel('ACT Phase Confirmation & Sign-off');
     smallLabel('Confirmation', margin, y);
     y += 6;
-    drawBody(confirmed ? '✓ I confirm that the improvement has been standardized and documented.' : '□ Confirmation not provided.', margin, y);
-    y += bodyLines(confirmed ? '✓ I confirm that the improvement has been standardized and documented.' : '□ Confirmation not provided.', contentW).length * 5.4 + 8;
+    drawBody(confirmationLine, margin, y);
+    y += bodyLines(confirmationLine, contentW).length * 5.4 + 8;
 
     smallLabel('Signed By', margin, y);
     smallLabel('Date', margin + halfW + colGap, y);
@@ -1042,3 +1243,4 @@ export const generateActPhasePdf = (topic: Topic) => {
 
     doc.save(`PDCA_Act_Phase_${topic.id || 'NEW'}.pdf`);
 };
+

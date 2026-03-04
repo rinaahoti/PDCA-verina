@@ -25,6 +25,13 @@ const TopicWorkspace: React.FC = () => {
 
     if (!topic) return <div style={{ padding: '2rem' }}>{t('common.noTopicsFound')}</div>;
 
+    const activationLabel =
+        activeTab === 'CHECK'
+            ? (language === 'de' ? 'Act-Phase Aktivierung' : 'Act Phase Activation')
+            : activeTab === 'DO'
+                ? (language === 'de' ? 'Check-Phase Aktivierung' : 'Check Phase Activation')
+                : (language === 'de' ? 'Durchführen-Phase Aktivierung' : 'DO Phase Activation');
+
     const TabButton = ({ step, label, icon: Icon }: { step: Step, label: string, icon: any }) => (
         <button
             onClick={() => setActiveTab(step)}
@@ -143,7 +150,14 @@ const TopicWorkspace: React.FC = () => {
                 <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', fontSize: '14px', flexWrap: 'wrap' }}>
                     <div><span style={{ opacity: 0.7 }}>{t('common.owner')}:</span> <span style={{ fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</span></div>
                     <div><span style={{ opacity: 0.7 }}>{t('common.responsible')}:</span> <span style={{ fontWeight: 600 }}>{'Felix Worker'}</span></div>
-                    <div><span style={{ opacity: 0.7 }}>{t('common.dueDate')}:</span> <span style={{ fontWeight: 600 }}>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span></div>
+                    {activeTab !== 'ACT' && (
+                        <div>
+                            <span style={{ opacity: 0.7 }}>
+                                {activationLabel}:
+                            </span>{' '}
+                            <span style={{ fontWeight: 600 }}>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
+                        </div>
+                    )}
                     {isAudit && topic.location && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <MapPin size={14} style={{ opacity: 0.7 }} />

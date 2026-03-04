@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { auditService } from '../services/auditService';
 import { adminService } from '../services/adminService';
@@ -44,11 +44,11 @@ interface AuditLog {
 }
 
 const MOCK_ACTIVITY: AuditLog[] = [
-    { id: 'L-01', user: 'Dr. Elena Rossi', action: 'Risk Level Adjusted', step: 'PLAN', timestamp: '2024-02-20T10:30:00', details: 'Severity changed after clinical review – Zurich' },
-    { id: 'L-02', user: 'Dr. Marcus Weber', action: 'Clinical Evidence Uploaded', step: 'DO', timestamp: '2024-02-20T09:15:00', details: 'Added surgical prep checklist validation documents – Geneva' },
-    { id: 'L-03', user: 'TJC Survey Team', action: 'Finding Identified', step: 'PLAN', timestamp: '2024-02-19T16:45:00', details: 'New documentation deficiency found – Bern' },
-    { id: 'L-04', user: 'Sarah Johnson', action: 'Safety Protocol Verified', step: 'CHECK', timestamp: '2024-02-19T14:20:00', details: 'Medication double-check records confirmed – Basel' },
-    { id: 'L-05', user: 'System', action: 'Clinical Deadline Alert', step: 'DO', timestamp: '2024-02-19T08:00:00', details: 'PDCA topic moved to CHECK phase – Lausanne' },
+    { id: 'L-01', user: 'Dr. Elena Rossi', action: 'Risk Level Adjusted', step: 'PLAN', timestamp: '2024-02-20T10:30:00', details: 'Severity changed after clinical review â€“ Zurich' },
+    { id: 'L-02', user: 'Dr. Marcus Weber', action: 'Clinical Evidence Uploaded', step: 'DO', timestamp: '2024-02-20T09:15:00', details: 'Added surgical prep checklist validation documents â€“ Geneva' },
+    { id: 'L-03', user: 'TJC Survey Team', action: 'Finding Identified', step: 'PLAN', timestamp: '2024-02-19T16:45:00', details: 'New documentation deficiency found â€“ Bern' },
+    { id: 'L-04', user: 'Sarah Johnson', action: 'Safety Protocol Verified', step: 'CHECK', timestamp: '2024-02-19T14:20:00', details: 'Medication double-check records confirmed â€“ Basel' },
+    { id: 'L-05', user: 'System', action: 'Clinical Deadline Alert', step: 'DO', timestamp: '2024-02-19T08:00:00', details: 'PDCA topic moved to CHECK phase â€“ Lausanne' },
 ];
 
 
@@ -143,7 +143,7 @@ export default function Dashboard() {
     // Filters State - Synced with URL Params
     const auditIdParam = searchParams.get('auditId') || 'All';
     const departmentParam = searchParams.get('department') || 'All';
-    const locationParam = searchParams.get('location') || 'All';
+    const locationParam = searchParams.get('location') || 'Bern';
     const statusParam = searchParams.get('status') || 'All';
 
     // Helper to update URL params
@@ -167,6 +167,28 @@ export default function Dashboard() {
     const [activities, setActivities] = useState<ActivityEntry[]>([]);
     const [timeRange, setTimeRange] = useState('lastMonth');
     const [hoveredPhase, setHoveredPhase] = useState<string | null>(null);
+
+    const adminLocationNameSet = useMemo(
+        () => new Set(locations.map(l => (l.name || '').trim()).filter(Boolean)),
+        [locations]
+    );
+    const selectedLocation = useMemo(() => {
+        if (locationParam === 'All') return null;
+        const normalized = (locationParam || '').trim();
+        return (
+            locations.find(loc => (loc.name || '').trim() === normalized) ||
+            locations.find(loc => (loc.city || '').trim() === normalized) ||
+            null
+        );
+    }, [locationParam, locations, t]);
+    const effectiveLocationParam = locationParam === 'All' || selectedLocation ? locationParam : 'All';
+    const effectiveLocationName = selectedLocation?.name || 'All';
+
+    useEffect(() => {
+        if (locationParam !== 'All' && !selectedLocation) {
+            updateFilter('location', 'All');
+        }
+    }, [locationParam, selectedLocation]);
 
     useEffect(() => {
         const load = () => {
@@ -216,6 +238,37 @@ export default function Dashboard() {
         if (name === 'Emergency Medicine') return t('admin.emergencyMedicine');
         return name;
     }
+
+    const locationOptions = useMemo(
+        () =>
+            locations
+                .map(loc => ({
+                    label: (loc.city || '').trim() || getTranslatedLocationName(loc.name).replace(/ \([A-Z]+\)$/, ''),
+                    value: loc.name
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label)),
+        [locations, t]
+    );
+
+    const departmentOptions = useMemo(() => {
+        const scopedDepartments =
+            effectiveLocationName === 'All'
+                ? departments
+                : departments.filter(dep => dep.locationId === selectedLocation?.id);
+
+        return scopedDepartments.map(dep => ({
+            label: getTranslatedDepartmentName(dep.name),
+            value: dep.name
+        }));
+    }, [departments, effectiveLocationName, selectedLocation, t]);
+
+    useEffect(() => {
+        if (departmentParam === 'All') return;
+        const isValidForSelection = departmentOptions.some(dep => dep.value === departmentParam);
+        if (!isValidForSelection) {
+            updateFilter('department', 'All');
+        }
+    }, [departmentParam, departmentOptions]);
     // Helper to translate activity messages
     const translateActivityMessage = (message: string) => {
         // Topic Created
@@ -269,7 +322,7 @@ export default function Dashboard() {
         if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
 
         // Topic Moved Check
-        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/);
+        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-â€“] (.*)/);
         if (topicCheck) return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(topicCheck[2]) });
 
         // Department Created with Name
@@ -296,6 +349,7 @@ export default function Dashboard() {
     // Derived Data for Content (Charts, Lists) - Respects ALL filters
     const filteredFindings = useMemo(() => {
         return findings.filter(f => {
+            if (!adminLocationNameSet.has((f.location || '').trim())) return false;
             if (auditIdParam !== 'All' && f.auditId !== auditIdParam) return false;
 
             if (departmentParam !== 'All') {
@@ -303,7 +357,7 @@ export default function Dashboard() {
                 if (dep !== departmentParam) return false;
             }
 
-            if (locationParam !== 'All' && f.location !== locationParam) return false;
+            if (effectiveLocationName !== 'All' && f.location !== effectiveLocationName) return false;
 
             if (statusParam !== 'All' && statusParam !== 'ALL') {
                 const label = getStatusLabel(t, f.status, f.deadline);
@@ -349,11 +403,12 @@ export default function Dashboard() {
 
             return true;
         });
-    }, [auditIdParam, departmentParam, locationParam, statusParam, findings, timeRange]);
+    }, [auditIdParam, departmentParam, effectiveLocationName, statusParam, findings, timeRange, adminLocationNameSet]);
 
     // Derived Data for KPIs - Respects Location/Dept/Time, IGNORES Status filter
     const kpiFindings = useMemo(() => {
         return findings.filter(f => {
+            if (!adminLocationNameSet.has((f.location || '').trim())) return false;
             if (auditIdParam !== 'All' && f.auditId !== auditIdParam) return false;
 
             if (departmentParam !== 'All') {
@@ -361,7 +416,7 @@ export default function Dashboard() {
                 if (dep !== departmentParam) return false;
             }
 
-            if (locationParam !== 'All' && f.location !== locationParam) return false;
+            if (effectiveLocationName !== 'All' && f.location !== effectiveLocationName) return false;
 
             // STATUS FILTER IS IGNORED HERE
 
@@ -394,7 +449,7 @@ export default function Dashboard() {
 
             return true;
         });
-    }, [auditIdParam, departmentParam, locationParam, findings, timeRange]);
+    }, [auditIdParam, departmentParam, effectiveLocationName, findings, timeRange, adminLocationNameSet]);
 
     // KPI Metrics
     const totalFindingsMetric = kpiFindings.length;
@@ -439,9 +494,9 @@ export default function Dashboard() {
     };
 
     const byLocation = locations
-        .filter(l => locationParam === 'All' || l.name.trim() === locationParam.trim())
+        .filter(l => effectiveLocationName === 'All' || l.name.trim() === effectiveLocationName.trim())
         .map(l => ({
-            label: getTranslatedLocationName(l.name), // Translate label for chart
+            label: (l.city || '').trim() || getTranslatedLocationName(l.name), // Prefer city label from admin data
             value: filteredFindings.filter(f => f.location === l.name).length
         }));
 
@@ -573,14 +628,8 @@ export default function Dashboard() {
                     <div style={{ flex: 1 }}>
                         <FilterDropdown
                             label={t('dashboard.location')}
-                            value={locationParam}
-                            options={[
-                                { label: t('admin.universityHospitalZurich'), value: 'University Hospital Zurich (ZH)' },
-                                { label: t('admin.genevaUniversityHospitals'), value: 'Geneva University Hospitals (GE)' },
-                                { label: t('admin.inselspitalBern'), value: 'Inselspital Bern (BE)' },
-                                { label: t('admin.universityHospitalBasel'), value: 'University Hospital Basel (BS)' },
-                                { label: t('admin.chuvLausanne'), value: 'CHUV Lausanne (VD)' }
-                            ]}
+                            value={effectiveLocationParam}
+                            options={locationOptions}
                             onChange={(v: string) => updateFilter('location', v)}
                             placeholder={t('dashboard.allEntities')}
                         />
@@ -589,13 +638,9 @@ export default function Dashboard() {
                         <FilterDropdown
                             label={t('dashboard.department')}
                             value={departmentParam}
-                            options={[
-                                { label: t('dashboard.deptNursing'), value: 'Nursing' },
-                                { label: t('dashboard.deptLaboratory'), value: 'Laboratory' },
-                                { label: t('dashboard.deptTechnical'), value: 'Technical Services' }
-                            ]}
+                            options={departmentOptions}
                             onChange={(v: string) => updateFilter('department', v)}
-                            placeholder={null}
+                            placeholder={t('dashboard.allDepartments')}
                         />
                     </div>
                     <div style={{ flex: 1 }}>
@@ -661,9 +706,9 @@ export default function Dashboard() {
                                 <svg viewBox="0 0 200 110" style={{ width: '100%', height: '100%', transform: 'rotate(0deg)' }}>
                                     {(() => {
                                         const data = [
-                                            { label: 'Critical', value: statsByStatus['status-critical'], color: getStatusColor('Critical') }, // Red
+                                            { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: getStatusColor('Monitoring') }, // Green
                                             { label: 'Warning', value: statsByStatus['status-warning'], color: getStatusColor('Warning') }, // Orange
-                                            { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: getStatusColor('Monitoring') } // Green
+                                            { label: 'Critical', value: statsByStatus['status-critical'], color: getStatusColor('Critical') } // Red
                                         ];
                                         const total = data.reduce((sum, item) => sum + item.value, 0);
                                         const radius = 80;
@@ -726,9 +771,9 @@ export default function Dashboard() {
                         {/* Legend */}
                         <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {[
+                                { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: '#22C55E', bg: '#F0FDF4' },
                                 { label: 'Warning', value: statsByStatus['status-warning'], color: '#F59E0B', bg: '#FFF7ED' },
-                                { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444', bg: '#FEF2F2' },
-                                { label: 'Monitoring', value: statsByStatus['status-ontrack'], color: '#22C55E', bg: '#F0FDF4' }
+                                { label: 'Critical', value: statsByStatus['status-critical'], color: '#EF4444', bg: '#FEF2F2' }
                             ].map((item, i) => (
                                 <div key={i} style={{
                                     display: 'flex',
@@ -764,9 +809,9 @@ export default function Dashboard() {
                         gap: '1rem'
                     }}>
                         {[
+                            { label: 'MONITORING', value: statsByStatus['status-ontrack'] },
                             { label: 'WARNING', value: statsByStatus['status-warning'] },
-                            { label: 'CRITICAL', value: statsByStatus['status-critical'] },
-                            { label: 'MONITORING', value: statsByStatus['status-ontrack'] }
+                            { label: 'CRITICAL', value: statsByStatus['status-critical'] }
                         ].map((item, i) => (
                             <div key={i} style={{
                                 background: '#F8FAFC',
@@ -856,11 +901,11 @@ export default function Dashboard() {
                                             {getTranslatedEntityType(activity.entityType)}: {activity.entityType === 'Location' ? getTranslatedLocationName(activity.entityName) :
                                                 activity.entityType === 'Department' ? getTranslatedDepartmentName(activity.entityName) :
                                                     activity.entityName}
-                                            {activity.location && ` – ${getTranslatedLocationName(activity.location)}`}
+                                            {activity.location && ` â€“ ${getTranslatedLocationName(activity.location)}`}
                                         </div>
                                         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                             <span>{activity.performedBy}</span>
-                                            <span>•</span>
+                                            <span>â€¢</span>
                                             <span>{new Date(activity.timestamp).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
                                             {getPhaseBadge()}
                                         </div>
@@ -1007,3 +1052,5 @@ export default function Dashboard() {
         </div>
     );
 }
+
+

@@ -111,6 +111,24 @@ export interface HistoryEntry {
     newValue: string;
 }
 
+export interface ExternalMeetingUser {
+    id: string;
+    fullName: string;
+    email: string;
+    note?: string;
+}
+
+export interface PhaseMeetingData {
+    title: string;
+    responsiblePersons: string[];
+    meetingType: string;
+    meetingDateTime: string;
+    location: string;
+    externalEnabled?: boolean;
+    externalUsers?: ExternalMeetingUser[];
+    checkTriggerDate?: string;
+}
+
 export interface Topic {
     id: string;
     title: string;
@@ -143,6 +161,7 @@ export interface Topic {
         objectives: string[];
         improvementPurpose?: string[];
         kpis?: { name: string; target: string }[];
+        meeting?: PhaseMeetingData;
         completedAt?: string;
     };
     do: {
@@ -157,6 +176,8 @@ export interface Topic {
             teamsMeetingLink?: string;
             meetingType?: 'In-Office' | 'Online';
             meetingLocation?: string;
+            externalEnabled?: boolean;
+            externalUsers?: ExternalMeetingUser[];
             status: 'Open' | 'In Progress' | 'Done';
         }[];
         completedAt?: string;
@@ -170,6 +191,7 @@ export interface Topic {
         effectivenessStatus?: EffectivenessStatus;
         effectivenessReviewText?: string;
         kpiEvaluations: KPIEvaluation[];
+        meeting?: PhaseMeetingData;
         checkDecision?: CheckDecision;
         audit?: CheckAudit;
         completedAt?: string;
