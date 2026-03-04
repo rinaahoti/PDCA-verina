@@ -64,6 +64,8 @@ const Administration: React.FC = () => {
     const [userDepartmentFilter, setUserDepartmentFilter] = useState('');
     const [userGlobalRole, setUserGlobalRole] = useState<'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>('All');
     const [usersExpandedLocs, setUsersExpandedLocs] = useState<Record<string, boolean>>({});
+    const [usersExpandedDeps, setUsersExpandedDeps] = useState<Record<string, boolean>>({});
+    const [selectedUsersDepartment, setSelectedUsersDepartment] = useState<{ locationId: string; departmentId: string } | null>(null);
     const [userLocalRoleFilters, setUserLocalRoleFilters] = useState<Record<string, 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>>({});
     const [usersAllExpanded, setUsersAllExpanded] = useState(false);
     const [isAddEditUserModalOpen, setAddEditUserModalOpen] = useState(false);
@@ -313,20 +315,34 @@ const Administration: React.FC = () => {
     useEffect(() => {
         if (!userSearch.trim()) return;
         const map: Record<string, boolean> = {};
+        const depMap: Record<string, boolean> = {};
         locations.forEach(loc => {
             map[loc.id] = true;
+            departments
+                .filter(dep => dep.locationId === loc.id)
+                .forEach(dep => {
+                    depMap[`${loc.id}::${dep.id}`] = true;
+                });
         });
         setUsersExpandedLocs(prev => ({ ...map, ...prev }));
-    }, [userSearch, locations]);
+        setUsersExpandedDeps(prev => ({ ...depMap, ...prev }));
+    }, [userSearch, locations, departments]);
 
     useEffect(() => {
         if (userGlobalRole === 'All') return;
         const map: Record<string, boolean> = {};
+        const depMap: Record<string, boolean> = {};
         locations.forEach(loc => {
             map[loc.id] = true;
+            departments
+                .filter(dep => dep.locationId === loc.id)
+                .forEach(dep => {
+                    depMap[`${loc.id}::${dep.id}`] = true;
+                });
         });
         setUsersExpandedLocs(prev => ({ ...map, ...prev }));
-    }, [userGlobalRole, locations]);
+        setUsersExpandedDeps(prev => ({ ...depMap, ...prev }));
+    }, [userGlobalRole, locations, departments]);
 
     // --- DRAWER STATE ---
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
@@ -538,7 +554,7 @@ const Administration: React.FC = () => {
         return { background: '#f3f0ff', color: '#7c5cbf' };
     };
 
-    const openAddUserModal = (locationId?: string) => {
+    const openAddUserModal = (locationId?: string, departmentId?: string) => {
         const preLocId = locationId || '';
         const localDepartments = departments.filter(dep => dep.locationId === preLocId);
         setEditingUserId(null);
@@ -546,7 +562,7 @@ const Administration: React.FC = () => {
             fullName: '',
             email: '',
             locationId: preLocId,
-            departmentId: localDepartments[0]?.id || '',
+            departmentId: departmentId || localDepartments[0]?.id || '',
             role: 'Assigned'
         });
         setAddEditUserModalOpen(true);
@@ -586,6 +602,9 @@ const Administration: React.FC = () => {
         };
         adminService.saveUser(payload);
         setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
+        if (payload.departmentId) {
+            setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
+        }
         setAddEditUserModalOpen(false);
         showToast(editingUserId ? '✓ User updated' : '✓ User added');
     };
@@ -620,6 +639,9 @@ const Administration: React.FC = () => {
         };
         adminService.saveUser(payload);
         setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
+        if (payload.departmentId) {
+            setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
+        }
         setTransferUserModalOpen(false);
         showToast('✓ User transferred');
     };
@@ -633,81 +655,105 @@ const Administration: React.FC = () => {
         setUserSearch('');
     };
 
+    const getDepartmentExpandKey = (locationId: string, departmentId: string) => `${locationId}::${departmentId}`;
+
+    const getLocationShortName = (locationName: string) =>
+        getTranslatedLocationName(locationName).replace(/\s*\([A-Z]+\)$/, '');
+
     const toggleUsersExpandAll = () => {
         const next = !usersAllExpanded;
         setUsersAllExpanded(next);
         if (next) {
             const map: Record<string, boolean> = {};
+            const depMap: Record<string, boolean> = {};
             locations.forEach(loc => {
                 map[loc.id] = true;
+                departments
+                    .filter(dep => dep.locationId === loc.id)
+                    .forEach(dep => {
+                        depMap[`${loc.id}::${dep.id}`] = true;
+                    });
             });
             setUsersExpandedLocs(map);
+            setUsersExpandedDeps(depMap);
             return;
         }
         setUsersExpandedLocs({});
+        setUsersExpandedDeps({});
     };
 
     return (
-        <div style={{ maxWidth: '1600px', margin: '0 auto', paddingBottom: '4rem', position: 'relative' }}>
+        <div style={{ maxWidth: selectedUsersDepartment ? 'none' : '1600px', margin: selectedUsersDepartment ? '0' : '0 auto', paddingBottom: '4rem', position: 'relative' }}>
             <style>{`@keyframes urSlideUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-            <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('admin.pageTitle')}</h1>
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('admin.subtitle')}</div>
-                </div>
-                <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
-                    <RefreshCw size={16} /> {t('admin.restoreDefaultData')}
-                </button>
-            </div>
+            {!selectedUsersDepartment && (
+                <>
+                    <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('admin.pageTitle')}</h1>
+                            <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('admin.subtitle')}</div>
+                        </div>
+                        <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
+                            <RefreshCw size={16} /> {t('admin.restoreDefaultData')}
+                        </button>
+                    </div>
 
-            {/* TABS */}
-            <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: '2rem', display: 'flex', gap: '2rem' }}>
-                <button
-                    onClick={() => setActiveTab('locations')}
-                    style={{
-                        padding: '0.75rem 0',
-                        color: activeTab === 'locations' ? '#5FAE9E' : 'var(--color-text-muted)',
-                        fontWeight: 600,
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: activeTab === 'locations' ? '2px solid #5FAE9E' : '2px solid transparent',
-                        cursor: 'pointer'
-                    }}
-                >
-                    {t('admin.tabLocations')}
-                </button>
-                <button
-                    onClick={() => setActiveTab('departments')}
-                    style={{
-                        padding: '0.75rem 0',
-                        color: activeTab === 'departments' ? '#5FAE9E' : 'var(--color-text-muted)',
-                        fontWeight: 600,
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: activeTab === 'departments' ? '2px solid #5FAE9E' : '2px solid transparent',
-                        cursor: 'pointer'
-                    }}
-                >
-                    {t('admin.tabDepartments')}
-                </button>
-                <button
-                    onClick={() => setActiveTab('users')}
-                    style={{
-                        padding: '0.75rem 0',
-                        color: activeTab === 'users' ? '#5FAE9E' : 'var(--color-text-muted)',
-                        fontWeight: 600,
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: activeTab === 'users' ? '2px solid #5FAE9E' : '2px solid transparent',
-                        cursor: 'pointer'
-                    }}
-                >
-                    {t('admin.tabUsers')}
-                </button>
-            </div>
+                    {/* TABS */}
+                    <div style={{ borderBottom: '1px solid #e2e8f0', marginBottom: '2rem', display: 'flex', gap: '2rem' }}>
+                        <button
+                            onClick={() => setActiveTab('locations')}
+                            style={{
+                                padding: '0.75rem 0',
+                                color: activeTab === 'locations' ? '#5FAE9E' : 'var(--color-text-muted)',
+                                fontWeight: 600,
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'locations' ? '2px solid #5FAE9E' : '2px solid transparent',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {t('admin.tabLocations')}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('departments')}
+                            style={{
+                                padding: '0.75rem 0',
+                                color: activeTab === 'departments' ? '#5FAE9E' : 'var(--color-text-muted)',
+                                fontWeight: 600,
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'departments' ? '2px solid #5FAE9E' : '2px solid transparent',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {t('admin.tabDepartments')}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('users')}
+                            style={{
+                                padding: '0.75rem 0',
+                                color: activeTab === 'users' ? '#5FAE9E' : 'var(--color-text-muted)',
+                                fontWeight: 600,
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'users' ? '2px solid #5FAE9E' : '2px solid transparent',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {t('admin.tabUsers')}
+                        </button>
+                    </div>
+                </>
+            )}
 
             {/* CONTENT */}
-            <div className="card" style={{ padding: 0 }}>
+            <div
+                className="card"
+                style={
+                    activeTab === 'users'
+                        ? { padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }
+                        : { padding: 0 }
+                }
+            >
                 {/* --- LOCATIONS TAB --- */}
                 {activeTab === 'locations' && (
                     <div
@@ -791,11 +837,8 @@ const Administration: React.FC = () => {
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 90px 90px', padding: '9px 20px', background: '#f7fbfb', borderBottom: '1px solid #ddecea' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', padding: '9px 20px', background: '#f7fbfb', borderBottom: '1px solid #ddecea' }}>
                             <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>Name</div>
-                            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>City</div>
-                            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>Country</div>
-                            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>Code</div>
                             <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583', textAlign: 'right' }}>Actions</div>
                         </div>
 
@@ -811,7 +854,7 @@ const Administration: React.FC = () => {
                                 return (
                                     <div
                                         key={loc.id}
-                                        style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 90px 90px', padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid #f0f8f7', alignItems: 'center', background: '#fafefe' }}
+                                        style={{ display: 'grid', gridTemplateColumns: '1fr 90px', padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid #f0f8f7', alignItems: 'center', background: '#fafefe' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.background = '#fafefe'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.background = '#fafefe'; }}
                                     >
@@ -825,11 +868,6 @@ const Administration: React.FC = () => {
                                                     <span dangerouslySetInnerHTML={{ __html: highlight(loc.city || '-', q) }} /> · {loc.country || '-'}
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div style={{ fontSize: '14px', color: '#3d5c5a' }} dangerouslySetInnerHTML={{ __html: highlight(loc.city || '-', q) }} />
-                                        <div style={{ fontSize: '14px', color: '#3d5c5a' }}>{loc.country || '-'}</div>
-                                        <div>
-                                            <span style={{ display: 'inline-block', background: '#e8f4f3', color: '#5ba8a0', fontFamily: 'DM Mono, monospace', fontSize: '12px', fontWeight: 500, padding: '3px 8px', borderRadius: '5px' }} dangerouslySetInnerHTML={{ __html: highlight(loc.code || '-', q) }} />
                                         </div>
                                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                                             <button
@@ -1307,6 +1345,7 @@ const Administration: React.FC = () => {
                 {/* --- USERS TAB --- */}
                 {activeTab === 'users' && (
                     <div style={{ padding: '0 0 1rem 0' }}>
+                        <div style={{ display: selectedUsersDepartment ? 'none' : 'block' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', background: 'transparent', border: 'none', borderRadius: 0, padding: '12px 14px', borderBottom: 'none' }}>
                             <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>Users & Roles</span>
 
@@ -1387,75 +1426,306 @@ const Administration: React.FC = () => {
                                 <div style={{ padding: '52px', textAlign: 'center', color: '#6b8583', fontSize: '14px' }}><div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>🔍</div>No users match your search or filters.</div>
                             )}
 
-                            {usersViewData.groups.map(({ loc, allLocUsers, visibleUsers, roleCounts }) => {
+                            {usersViewData.groups.map(({ loc, allLocUsers, visibleUsers }) => {
                                 const isOpen = !!usersExpandedLocs[loc.id];
                                 const localRole = userLocalRoleFilters[loc.id] || 'All';
+                                const activeSearch = userSearch.trim();
+                                const hasActiveFilter = !!activeSearch || userGlobalRole !== 'All' || localRole !== 'All' || !!userDepartmentFilter;
+
+                                const baseDepartments = departments.filter(dep => dep.locationId === loc.id);
+                                const hasUnassigned = allLocUsers.some(u => !u.departmentId);
+                                const locationDepartments = hasUnassigned
+                                    ? [...baseDepartments, { id: `UNASSIGNED-${loc.id}`, name: 'Unassigned', locationId: loc.id }]
+                                    : baseDepartments;
+
+                                const departmentBlocks = locationDepartments
+                                    .map(dep => {
+                                        const depName = dep.id.startsWith('UNASSIGNED-') ? 'Unassigned' : getTranslatedDepartmentName(dep.name);
+                                        const depUsersAll = allLocUsers.filter(user => {
+                                            if (dep.id.startsWith('UNASSIGNED-')) return !user.departmentId;
+                                            if (user.departmentId) return user.departmentId === dep.id;
+                                            return user.departmentName === dep.name;
+                                        });
+                                        const depUsersVisible = visibleUsers.filter(user => {
+                                            if (dep.id.startsWith('UNASSIGNED-')) return !user.departmentId;
+                                            if (user.departmentId) return user.departmentId === dep.id;
+                                            return user.departmentName === dep.name;
+                                        });
+                                        return { dep, depName, depUsersAll, depUsersVisible };
+                                    })
+                                    .filter(block => !hasActiveFilter || block.depUsersVisible.length > 0);
+
                                 return (
-                                    <div key={loc.id} style={{ borderBottom: '1px solid #ddecea' }}>
-                                        <div onClick={() => setUsersExpandedLocs(prev => ({ ...prev, [loc.id]: !prev[loc.id] }))} onMouseEnter={(e) => { e.currentTarget.style.background = '#f2f9f8'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#fafefe'; }} style={{ background: '#fafefe', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                                            <div style={{ width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b8583', transition: 'transform .25s', flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none' }}>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                    <div key={loc.id} style={{ marginBottom: '18px' }}>
+                                        <div
+                                            onClick={() => setUsersExpandedLocs(prev => ({ ...prev, [loc.id]: !prev[loc.id] }))}
+                                            style={{ background: '#ffffff', border: '1px solid #d3dbe4', borderRadius: isOpen ? '14px 14px 0 0' : '14px', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                                        >
+                                            <div style={{ width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6b8583' }}>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="9 18 15 12 9 6" />
+                                                </svg>
                                             </div>
                                             <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', fontWeight: 500, background: '#e8f4f3', color: '#5ba8a0', padding: '3px 8px', borderRadius: '5px', flexShrink: 0, letterSpacing: '.05em' }}>
                                                 {loc.code || '-'}
                                             </span>
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a2e2d' }}>
-                                                    {getTranslatedLocationName(loc.name)}
-                                                    <span style={{ fontSize: '13px', color: '#6b8583', marginLeft: '8px', fontWeight: 400 }}>{allLocUsers.length} user{allLocUsers.length !== 1 ? 's' : ''}</span>
-                                                </div>
-                                                <div style={{ fontSize: '13px', color: '#6b8583' }}>{loc.city || '-'} · {loc.country || '-'}</div>
+                                                <div style={{ fontSize: '15px', lineHeight: 1.2, fontWeight: 600, color: '#1a2e2d' }}>{getLocationShortName(loc.name)}</div>
+                                                <div style={{ fontSize: '13px', color: '#8aa0b5', marginTop: '3px' }}>{loc.city || '-'} · {loc.country || '-'}</div>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); openAddUserModal(loc.id); }} style={{ background: 'transparent', border: 'none', color: '#1a2e2d', fontWeight: 500, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>+ Add User</button>
                                         </div>
 
                                         {isOpen && (
-                                            <>
-                                                <div style={{ padding: '11px 20px 10px', borderBottom: '1px solid #ddecea', background: '#fafefe', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                                    {(['All', 'Admin', 'Owner', 'Assigned', 'Viewer'] as const).map(role => {
-                                                        const count = role === 'All' ? allLocUsers.length : roleCounts[role];
-                                                        const active = localRole === role;
-                                                        let bg = '#ffffff'; let border = '#ddecea'; let color = '#6b8583';
-                                                        if (active && role === 'All') { bg = '#e8f4f3'; border = '#7bbfb8'; color = '#5ba8a0'; }
-                                                        if (active && role === 'Admin') { bg = '#fff3e0'; border = '#e67e22'; color = '#e67e22'; }
-                                                        if (active && role === 'Owner') { bg = '#e8f0fe'; border = '#3b6fd4'; color = '#3b6fd4'; }
-                                                        if (active && role === 'Assigned') { bg = '#e8f7f0'; border = '#2e9e68'; color = '#2e9e68'; }
-                                                        if (active && role === 'Viewer') { bg = '#f3f0ff'; border = '#7c5cbf'; color = '#7c5cbf'; }
-                                                        return <button key={role} onClick={() => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: role }))} style={{ fontSize: '12px', fontWeight: 500, padding: '4px 11px', borderRadius: '20px', border: `1.5px solid ${border}`, background: bg, color, cursor: 'pointer' }}>{role} ({count})</button>;
-                                                    })}
-                                                </div>
-                                                <div style={{ display: 'grid', gridTemplateColumns: '2fr 110px 1fr 110px', padding: '9px 20px', background: '#f7fbfb', borderBottom: '1px solid #ddecea' }}>
-                                                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>User</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>Role</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>{t('admin.departments')}</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583', textAlign: 'right' }}>Actions</div>
-                                                </div>
-                                                {visibleUsers.length === 0 ? (
-                                                    <div style={{ padding: '20px', fontSize: '13px', color: '#6b8583', fontStyle: 'italic' }}>No users match current filter.</div>
+                                            <div style={{ border: '1px solid #d3dbe4', borderTop: 'none', borderRadius: '0 0 14px 14px', overflow: 'hidden', display: 'grid', gap: 0 }}>
+                                                {departmentBlocks.length === 0 ? (
+                                                    <div style={{ padding: '20px', borderRadius: '12px', border: '1px solid #ddecea', color: '#6b8583', fontSize: '13px' }}>No departments match current filters.</div>
                                                 ) : (
-                                                    visibleUsers.map(user => {
-                                                        const deptText = getUserDepartmentName(user);
+                                                    departmentBlocks.map(({ dep, depName, depUsersAll, depUsersVisible }, depIndex) => {
+                                                        const depKey = getDepartmentExpandKey(loc.id, dep.id);
+                                                        const depOpen = false;
+                                                        const detailUsers = depUsersAll.filter(user => {
+                                                            if (localRole !== 'All' && user.role !== localRole) return false;
+                                                            const q = userSearch.trim().toLowerCase();
+                                                            if (!q) return true;
+                                                            return (user.fullName || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                                                        });
+                                                        const depOwnerCount = depUsersAll.filter(u => u.role === 'Owner').length;
+                                                        const depAssignedCount = depUsersAll.filter(u => u.role === 'Assigned').length;
                                                         return (
-                                                            <div key={user.id} onMouseEnter={(e) => { e.currentTarget.style.background = '#fafefe'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }} style={{ display: 'grid', gridTemplateColumns: '2fr 110px 1fr 110px', padding: '13px 20px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
-                                                                <div><div style={{ fontSize: '14px', fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: highlight(user.fullName, userSearch.trim()) }} /><div style={{ fontSize: '12px', color: '#6b8583', fontFamily: 'DM Mono, monospace' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} /></div>
-                                                                <div><span style={{ fontSize: '12px', fontWeight: 500, padding: '3px 10px', borderRadius: '20px', ...roleBadgeStyle(user.role) }}>{user.role}</span></div>
-                                                                <div style={{ fontSize: '13px', color: '#3d5c5a' }}>{deptText}</div>
-                                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                                                                    <button title="View Profile" onClick={() => openProfileModal(user)} onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f8f7'; e.currentTarget.style.borderColor = '#7bbfb8'; e.currentTarget.style.color = '#5ba8a0'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#ddecea'; e.currentTarget.style.color = '#6b8583'; }} style={{ width: '29px', height: '29px', borderRadius: '6px', border: '1.5px solid #ddecea', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#6b8583' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></button>
-                                                                    <button title="Edit" onClick={() => openEditUserModal(user)} onMouseEnter={(e) => { e.currentTarget.style.background = '#e8f4f3'; e.currentTarget.style.borderColor = '#7bbfb8'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#ddecea'; }} style={{ width: '29px', height: '29px', borderRadius: '6px', border: '1.5px solid #ddecea', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg></button>
-                                                                    <button title="Transfer" onClick={() => openTransferModal(user)} onMouseEnter={(e) => { e.currentTarget.style.background = '#fff3e0'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }} style={{ width: '29px', height: '29px', borderRadius: '6px', border: '1.5px solid #fde8c8', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e67e22' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg></button>
-                                                                    <button title="Remove" onClick={(e) => handleDeleteUser(user.id, e)} onMouseEnter={(e) => { e.currentTarget.style.background = '#fdeaea'; e.currentTarget.style.borderColor = '#e05a5a'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#f5d5d5'; }} style={{ width: '29px', height: '29px', borderRadius: '6px', border: '1.5px solid #f5d5d5', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
+                                                            <div key={dep.id} style={{ borderBottom: depIndex === departmentBlocks.length - 1 ? 'none' : '1px solid #ddecea', background: '#ffffff', overflow: 'hidden' }}>
+                                                                <div
+                                                                    onClick={() => setSelectedUsersDepartment({ locationId: loc.id, departmentId: dep.id })}
+                                                                    style={{ padding: '12px 16px 12px 38px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                                                                >
+                                                                    <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', fontWeight: 500, background: '#e8f4f3', color: '#5ba8a0', padding: '3px 8px', borderRadius: '5px', flexShrink: 0, letterSpacing: '.05em' }}>
+                                                                        {depName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                                    </span>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                                            <div style={{ fontSize: '15px', lineHeight: 1.2, fontWeight: 600, color: '#1a2e2d' }}>{depName}</div>
+                                                                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#3f9088', border: '1px solid #abd6d2', background: '#e9f8f6', borderRadius: '999px', padding: '3px 10px' }}>
+                                                                                {depUsersVisible.length} users
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '13px', color: '#8aa0b5', marginTop: '2px' }}>{getLocationShortName(loc.name)}</div>
+                                                                    </div>
+                                                                    <div style={{ color: '#8aa0b5', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                            {depOpen ? <polyline points="6 9 12 15 18 9" /> : <polyline points="9 18 15 12 9 6" />}
+                                                                        </svg>
+                                                                    </div>
                                                                 </div>
+                                                                {depOpen && (
+                                                                    <div style={{ borderTop: '1px solid #ddecea', background: '#f5f8fb', padding: '14px 18px 18px' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5ba8a0', fontWeight: 600 }}>
+                                                                                <button
+                                                                                    onClick={() => setUsersExpandedDeps(prev => ({ ...prev, [depKey]: false }))}
+                                                                                    style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '14px', fontWeight: 600 }}
+                                                                                >
+                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                                                                    Users & Roles
+                                                                                </button>
+                                                                                <span style={{ color: '#1a2e2d', fontWeight: 700 }}>{depName}</span>
+                                                                            </div>
+                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id.startsWith('UNASSIGNED-') ? undefined : dep.id)} style={{ padding: '9px 16px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                                                                Add User
+                                                                            </button>
+                                                                        </div>
+
+                                                                        <div style={{ background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'center', marginBottom: '14px' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                                                <span style={{ width: '56px', height: '56px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#4f9d95', color: '#ffffff', fontFamily: 'DM Mono, monospace', fontSize: '24px', fontWeight: 700 }}>
+                                                                                    {depName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                                                </span>
+                                                                                <div>
+                                                                                    <div style={{ fontSize: '39px', lineHeight: 1.15, fontWeight: 700, color: '#1d2f3a' }}>{depName}</div>
+                                                                                    <div style={{ fontSize: '14px', color: '#8aa0b5', marginTop: '4px' }}>{loc.city || '-'} · {loc.country || '-'}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '24px' }}>
+                                                                                <div style={{ textAlign: 'right' }}><div style={{ fontSize: '44px', lineHeight: 1, color: '#4f9d95', fontWeight: 700 }}>{depUsersAll.length}</div><div style={{ fontSize: '11px', letterSpacing: '.06em', color: '#4f9d95', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                                                                <div style={{ textAlign: 'right' }}><div style={{ fontSize: '44px', lineHeight: 1, color: '#4f9d95', fontWeight: 700 }}>{depOwnerCount}</div><div style={{ fontSize: '11px', letterSpacing: '.06em', color: '#9aacbd', fontWeight: 600 }}>OWNER</div></div>
+                                                                                <div style={{ textAlign: 'right' }}><div style={{ fontSize: '44px', lineHeight: 1, color: '#4f9d95', fontWeight: 700 }}>{depAssignedCount}</div><div style={{ fontSize: '11px', letterSpacing: '.06em', color: '#9aacbd', fontWeight: 600 }}>ASSIGNED</div></div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div style={{ background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
+                                                                            <div style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '1fr 130px', gap: '10px' }}>
+                                                                                <div style={{ position: 'relative' }}>
+                                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '10px', color: '#8aa0b5' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                                                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name or email..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
+                                                                                </div>
+                                                                                <select value={localRole} onChange={(e) => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: e.target.value as 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer' }))} style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#315a69', outline: 'none' }}>
+                                                                                    <option value="All">All Roles</option>
+                                                                                    <option value="Admin">Admin</option>
+                                                                                    <option value="Owner">Owner</option>
+                                                                                    <option value="Assigned">Assigned</option>
+                                                                                    <option value="Viewer">Viewer</option>
+                                                                                </select>
+                                                                            </div>
+                                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
+                                                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
+                                                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
+                                                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                                                            </div>
+                                                                            {detailUsers.length === 0 ? (
+                                                                                <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this Betrieb.</div>
+                                                                            ) : (
+                                                                                detailUsers.map(user => (
+                                                                                    <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
+                                                                                        <div>
+                                                                                            <div style={{ fontSize: '27px', fontWeight: 700, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.fullName, userSearch.trim()) }} />
+                                                                                            <div style={{ fontSize: '13px', color: '#8aa0b5' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} />
+                                                                                        </div>
+                                                                                        <div><span style={{ fontSize: '13px', fontWeight: 600, padding: '4px 12px', borderRadius: '999px', ...roleBadgeStyle(user.role) }}>{user.role}</span></div>
+                                                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                                                            <button title="View Profile" onClick={() => openProfileModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#6b8583' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></button>
+                                                                                            <button title="Edit" onClick={() => openEditUserModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg></button>
+                                                                                            <button title="Remove" onClick={(e) => handleDeleteUser(user.id, e)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #f5d5d5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                ))
+                                                                            )}
+                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id.startsWith('UNASSIGNED-') ? undefined : dep.id)} style={{ background: 'transparent', border: 'none', color: '#3f9088', fontWeight: 700, fontSize: '26px', cursor: 'pointer', padding: '14px 16px' }}>
+                                                                                + Add User
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })
                                                 )}
-                                            </>
+                                            </div>
                                         )}
                                     </div>
                                 );
                             })}
                         </div>
+                        </div>
+
+                        {selectedUsersDepartment && (() => {
+                            const loc = locations.find(l => l.id === selectedUsersDepartment.locationId);
+                            const dep = departments.find(d => d.id === selectedUsersDepartment.departmentId);
+                            if (!loc || !dep) return null;
+
+                            const depName = getTranslatedDepartmentName(dep.name);
+                            const depUsersAll = users.filter(user => {
+                                if (user.locationId !== loc.id) return false;
+                                if (user.departmentId) return user.departmentId === dep.id;
+                                return user.departmentName === dep.name;
+                            });
+                            const localRole = userLocalRoleFilters[loc.id] || 'All';
+                            const q = userSearch.trim().toLowerCase();
+                            const detailUsers = depUsersAll.filter(user => {
+                                if (localRole !== 'All' && user.role !== localRole) return false;
+                                if (!q) return true;
+                                return (user.fullName || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                            });
+                            const depOwnerCount = depUsersAll.filter(u => u.role === 'Owner').length;
+                            const depAssignedCount = depUsersAll.filter(u => u.role === 'Assigned').length;
+
+                            return (
+                                <div style={{ padding: '0 0 24px' }}>
+                                    <div style={{ maxWidth: 'none', margin: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', borderBottom: '1px solid #d6dde6', marginBottom: '0' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5ba8a0', fontWeight: 400, lineHeight: 1.3 }}>
+                                                <button
+                                                    onClick={() => setSelectedUsersDepartment(null)}
+                                                    style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 400, lineHeight: 1.3 }}
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                                    Users & Roles
+                                                </button>
+                                                <span style={{ color: '#9fb3c4', fontSize: '14px', lineHeight: 1.3 }}>/</span>
+                                                <span style={{ color: '#1a2e2d', fontWeight: 400, fontSize: '14px', lineHeight: 1.3 }}>{depName}</span>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: '#5ba8a0', borderRadius: '0', padding: '34px 20px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'center', margin: '0 -32px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <span style={{ width: '50px', height: '50px', borderRadius: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.18)', color: '#ffffff', fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 700, letterSpacing: '.01em' }}>
+                                                    {depName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                </span>
+                                                <div>
+                                                    <div style={{ fontSize: '30px', lineHeight: 1.08, fontWeight: 400, color: '#ffffff' }}>{depName}</div>
+                                                    <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.9)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" />
+                                                            <circle cx="12" cy="10" r="3" />
+                                                        </svg>
+                                                        <span>{loc.city || '-'} · {loc.country || '-'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '0' }}>
+                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{depUsersAll.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
+                                            <div style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '340px 110px 1fr', gap: '10px', alignItems: 'center' }}>
+                                                <div style={{ position: 'relative' }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '10px', color: '#8aa0b5' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name or email..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
+                                                </div>
+                                                <select value={localRole} onChange={(e) => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: e.target.value as 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer' }))} style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#315a69', outline: 'none' }}>
+                                                    <option value="All">All Roles</option>
+                                                    <option value="Admin">Admin</option>
+                                                    <option value="Owner">Owner</option>
+                                                    <option value="Assigned">Assigned</option>
+                                                    <option value="Viewer">Viewer</option>
+                                                </select>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <button onClick={() => openAddUserModal(loc.id, dep.id)} style={{ padding: '8px 14px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                                        Add User
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                            </div>
+                                            {detailUsers.length === 0 ? (
+                                                <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this Betrieb.</div>
+                                            ) : (
+                                                detailUsers.map(user => (
+                                                    <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontFamily: 'DM Mono, monospace', fontSize: '13px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                {(user.fullName || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                            </span>
+                                                            <div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.fullName, userSearch.trim()) }} />
+                                                                <div style={{ fontSize: '12px', color: '#8aa0b5' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={user.role === 'Owner'
+                                                                ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#5ba8a0', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '5px' }
+                                                                : user.role === 'Assigned'
+                                                                    ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#e8f4f3', color: '#3f9088', border: '1px solid #b7deda', display: 'inline-flex', alignItems: 'center', gap: '5px' }
+                                                                    : { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', ...roleBadgeStyle(user.role), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                                <span style={{ fontSize: '10px' }}>•</span>{user.role}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                            <button title="View Profile" onClick={() => openProfileModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#6b8583' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></button>
+                                                            <button title="Edit" onClick={() => openEditUserModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg></button>
+                                                            <button title="Remove" onClick={(e) => handleDeleteUser(user.id, e)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #f5d5d5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 )}
             </div>
