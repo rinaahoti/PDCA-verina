@@ -351,20 +351,9 @@ const TemplatesStandards: React.FC = () => {
 
     const getTranslatedLocationName = (name: string) => {
         const map: Record<string, string> = {
-            'Basel': 'admin.universityHospitalBasel',
             'Bern': 'admin.inselspitalBern',
             'Zurich': 'admin.universityHospitalZurich',
-            'Geneva': 'admin.genevaUniversityHospitals',
-            'Lausanne': 'admin.chuvLausanne',
-            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
-            'Bern': 'admin.inselspitalBern',
-            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
-            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
-            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
-            'Universitätsspital Basel (BS)': 'admin.universityHospitalBasel',
             'Universitätsspital Zürich (ZH)': 'admin.universityHospitalZurich',
-            'Genfer Universitätsspitäler (GE)': 'admin.genevaUniversityHospitals',
-            'Centre hospitalier universitaire vaudois (VD)': 'admin.chuvLausanne'
         };
         return map[name] ? t(map[name]) : name;
     };

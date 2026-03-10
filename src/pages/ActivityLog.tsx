@@ -27,21 +27,8 @@ const ActivityLog: React.FC = () => {
     // Helper to translate known location names (shared logic)
     const getTranslatedLocationName = (name: string) => {
         const map: Record<string, string> = {
-            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
-            'University Hospital Zurich': 'admin.universityHospitalZurich',
             'Zurich': 'admin.zurich',
-            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
-            'Geneva University Hospitals': 'admin.genevaUniversityHospitals',
-            'Geneva': 'admin.geneva',
-            'Bern': 'admin.inselspitalBern',
-            'Inselspital Bern': 'admin.inselspitalBern',
-            'Bern': 'admin.bern',
-            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
-            'University Hospital Basel': 'admin.universityHospitalBasel',
-            'Basel': 'admin.basel',
-            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
-            'CHUV Lausanne': 'admin.chuvLausanne',
-            'Lausanne': 'admin.lausanne'
+            'Bern': 'admin.bern'
         };
         return map[name] ? t(map[name]) : name;
     };

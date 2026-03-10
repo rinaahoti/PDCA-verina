@@ -18,12 +18,7 @@ const Administration: React.FC = () => {
     const getTranslatedLocationName = (name: string) => {
         const map: Record<string, string> = {
             'Zurich': 'admin.universityHospitalZurich',
-            'Bern': 'admin.genevaUniversityHospitals',
-            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
-            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
             'Bern': 'admin.inselspitalBern',
-            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
-            'CHUV Lausanne (VD)': 'admin.chuvLausanne'
         };
         return map[name] ? t(map[name]) : name;
     };

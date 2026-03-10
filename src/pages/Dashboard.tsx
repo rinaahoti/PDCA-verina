@@ -222,10 +222,7 @@ export default function Dashboard() {
     // Helper to get translated location name
     const getTranslatedLocationName = (name: string) => {
         if (name.includes('Zurich')) return t('admin.universityHospitalZurich');
-        if (name.includes('Geneva')) return t('admin.genevaUniversityHospitals');
         if (name.includes('Bern')) return t('admin.inselspitalBern');
-        if (name.includes('Basel')) return t('admin.universityHospitalBasel');
-        if (name.includes('Lausanne')) return t('admin.chuvLausanne');
         return name;
     };
 
