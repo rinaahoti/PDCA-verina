@@ -545,7 +545,7 @@ const Cockpit: React.FC = () => {
     const myActions = topics.flatMap(t =>
         (t.do?.actions || [])
             .filter(a => a.assignments?.some((assign: any) => assign.userId === user?.id))
-            .filter(a => a.status !== 'Done') // Filter out Done actions to show only active executions
+            .filter(a => !a.assignments.every((assign: any) => assign.completed))
             .map(a => ({
                 ...a,
                 topicId: t.id,
@@ -3087,8 +3087,7 @@ const Cockpit: React.FC = () => {
                                                             meetingType: undefined,
                                                             meetingLocation: '',
                                                             externalEnabled: false,
-                                                            externalUsers: [],
-                                                            status: 'Open'
+                                                            externalUsers: []
                                                         };
                                                         setFormState({ ...formState, actions: [...formState.actions, newAction] });
                                                     }}
@@ -3899,39 +3898,37 @@ const Cockpit: React.FC = () => {
     }
 
     return (
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ maxWidth: '1680px', margin: '0 auto', paddingTop: '0.5rem' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+                <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>Cockpit</h1>
+                <div style={{ marginTop: '0.4rem', fontSize: '13px', color: '#64748b' }}>
+                    Your personal overview - actions, themes, and responsibilities
+                </div>
+            </div>
             {/* My Actions Section (New Worker View) */}
-            <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem' }}>
-                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pdca.myActions')}</h3>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: '#F8FAFC',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '8px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: '#334155',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                    }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#5FAE9E' }}></div>
-                        {myActions.length} {t('common.assignments')}
+            <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem', borderRadius: '16px', border: '1px solid #dbe1ea', boxShadow: '0 1px 2px rgba(15,23,42,.05)' }}>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myActions')}</h3>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ecfeff', border: '1px solid #99f6e4', color: '#0f766e', borderRadius: '999px', padding: '3px 9px', fontSize: '12px', fontWeight: 600 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#14b8a6' }}></span>
+                            {myActions.length} Assignment
+                        </div>
                     </div>
+                    <button style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+                        View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
+                    </button>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', minWidth: '1000px' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc' }}>
-                                <th>{t('common.status')}</th>
-                                <th>{t('pdca.topicTitle')}</th>
-                                <th>{t('common.title')}</th>
-                                <th>{t('common.dueDate')}</th>
-                                <th>{t('common.teamsMeeting')}</th>
-                                <th>{t('common.status')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.status')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('pdca.topicTitle')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.title')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.dueDate')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.teamsMeeting')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.markComplete')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3941,20 +3938,20 @@ const Cockpit: React.FC = () => {
                                 myActions.map((a: any) => {
                                     const myAssign = a.assignments.find((p: any) => p.userId === user?.id);
                                     return (
-                                        <tr key={a.id}>
-                                            <td>
+                                        <tr key={a.id} style={{ borderTop: '1px solid #eef2f7' }}>
+                                            <td style={{ padding: '0.75rem 0.9rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span className="status-dot" style={{ backgroundColor: getStatusColor(a.status, a.dueDate) }}></span>
-                                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(a.status, a.dueDate, undefined, t).label}</span>
+                                                    <span className="status-dot" style={{ backgroundColor: getStatusColor('', a.dueDate), width: 10, height: 10 }}></span>
+                                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f766e' }}>{getStatusMeta('', a.dueDate, undefined, t).label}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ fontWeight: 600, color: '#1a202c', fontSize: '13px' }}>{getTranslatedTopicTitle(a.topicTitle)}</td>
-                                            <td style={{ fontWeight: 600, color: '#435ebe' }}>{a.title}</td>
-                                            <td style={{ fontSize: '13px' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
-                                            <td style={{ fontSize: '13px', fontWeight: 600 }}>
+                                            <td style={{ padding: '0.75rem 0.9rem', fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(a.topicTitle)}</td>
+                                            <td style={{ padding: '0.75rem 0.9rem', fontWeight: 600, color: '#0f766e', fontSize: '12px' }}>{a.title}</td>
+                                            <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', color: '#475569' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                            <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
                                                 {a.teamsMeeting ? new Date(a.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}
                                             </td>
-                                            <td>
+                                            <td style={{ padding: '0.75rem 0.9rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <input
                                                         type="checkbox"
@@ -3970,11 +3967,6 @@ const Cockpit: React.FC = () => {
                                                                         assign.completed = e.target.checked;
                                                                         assign.completedAt = e.target.checked ? new Date().toISOString() : undefined;
 
-                                                                        // Recalculate status
-                                                                        const allDone = action.assignments.every(p => p.completed);
-                                                                        const anyDone = action.assignments.some(p => p.completed);
-                                                                        action.status = allDone ? 'Done' : (anyDone ? 'In Progress' : 'Open');
-
                                                                         topicsService.update(a.topicId, { do: topic.do });
                                                                         loadData(); // Refresh UI
                                                                     }
@@ -3985,7 +3977,7 @@ const Cockpit: React.FC = () => {
                                                     <span style={{
                                                         fontSize: '12px',
                                                         fontWeight: 600,
-                                                        color: myAssign.completed ? '#166534' : '#64748b',
+                                                        color: myAssign.completed ? '#166534' : '#475569',
                                                         textDecoration: myAssign.completed ? 'none' : 'none'
                                                     }}>
                                                         {myAssign.completed ? t('common.completed') : t('common.markComplete')}
@@ -4002,17 +3994,25 @@ const Cockpit: React.FC = () => {
             </div>
 
             {/* My Topics Section */}
-            <div className="card" style={{ padding: '0', overflow: 'hidden', marginTop: '2rem' }}>
-                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfd' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pdca.myTopics')}</h3>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>{t('common.accountableFor')} {myTopics.length} {t('common.initiatives')}</div>
+            <div className="card" style={{ padding: '0', overflow: 'hidden', marginTop: '2rem', borderRadius: '16px', border: '1px solid #dbe1ea', boxShadow: '0 1px 2px rgba(15,23,42,.05)' }}>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myTopics')}</h3>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#0369a1', borderRadius: '999px', padding: '3px 9px', fontSize: '12px', fontWeight: 600 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0ea5e9' }}></span>
+                            Responsible for {myTopics.length} initiatives
+                        </div>
+                    </div>
+                    <button style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+                        View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
+                    </button>
                 </div>
 
                 {/* Quick Filters Bar */}
-                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)', background: '#fff', display: 'flex', gap: '2rem', alignItems: 'center', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, color: '#64748b' }}>{t('filters.status')}</span>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', gap: '1.5rem', alignItems: 'center', fontSize: '13px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontWeight: 600, color: '#64748b', fontSize: '12px' }}>{t('filters.status')}:</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
                             {['Monitoring', 'Critical', 'Warning', 'Done'].filter(s => s !== 'Done').map(s => {
                                 const statusKey = s.toLowerCase();
                                 return (
@@ -4020,12 +4020,12 @@ const Cockpit: React.FC = () => {
                                         key={s}
                                         onClick={() => toggleStatus(s)}
                                         style={{
-                                            padding: '4px 10px',
-                                            borderRadius: '4px',
+                                            padding: '5px 12px',
+                                            borderRadius: '999px',
                                             border: '1px solid',
-                                            borderColor: statusFilter.includes(s) ? '#424b55' : '#e2e8f0',
-                                            background: 'white',
-                                            color: statusFilter.includes(s) ? '#424b55' : '#64748b',
+                                            borderColor: statusFilter.includes(s) ? '#0891b2' : '#d1d5db',
+                                            background: statusFilter.includes(s) ? '#ecfeff' : '#fff',
+                                            color: statusFilter.includes(s) ? '#0f766e' : '#475569',
                                             fontSize: '11px',
                                             fontWeight: 600,
                                             cursor: 'pointer'
@@ -4038,20 +4038,20 @@ const Cockpit: React.FC = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, color: '#64748b' }}>{t('filters.step')}</span>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontWeight: 600, color: '#64748b', fontSize: '12px' }}>{t('filters.step')}:</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
                             {(['PLAN', 'DO', 'CHECK', 'ACT'] as Step[]).filter(s => s !== 'ACT').map(s => (
                                 <button
                                     key={s}
                                     onClick={() => toggleStep(s)}
                                     style={{
-                                        padding: '4px 10px',
-                                        borderRadius: '4px',
+                                        padding: '5px 12px',
+                                        borderRadius: '999px',
                                         border: '1px solid',
-                                        borderColor: stepFilter.includes(s) ? '#424b55' : '#e2e8f0',
-                                        background: 'white',
-                                        color: stepFilter.includes(s) ? '#424b55' : '#64748b',
+                                        borderColor: stepFilter.includes(s) ? '#0891b2' : '#d1d5db',
+                                        background: stepFilter.includes(s) ? '#ecfeff' : '#fff',
+                                        color: stepFilter.includes(s) ? '#0f766e' : '#475569',
                                         fontSize: '11px',
                                         fontWeight: 600,
                                         cursor: 'pointer'
@@ -4066,9 +4066,9 @@ const Cockpit: React.FC = () => {
                     {(statusFilter.length > 0 || stepFilter.length > 0) && (
                         <button
                             onClick={() => { setStatusFilter([]); setStepFilter([]); }}
-                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#5FAE9E', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#0f766e', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                         >
-                            <X size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> {t('common.clearFilters')}
+                            <X size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} /> {t('common.clearFilters')}
                         </button>
                     )}
                 </div>
@@ -4077,11 +4077,11 @@ const Cockpit: React.FC = () => {
                     <table style={{ width: '100%', minWidth: '1200px' }}>
                         <thead>
                             <tr style={{ background: '#f8fafc' }}>
-                                <th>{t('common.status')}</th>
-                                <th>{t('pdca.pdcaTopic')}</th>
-                                <th>{t('common.step')}</th>
-                                <th>{t('common.dueDate')}</th>
-                                <th>{t('common.responsible')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.status')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('pdca.pdcaTopic')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.step')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.dueDate')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.responsible')}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -4089,20 +4089,24 @@ const Cockpit: React.FC = () => {
                                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('common.noTopicsFound')}</td></tr>
                             ) : (
                                 myTopics.map((topic: Topic) => (
-                                    <tr key={topic.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedTopic(topic)}>
-                                        <td>
+                                    <tr key={topic.id} style={{ cursor: 'pointer', borderTop: '1px solid #eef2f7' }} onClick={() => setSelectedTopic(topic)}>
+                                        <td style={{ padding: '0.75rem 0.9rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <span className={`status-dot ${getStatusClass(topic.status, topic.dueDate)}`}></span>
                                                 <span style={{ fontSize: '12px', fontWeight: 600 }}>{getStatusMeta(topic.status, topic.dueDate, undefined, t).label}</span>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div style={{ fontWeight: 700, color: '#1a202c' }}>{getTranslatedTopicTitle(topic.title)}</div>
-                                            <div style={{ fontSize: '11px', color: '#718096', marginTop: '4px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
+                                        <td style={{ padding: '0.75rem 0.9rem' }}>
+                                            <div style={{ fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(topic.title)}</div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
                                         </td>
-                                        <td>{t(`phases.${topic.step.toLowerCase()}`).toUpperCase()}</td>
-                                        <td>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
-                                        <td style={{ fontSize: '13px', fontWeight: 500 }}>{topic.ownerName || 'Elena Rossi'}</td>
+                                        <td style={{ padding: '0.75rem 0.9rem', fontSize: '11px' }}>
+                                            <span style={{ padding: '3px 9px', borderRadius: '8px', background: '#eef2ff', color: '#2563eb', fontWeight: 700 }}>
+                                                {t(`phases.${topic.step.toLowerCase()}`).toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px' }}>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                        <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</td>
                                     </tr>
                                 ))
                             )}

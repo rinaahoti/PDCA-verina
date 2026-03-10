@@ -1,4 +1,4 @@
-{
+﻿{
     "common": {
         "loading": "Loading...",
         "save": "Save",
@@ -109,11 +109,11 @@
         "searchLocationsPlaceholder": "Search locations...",
         "editLocation": "Edit Location",
         "saveLocation": "Save Location",
-        "locationPlaceholder": "e.g. University Hospital Zurich",
+        "locationPlaceholder": "e.g. University Hospital Basel",
         "noLocationsFound": "No locations found.",
-        "universityHospitalZurich": "Z\u00fcrich",
+        "universityHospitalZurich": "Zürich",
         "genevaUniversityHospitals": "Bern",
-        "inselspitalBern": "Inselspital Bern (BE)",
+        "inselspitalBern": "Bern",
         "universityHospitalBasel": "University Hospital Basel (BS)",
         "chuvLausanne": "CHUV Lausanne (VD)",
         "departments": "Departments",
@@ -164,7 +164,7 @@
     },
     "activityLog": {
         "pageTitle": "Activity Log",
-        "subtitle": "System Governance Log · Clinical Audit Trail",
+        "subtitle": "System Governance Log Â· Clinical Audit Trail",
         "searchPlaceholder": "Search activity...",
         "allEntities": "All Entities",
         "users": "Users",
@@ -225,9 +225,9 @@
         "inPlanning": "IN PLANNING",
         "inProgress": "IN PROGRESS",
         "criticalIssues": "Act Phase",
-        "universityHospitalZurich": "Z\u00fcrich",
+        "universityHospitalZurich": "Zürich",
         "genevaUniversityHospitals": "Bern",
-        "inselspitalBern": "Inselspital Bern (BE)",
+        "inselspitalBern": "Bern",
         "universityHospitalBasel": "University Hospital Basel (BS)",
         "chuvLausanne": "CHUV Lausanne (VD)"
     },
@@ -321,10 +321,10 @@
         "draft": "DRAFT",
         "noToBe": "No TO-BE defined in PLAN phase.",
         "noActions": "No actions defined. Click \"+ Add Action\" to start execution.",
-        "saveSaved": "✓ SAVED!",
-        "emailSentSuccess": "✓ {{count}} email(s) sent successfully",
-        "emailSentFailed": "⚠ {{count}} email(s) failed to send",
-        "emailServiceUnavailable": "✗ Email service unavailable",
+        "saveSaved": "âœ“ SAVED!",
+        "emailSentSuccess": "âœ“ {{count}} email(s) sent successfully",
+        "emailSentFailed": "âš  {{count}} email(s) failed to send",
+        "emailServiceUnavailable": "âœ— Email service unavailable",
         "topicClosedReadOnly": "Topic is Done. Data is read-only. Use Re-open Topic above to make further changes.",
         "addAction": "+ Add Action",
         "addKPI": "+ Add KPI Result",
@@ -339,6 +339,7 @@
         "actionTitle": "Action Title (What)",
         "implementationDetails": "Implementation Details (How)",
         "responsiblePersons": "RESPONSIBLE PERSONS",
+        "meetingParticipants": "MEETING PARTICIPANTS",
         "meetingType": "MEETING TYPE",
         "meetingDateTime": "MEETING DATE & TIME",
         "officeLocation": "OFFICE / LOCATION",
@@ -448,9 +449,9 @@
         "improvementPurposeSaveTime": "Save time",
         "improvementPurposeReduceCosts": "Reduce costs",
         "improvementPurposeIncreaseQuality": "Increase quality",
-        "improvementPurposeGuestSatisfaction": "Gästezufriedenheit",
+        "improvementPurposeGuestSatisfaction": "GÃ¤stezufriedenheit",
         "improvementPurposeMitarberiterzufriedenheit": "Mitarberiterzufriedenheit",
-        "improvementPurposeQualityVerbessern": "Qualität verbessern"
+        "improvementPurposeQualityVerbessern": "QualitÃ¤t verbessern"
     },
     "filters": {
         "status": "Status:",
@@ -465,7 +466,7 @@
     },
     "templatesStandards": {
         "pageTitle": "Templates & Standards",
-        "subtitle": "PDCA outcomes → standardization records and generated standards",
+        "subtitle": "PDCA outcomes â†’ standardization records and generated standards",
         "exportJson": "Export JSON",
         "restoreDefaults": "Restore Default Master Data",
         "newOutcome": "New PDCA Outcome",
@@ -549,7 +550,11 @@
         }
     },
     "login": {
-        "productName": "VIRENA – PDCA"
+        "productName": "VIRENA â€“ PDCA"
     }
 }
+
+
+
+
 

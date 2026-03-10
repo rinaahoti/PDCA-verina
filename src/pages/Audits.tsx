@@ -397,7 +397,7 @@ const Audits: React.FC = () => {
                                     <label>Lead Auditor *</label>
                                     <select required className="input" value={newAudit.auditor || ''} onChange={e => setNewAudit({ ...newAudit, auditor: e.target.value })}>
                                         <option value="">Select Auditor...</option>
-                                        {users.map(u => <option key={u.id} value={u.fullName}>{u.fullName}</option>)}
+                                        {users.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                                     </select>
                                 </div>
 

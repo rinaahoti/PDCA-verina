@@ -1,265 +1,374 @@
-﻿import { Location, Department, AppUser } from '../types/admin';
+﻿import { AdminData, AppUser, Department, Location } from '../types/admin';
 import { activityService } from './activityService';
 
-const KEYS = {
+const STORAGE_KEY = 'mso_v7_admin_data';
+const LEGACY_KEYS = {
     LOCATIONS: 'mso_v6_locations',
     DEPARTMENTS: 'mso_v6_departments',
     USERS: 'mso_v6_users'
 };
 
-const REMOVED_LOCATION_CODES = new Set(['BE', 'BS', 'VD']);
-const REMOVED_LOCATION_NAMES = new Set([
-    'Inselspital Bern (BE)',
-    'University Hospital Basel (BS)',
-    'CHUV Lausanne (VD)'
-]);
+const REMOVED_LOCATION_IDS = new Set<string>();
+const REMOVED_LOCATION_NAME_KEYS: string[] = ['location tbd'];
 
-const isRemovedLocation = (loc: Location | { name?: string; code?: string }): boolean => {
-    const code = (loc.code || '').trim().toUpperCase();
-    const name = (loc.name || '').trim();
-    return REMOVED_LOCATION_CODES.has(code) || REMOVED_LOCATION_NAMES.has(name);
+const DEFAULT_ADMIN_DATA: AdminData = {
+    locations: [
+        { id: 'LOC-001', name: 'Zurich', city: 'Zurich', country: 'Switzerland', code: 'ZH' },
+        { id: 'LOC-002', name: 'Bern', city: 'Bern', country: 'Switzerland', code: 'GE' }
+    ],
+    departments: [
+        { id: 'DEP-001', name: 'Quality & Patient Safety', locationId: 'LOC-001', address: 'Mullackerstrasse 2/4, 8152 Glattbrugg' },
+        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-001', address: 'Konizstrasse 74, 3008 Bern' },
+        { id: 'DEP-BERN-001', name: 'Tertianum Fischermatteli', locationId: 'LOC-002', address: 'Bern' },
+        { id: 'DEP-BERN-002', name: 'Tertianum Viktoria', locationId: 'LOC-002', address: 'Bern' }
+    ],
+    users: [
+        { id: 'USR-001', name: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
+        { id: 'USR-002', name: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' }
+    ]
 };
 
-const sanitizeLocations = (locations: Location[]): Location[] => {
-    return locations.filter(loc => !isRemovedLocation(loc));
+const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const trimValue = (value: unknown): string => String(value ?? '').trim();
+
+const createUserName = (raw: any): string => {
+    const name = trimValue(raw?.name);
+    if (name) return name;
+    return trimValue(raw?.fullName);
 };
 
-const normalizeLocations = (locations: Location[]): Location[] => {
-    return locations.map(loc => {
-        if ((loc.code || '').toUpperCase() === 'GE') {
-            return { ...loc, city: 'Bern' };
+const isRemovedLocationName = (name: string): boolean => {
+    const key = name.toLowerCase();
+    return REMOVED_LOCATION_NAME_KEYS.some(removed => key.includes(removed));
+};
+
+const normalize = (raw: Partial<AdminData> | null | undefined): AdminData => {
+    const locations = Array.isArray(raw?.locations)
+        ? raw.locations
+            .map((loc: any) => {
+                const id = trimValue(loc?.id);
+                let name = trimValue(loc?.name);
+                let city = trimValue(loc?.city);
+                const country = trimValue(loc?.country);
+                const code = trimValue(loc?.code);
+
+                // Migrate legacy names to the current short display names used in Administration.
+                if (name === 'University Hospital Zurich (ZH)') {
+                    name = 'Zurich';
+                }
+                if (name === 'Geneva University Hospitals (GE)') {
+                    name = 'Bern';
+                    if (!city || city === 'Geneva') city = 'Bern';
+                }
+                if (name === 'Bern') {
+                    name = 'Bern';
+                    if (!city) city = 'Bern';
+                }
+
+                return { id, name, city, country, code };
+            })
+            .filter(loc => !!loc.id && !!loc.name)
+            .filter(loc => !REMOVED_LOCATION_IDS.has(loc.id) && !isRemovedLocationName(loc.name))
+            .map(loc => ({ ...loc } as Location))
+        : [];
+
+    const locationIds = new Set(locations.map(loc => loc.id));
+
+    const departments = Array.isArray(raw?.departments)
+        ? raw.departments
+            .map((dep: any) => ({
+                id: trimValue(dep?.id),
+                name: trimValue(dep?.name),
+                locationId: trimValue(dep?.locationId),
+                address: trimValue(dep?.address)
+            }))
+            .filter(dep => !!dep.id && !!dep.name && !!dep.locationId && locationIds.has(dep.locationId))
+            .map(dep => ({ ...dep } as Department))
+        : [];
+
+    const departmentIds = new Set(departments.map(dep => dep.id));
+
+    const users = Array.isArray(raw?.users)
+        ? raw.users
+            .map((user: any) => ({
+                id: trimValue(user?.id),
+                name: createUserName(user),
+                email: trimValue(user?.email),
+                role: user?.role as AppUser['role'],
+                locationId: trimValue(user?.locationId),
+                departmentId: trimValue(user?.departmentId)
+            }))
+            .filter(
+                (user): user is AppUser =>
+                    !!user.id &&
+                    !!user.name &&
+                    !!user.email &&
+                    (user.role === 'Admin' || user.role === 'Owner' || user.role === 'Assigned' || user.role === 'Viewer') &&
+                    !!user.locationId &&
+                    !!user.departmentId &&
+                    locationIds.has(user.locationId) &&
+                    departmentIds.has(user.departmentId)
+            )
+            .filter(user => departments.some(dep => dep.id === user.departmentId && dep.locationId === user.locationId))
+            .map(user => ({ ...user, fullName: user.name }))
+        : [];
+
+    return { locations, departments, users };
+};
+
+const emitUpdate = () => window.dispatchEvent(new Event('storage-admin'));
+
+const loadLegacyData = (): AdminData | null => {
+    const legacyLocations = localStorage.getItem(LEGACY_KEYS.LOCATIONS);
+    const legacyDepartments = localStorage.getItem(LEGACY_KEYS.DEPARTMENTS);
+    const legacyUsers = localStorage.getItem(LEGACY_KEYS.USERS);
+    if (!legacyLocations && !legacyDepartments && !legacyUsers) return null;
+
+    const data: Partial<AdminData> = {
+        locations: legacyLocations ? (JSON.parse(legacyLocations) as Location[]) : [],
+        departments: legacyDepartments ? (JSON.parse(legacyDepartments) as Department[]) : [],
+        users: legacyUsers ? (JSON.parse(legacyUsers) as AppUser[]) : []
+    };
+
+    return normalize(data);
+};
+
+export const loadAdminData = (): AdminData => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+        const parsed = normalize(JSON.parse(raw) as Partial<AdminData>);
+        const hasRemovedLocation = parsed.locations.some(loc => isRemovedLocationName(loc.name));
+        const healed = parsed.locations.length === 0 || hasRemovedLocation ? clone(DEFAULT_ADMIN_DATA) : parsed;
+        const serialized = JSON.stringify(healed);
+        if (serialized !== raw) {
+            localStorage.setItem(STORAGE_KEY, serialized);
         }
-        return loc;
-    });
-};
-
-const normalizeDepartments = (departments: Department[], locations: Location[]): Department[] => {
-    const hasZurich = locations.some(l => l.id === 'LOC-001');
-
-    let next = [...departments];
-
-    const hasRestelbergZurich = next.some(
-        d => d.locationId === 'LOC-001' && d.name === 'Tertianum Restelberg'
-    );
-    if (hasZurich && !hasRestelbergZurich) {
-        next.push({ id: 'DEP-RESTELBERG', name: 'Tertianum Restelberg', locationId: 'LOC-001' });
+        return healed;
     }
 
-    return next;
+    const legacy = loadLegacyData();
+    const initial = legacy || clone(DEFAULT_ADMIN_DATA);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    return initial;
 };
 
-const SEED = {
-    LOCATIONS: [
-        { id: 'LOC-001', name: 'University Hospital Zurich (ZH)', city: 'Zurich', country: 'Switzerland', code: 'ZH' },
-        { id: 'LOC-002', name: 'Geneva University Hospitals (GE)', city: 'Geneva', country: 'Switzerland', code: 'GE' }
-    ] as Location[],
-    DEPARTMENTS: [
-        { id: 'DEP-001', name: 'Quality & Patient Safety', locationId: 'LOC-001' },
-        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-001' },
-        { id: 'DEP-BERN-001', name: 'Tertianum Fischermätteli', locationId: 'LOC-002' },
-        { id: 'DEP-BERN-002', name: 'Tertianum Viktoria', locationId: 'LOC-002' }
-    ] as Department[],
-    USERS: [
-        { id: 'USR-001', fullName: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
-        { id: 'USR-002', fullName: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' }
-    ] as AppUser[]
+export const saveAdminData = (data: AdminData): AdminData => {
+    const normalized = normalize(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    emitUpdate();
+    return normalized;
 };
+
+export const resetAdminData = (): AdminData => {
+    const reset = clone(DEFAULT_ADMIN_DATA);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reset));
+    emitUpdate();
+    return reset;
+};
+
+const requireLocation = (data: AdminData, locationId: string): void => {
+    if (!data.locations.some(loc => loc.id === locationId)) {
+        throw new Error('Invalid location.');
+    }
+};
+
+const requireDepartment = (data: AdminData, departmentId: string, locationId: string): void => {
+    const dep = data.departments.find(item => item.id === departmentId);
+    if (!dep || dep.locationId !== locationId) {
+        throw new Error('Invalid department for selected location.');
+    }
+};
+
+const toStoredUser = (user: AppUser): AppUser => ({
+    id: trimValue(user.id),
+    name: trimValue(user.name || user.fullName),
+    fullName: trimValue(user.name || user.fullName),
+    email: trimValue(user.email),
+    role: user.role,
+    locationId: trimValue(user.locationId),
+    departmentId: trimValue(user.departmentId)
+});
 
 export const adminService = {
-    init: () => {
-        const rawLocations = localStorage.getItem(KEYS.LOCATIONS);
-        const locations = rawLocations
-            ? normalizeLocations(sanitizeLocations(JSON.parse(rawLocations) as Location[]))
-            : normalizeLocations(SEED.LOCATIONS);
-        localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(locations));
+    loadAdminData,
+    saveAdminData,
+    resetAdminData,
 
-        const validLocationIds = new Set(locations.map(l => l.id));
+    getLocations: (): Location[] => loadAdminData().locations,
+    getDepartments: (): Department[] => loadAdminData().departments,
+    getUsers: (): AppUser[] => loadAdminData().users,
 
-        const rawDepartments = localStorage.getItem(KEYS.DEPARTMENTS);
-        const departments = normalizeDepartments(
-            rawDepartments ? JSON.parse(rawDepartments) as Department[] : SEED.DEPARTMENTS,
-            locations
-        )
-            .filter(d => validLocationIds.has(d.locationId));
-        localStorage.setItem(KEYS.DEPARTMENTS, JSON.stringify(departments));
+    saveLocation: (loc: Location): AdminData => {
+        const data = loadAdminData();
+        const normalizedName = trimValue(loc.name) === 'Bern'
+            ? 'Bern'
+            : trimValue(loc.name);
+        const normalizedCity = trimValue(loc.name) === 'Bern'
+            ? 'Bern'
+            : trimValue(loc.city);
+        const nextLocation: Location = {
+            id: trimValue(loc.id),
+            name: normalizedName,
+            city: normalizedCity,
+            country: trimValue(loc.country),
+            code: trimValue(loc.code)
+        };
 
-        const validDepartmentIds = new Set(departments.map(d => d.id));
-
-        const rawUsers = localStorage.getItem(KEYS.USERS);
-        const users = (rawUsers ? JSON.parse(rawUsers) as AppUser[] : SEED.USERS)
-            .filter(u => u.locationId !== 'LOC-002')
-            .filter(u => validLocationIds.has(u.locationId))
-            .map(u => ({
-                ...u,
-                departmentId: u.departmentId && validDepartmentIds.has(u.departmentId) ? u.departmentId : undefined
-            }));
-        localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-    },
-
-    // LOCATIONS
-    getLocations: (): Location[] => {
-        adminService.init();
-        const locations = JSON.parse(localStorage.getItem(KEYS.LOCATIONS) || '[]') as Location[];
-        const sanitized = normalizeLocations(sanitizeLocations(locations));
-        if (JSON.stringify(sanitized) !== JSON.stringify(locations)) {
-            localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(sanitized));
+        if (!nextLocation.id || !nextLocation.name) {
+            throw new Error('Location id and name are required.');
         }
-        return sanitized;
-    },
-    saveLocation: (loc: Location) => {
-        const list = adminService.getLocations();
-        const index = list.findIndex(l => l.id === loc.id);
-        const isNew = index < 0;
-        if (index >= 0) list[index] = loc;
-        else list.push(loc);
-        localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(list));
+
+        const idx = data.locations.findIndex(item => item.id === nextLocation.id);
+        const isNew = idx < 0;
+        if (idx >= 0) data.locations[idx] = nextLocation;
+        else data.locations.push(nextLocation);
 
         activityService.log({
             type: isNew ? 'LOCATION_CREATED' : 'LOCATION_UPDATED',
-            message: isNew ? `Location ${loc.name} created` : `Location ${loc.name} updated`,
+            message: isNew ? `Location ${nextLocation.name} created` : `Location ${nextLocation.name} updated`,
             entityType: 'Location',
-            entityName: loc.name,
-            location: loc.city
+            entityName: nextLocation.name,
+            location: nextLocation.city
         });
 
-        window.dispatchEvent(new Event('storage-admin'));
+        return saveAdminData(data);
     },
-    deleteLocation: (id: string) => {
-        const deps = adminService.getDepartments().filter(d => d.locationId === id);
-        if (deps.length > 0) throw new Error('Cannot delete location with existing departments. Remove departments first.');
 
-        const users = adminService.getUsers().filter(u => u.locationId === id);
-        if (users.length > 0) throw new Error('Cannot delete location with existing users. Remove users first.');
+    deleteLocation: (id: string): AdminData => {
+        const data = loadAdminData();
+        const location = data.locations.find(loc => loc.id === id);
+        if (!location) return data;
 
-        const list = adminService.getLocations();
-        const loc = list.find(l => l.id === id);
-        const filtered = list.filter(l => l.id !== id);
-        localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(filtered));
+        const deletedDepartmentIds = new Set(data.departments.filter(dep => dep.locationId === id).map(dep => dep.id));
+        data.locations = data.locations.filter(loc => loc.id !== id);
+        data.departments = data.departments.filter(dep => dep.locationId !== id);
+        data.users = data.users.filter(user => user.locationId !== id && !deletedDepartmentIds.has(user.departmentId));
 
-        if (loc) {
-            activityService.log({
-                type: 'LOCATION_DELETED',
-                message: `Location ${loc.name} deleted`,
-                entityType: 'Location',
-                entityName: loc.name,
-                location: loc.city
-            });
+        activityService.log({
+            type: 'LOCATION_DELETED',
+            message: `Location ${location.name} deleted`,
+            entityType: 'Location',
+            entityName: location.name,
+            location: location.city
+        });
+
+        return saveAdminData(data);
+    },
+
+    saveDepartment: (dep: Department): AdminData => {
+        const data = loadAdminData();
+
+        const nextDepartment: Department = {
+            id: trimValue(dep.id),
+            name: trimValue(dep.name),
+            locationId: trimValue(dep.locationId),
+            address: trimValue(dep.address)
+        };
+
+        if (!nextDepartment.id || !nextDepartment.name || !nextDepartment.locationId) {
+            throw new Error('Department id, name and location are required.');
         }
 
-        window.dispatchEvent(new Event('storage-admin'));
-    },
+        requireLocation(data, nextDepartment.locationId);
 
-    // DEPARTMENTS
-    getDepartments: (): Department[] => {
-        adminService.init();
-        const deps = JSON.parse(localStorage.getItem(KEYS.DEPARTMENTS) || '[]') as Department[];
-        const locs = adminService.getLocations();
-        const validLocationIds = new Set(locs.map(l => l.id));
-        return deps.map(d => ({
-            ...d,
-            locationName: locs.find(l => l.id === d.locationId)?.name || 'Unknown'
-        })).filter(d => validLocationIds.has(d.locationId));
-    },
-    saveDepartment: (dep: Department) => {
-        const list = JSON.parse(localStorage.getItem(KEYS.DEPARTMENTS) || '[]') as Department[];
-        const index = list.findIndex(d => d.id === dep.id);
-        const isNew = index < 0;
-        // Remove derived fields for storage
-        const { locationName, ...storeDep } = dep;
-        if (index >= 0) list[index] = storeDep;
-        else list.push(storeDep);
-        localStorage.setItem(KEYS.DEPARTMENTS, JSON.stringify(list));
+        const idx = data.departments.findIndex(item => item.id === nextDepartment.id);
+        const isNew = idx < 0;
+        if (idx >= 0) data.departments[idx] = nextDepartment;
+        else data.departments.push(nextDepartment);
 
         activityService.log({
             type: isNew ? 'DEPARTMENT_CREATED' : 'DEPARTMENT_UPDATED',
-            message: isNew ? `Department ${dep.name} created` : `Department ${dep.name} updated`,
+            message: isNew ? `Department ${nextDepartment.name} created` : `Department ${nextDepartment.name} updated`,
             entityType: 'Department',
-            entityName: dep.name,
-            location: dep.locationName,
-            department: dep.name
+            entityName: nextDepartment.name,
+            department: nextDepartment.name
         });
 
-        window.dispatchEvent(new Event('storage-admin'));
+        return saveAdminData(data);
     },
-    deleteDepartment: (id: string) => {
-        const users = adminService.getUsers().filter(u => u.departmentId === id);
-        if (users.length > 0) throw new Error('Cannot delete department with existing users. Reassign users first.');
 
-        const list = JSON.parse(localStorage.getItem(KEYS.DEPARTMENTS) || '[]') as Department[];
-        const dep = list.find(d => d.id === id);
-        const filtered = list.filter(d => d.id !== id);
-        localStorage.setItem(KEYS.DEPARTMENTS, JSON.stringify(filtered));
+    deleteDepartment: (id: string): AdminData => {
+        const data = loadAdminData();
+        const department = data.departments.find(dep => dep.id === id);
+        if (!department) return data;
 
-        if (dep) {
-            activityService.log({
-                type: 'DEPARTMENT_DELETED',
-                message: `Department ${dep.name} deleted`,
-                entityType: 'Department',
-                entityName: dep.name,
-                department: dep.name
-            });
+        data.departments = data.departments.filter(dep => dep.id !== id);
+        data.users = data.users.filter(user => user.departmentId !== id);
+
+        activityService.log({
+            type: 'DEPARTMENT_DELETED',
+            message: `Department ${department.name} deleted`,
+            entityType: 'Department',
+            entityName: department.name,
+            department: department.name
+        });
+
+        return saveAdminData(data);
+    },
+
+    saveUser: (user: AppUser): AdminData => {
+        const data = loadAdminData();
+        const nextUser = toStoredUser(user);
+
+        if (!nextUser.id || !nextUser.name || !nextUser.email || !nextUser.locationId || !nextUser.departmentId) {
+            throw new Error('Name, email, location and department are required.');
         }
 
-        window.dispatchEvent(new Event('storage-admin'));
-    },
+        requireLocation(data, nextUser.locationId);
+        requireDepartment(data, nextUser.departmentId, nextUser.locationId);
 
-    // USERS
-    getUsers: (): AppUser[] => {
-        adminService.init();
-        const users = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]') as AppUser[];
-        const locs = adminService.getLocations();
-        const deps = adminService.getDepartments();
-        const validLocationIds = new Set(locs.map(l => l.id));
-        return users.map(u => ({
-            ...u,
-            locationName: locs.find(l => l.id === u.locationId)?.name || 'Unknown',
-            departmentName: deps.find(d => d.id === u.departmentId)?.name || '-'
-        })).filter(u => validLocationIds.has(u.locationId));
-    },
-    saveUser: (user: AppUser) => {
-        const list = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]') as AppUser[];
-        const index = list.findIndex(u => u.id === user.id);
-        const isNew = index < 0;
-        // Remove derived
-        const { locationName, departmentName, ...storeUser } = user;
-        if (index >= 0) list[index] = storeUser;
-        else list.push(storeUser);
-        localStorage.setItem(KEYS.USERS, JSON.stringify(list));
+        const idx = data.users.findIndex(item => item.id === nextUser.id);
+        const isNew = idx < 0;
+        if (idx >= 0) data.users[idx] = nextUser;
+        else data.users.push(nextUser);
 
         activityService.log({
             type: isNew ? 'USER_ADDED' : 'USER_EDITED',
-            message: isNew ? `User ${user.fullName} registered` : `User ${user.fullName} updated`,
+            message: isNew ? `User ${nextUser.name} registered` : `User ${nextUser.name} updated`,
             entityType: 'User',
-            entityName: user.fullName,
-            location: user.locationName,
-            department: user.departmentName
+            entityName: nextUser.name
         });
 
-        window.dispatchEvent(new Event('storage-admin'));
+        return saveAdminData(data);
     },
-    deleteUser: (id: string) => {
-        const list = JSON.parse(localStorage.getItem(KEYS.USERS) || '[]') as AppUser[];
-        const user = list.find(u => u.id === id);
-        const filtered = list.filter(u => u.id !== id);
-        localStorage.setItem(KEYS.USERS, JSON.stringify(filtered));
+
+    deleteUser: (id: string): AdminData => {
+        const data = loadAdminData();
+        const user = data.users.find(item => item.id === id);
+        data.users = data.users.filter(item => item.id !== id);
 
         if (user) {
             activityService.log({
                 type: 'USER_DELETED',
-                message: `User ${user.fullName} deleted`,
+                message: `User ${user.name} deleted`,
                 entityType: 'User',
-                entityName: user.fullName
+                entityName: user.name
             });
         }
 
-        window.dispatchEvent(new Event('storage-admin'));
+        return saveAdminData(data);
+    },
+
+    getLocationDependencies: (locationId: string) => {
+        const data = loadAdminData();
+        const departmentIds = data.departments.filter(dep => dep.locationId === locationId).map(dep => dep.id);
+        const usersCount = data.users.filter(user => user.locationId === locationId || departmentIds.includes(user.departmentId)).length;
+        return {
+            departmentsCount: departmentIds.length,
+            usersCount
+        };
+    },
+
+    getDepartmentDependencies: (departmentId: string) => {
+        const data = loadAdminData();
+        return {
+            usersCount: data.users.filter(user => user.departmentId === departmentId).length
+        };
     },
 
     resetData: () => {
-        localStorage.removeItem(KEYS.LOCATIONS);
-        localStorage.removeItem(KEYS.DEPARTMENTS);
-        localStorage.removeItem(KEYS.USERS);
-        window.location.reload();
+        resetAdminData();
     }
 };
 

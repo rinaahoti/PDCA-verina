@@ -178,7 +178,6 @@ export interface Topic {
             meetingLocation?: string;
             externalEnabled?: boolean;
             externalUsers?: ExternalMeetingUser[];
-            status: 'Open' | 'In Progress' | 'Done';
         }[];
         completedAt?: string;
     };

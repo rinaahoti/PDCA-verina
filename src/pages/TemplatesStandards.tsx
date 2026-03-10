@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import {
     Plus, Edit2, Trash2, Search, Download, RefreshCw, Eye, FileText,
-    X, Save, CheckCircle2, AlertCircle, Tag, MapPin, Building2, Calendar
+    X, Save, CheckCircle2, Tag, MapPin, Building2, Calendar
 } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { useLanguage } from '../contexts/LanguageContext';
+import { adminService } from '../services/adminService';
 
 // --- TYPES --- 
 
@@ -18,6 +20,7 @@ interface PDCAOutcome {
     owner: string;
     category: string;
     location: string;
+    department?: string;
     effectiveness: EffectivenessStatus;
     decision: DecisionType;
     scope: string[];
@@ -61,16 +64,17 @@ const seedOutcomes = (): PDCAOutcome[] => [
         title: 'Reduktion postoperativer Infektionsraten',
         owner: 'Dr. Marcus Weber',
         category: 'Patientensicherheit',
-        location: 'Universitätsspital Basel (BS)',
+        location: 'UniversitÃ¤tsspital Basel (BS)',
+        department: 'Surgery Department',
         effectiveness: 'Effective',
         decision: 'Standardize',
         scope: ['Chirurgie', 'Infektionskontrolle'],
-        areas: ['Präoperative Protokolle', 'Sterilisationsverfahren'],
+        areas: ['PrÃ¤operative Protokolle', 'Sterilisationsverfahren'],
         kpi: [
             { name: 'Infektionsraten-Reduktion', target: 50, actual: 65, status: 'Achieved' }
         ],
-        description: 'Erweiterte präoperative Protokolle implementiert',
-        lessons: 'Frühzeitige Intervention und Schulung des Personals kritisch',
+        description: 'Erweiterte prÃ¤operative Protokolle implementiert',
+        lessons: 'FrÃ¼hzeitige Intervention und Schulung des Personals kritisch',
         signoff: { standardized: true, noPending: true, readyClose: true },
         standardId: 'STD-T-001',
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -80,7 +84,8 @@ const seedOutcomes = (): PDCAOutcome[] => [
         title: 'Reduktion von Medikationsfehlern',
         owner: 'Dr. Elena Rossi',
         category: 'Medikamentensicherheit',
-        location: 'Inselspital Bern (BE)',
+        location: 'Bern',
+        department: 'Quality & Patient Safety',
         effectiveness: 'Partially Effective',
         decision: 'Improve & Re-run',
         scope: ['Pflege', 'Apotheke'],
@@ -89,17 +94,18 @@ const seedOutcomes = (): PDCAOutcome[] => [
             { name: 'Fehlerraten-Reduktion', target: 80, actual: 45, status: 'Partial' }
         ],
         description: 'Elektronisches Verifizierungssystem pilotiert',
-        lessons: 'Technologieeinführung erfordert mehr Schulung',
-        whyNot: 'Ziel nicht erreicht; erfordert zusätzliche Schulungszyklen und Systemverfeinerung vor der Standardisierung',
+        lessons: 'TechnologieeinfÃ¼hrung erfordert mehr Schulung',
+        whyNot: 'Ziel nicht erreicht; erfordert zusÃ¤tzliche Schulungszyklen und Systemverfeinerung vor der Standardisierung',
         signoff: { standardized: false, noPending: false, readyClose: false },
         createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
     },
     {
         ref: 'T-003',
-        title: 'Einhaltung des Sturzpräventionsprotokolls',
+        title: 'Einhaltung des SturzprÃ¤ventionsprotokolls',
         owner: 'Sarah Johnson (RN)',
         category: 'Patientensicherheit',
-        location: 'Universitätsspital Basel (BS)',
+        location: 'UniversitÃ¤tsspital Basel (BS)',
+        department: 'Quality & Patient Safety',
         effectiveness: 'Effective',
         decision: 'Standardize',
         scope: ['Pflege', 'Geriatrie'],
@@ -107,8 +113,8 @@ const seedOutcomes = (): PDCAOutcome[] => [
         kpi: [
             { name: 'Sturzvorfall-Reduktion', target: 40, actual: 52, status: 'Achieved' }
         ],
-        description: 'Verbesserte Sturzrisikobewertung und Präventionsmaßnahmen',
-        lessons: 'Konsequente Anwendung über alle Schichten hinweg essenziell',
+        description: 'Verbesserte Sturzrisikobewertung und PrÃ¤ventionsmaÃŸnahmen',
+        lessons: 'Konsequente Anwendung Ã¼ber alle Schichten hinweg essenziell',
         signoff: { standardized: true, noPending: true, readyClose: true },
         standardId: 'STD-T-003',
         createdAt: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString()
@@ -127,7 +133,7 @@ const seedTemplates = (): Template[] => [
     },
     {
         id: 'STD-T-003',
-        title: 'Standard: Einhaltung des Sturzpräventionsprotokolls',
+        title: 'Standard: Einhaltung des SturzprÃ¤ventionsprotokolls',
         kind: 'standard',
         category: 'Patientensicherheit',
         step: 'ACT',
@@ -203,11 +209,13 @@ const TemplatesStandards: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'standardizations' | 'templates'>('standardizations');
     const [outcomes, setOutcomes] = useState<PDCAOutcome[]>([]);
     const [templates, setTemplates] = useState<Template[]>([]);
+    const [adminLocations, setAdminLocations] = useState<Array<{ id: string; name: string }>>([]);
+    const [adminDepartments, setAdminDepartments] = useState<Array<{ name: string; locationId: string }>>([]);
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('All Categories');
     const [locationFilter, setLocationFilter] = useState('All Locations');
+    const [departmentFilter, setDepartmentFilter] = useState('All Departments');
     const [decisionFilter, setDecisionFilter] = useState('All Decisions');
 
     // Modals
@@ -215,6 +223,8 @@ const TemplatesStandards: React.FC = () => {
     const [isViewModalOpen, setViewModalOpen] = useState(false);
     const [editingOutcome, setEditingOutcome] = useState<Partial<PDCAOutcome> | null>(null);
     const [viewingOutcome, setViewingOutcome] = useState<PDCAOutcome | null>(null);
+    const [isTemplateModalOpen, setTemplateModalOpen] = useState(false);
+    const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null);
 
     useEffect(() => {
         const load = () => {
@@ -230,27 +240,76 @@ const TemplatesStandards: React.FC = () => {
         };
     }, []);
 
+    useEffect(() => {
+        const loadAdminFilters = () => {
+            const locations = adminService.getLocations()
+                .map(loc => ({ id: loc.id, name: loc.name }))
+                .filter(loc => !!loc.id && !!loc.name);
+            const departments = adminService.getDepartments()
+                .map(dep => ({ name: dep.name, locationId: dep.locationId }))
+                .filter(dep => !!dep.name && !!dep.locationId);
+            setAdminLocations(locations);
+            setAdminDepartments(departments);
+        };
+        loadAdminFilters();
+        window.addEventListener('storage-admin', loadAdminFilters);
+        return () => window.removeEventListener('storage-admin', loadAdminFilters);
+    }, []);
+
     // KPI Calculations
     const totalOutcomes = outcomes.length;
     const standardized = outcomes.filter(o => o.decision === 'Standardize').length;
     const notStandardized = outcomes.filter(o => o.decision !== 'Standardize').length;
-    const totalStandards = templates.filter(t => t.kind === 'standard').length;
 
     // Filtered outcomes
     const filteredOutcomes = useMemo(() => {
         return outcomes.filter(o => {
             const matchesSearch = o.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 o.ref.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesCategory = categoryFilter === 'All Categories' || o.category === categoryFilter;
             const matchesLocation = locationFilter === 'All Locations' || o.location === locationFilter;
+            const matchesDepartment = departmentFilter === 'All Departments' || o.department === departmentFilter;
             const matchesDecision = decisionFilter === 'All Decisions' || o.decision === decisionFilter;
-            return matchesSearch && matchesCategory && matchesLocation && matchesDecision;
+            return matchesSearch && matchesLocation && matchesDepartment && matchesDecision;
         });
-    }, [outcomes, searchTerm, categoryFilter, locationFilter, decisionFilter]);
+    }, [outcomes, searchTerm, locationFilter, departmentFilter, decisionFilter]);
 
-    // Get unique values for filters
-    const categories = Array.from(new Set(outcomes.map(o => o.category)));
-    const locations = Array.from(new Set(outcomes.map(o => o.location)));
+    // Prefer locations from Administration; fallback to outcomes if admin is empty.
+    const locations = useMemo(() => {
+        if (adminLocations.length > 0) {
+            return Array.from(new Set(adminLocations.map(loc => loc.name).filter(Boolean)));
+        }
+        return Array.from(new Set(outcomes.map(o => o.location).filter(Boolean)));
+    }, [adminLocations, outcomes]);
+
+    const departments = useMemo(() => {
+        if (adminDepartments.length > 0) {
+            const selectedLocationIds =
+                locationFilter === 'All Locations'
+                    ? null
+                    : adminLocations
+                        .filter(loc => loc.name === locationFilter)
+                        .map(loc => loc.id);
+
+            const names = adminDepartments
+                .filter(dep => !selectedLocationIds || selectedLocationIds.includes(dep.locationId))
+                .map(dep => dep.name)
+                .filter(Boolean);
+
+            return Array.from(new Set(names));
+        }
+
+        const fallback = outcomes
+            .filter(o => locationFilter === 'All Locations' || o.location === locationFilter)
+            .map(o => o.department)
+            .filter(Boolean) as string[];
+        return Array.from(new Set(fallback));
+    }, [adminDepartments, adminLocations, outcomes, locationFilter]);
+
+    useEffect(() => {
+        if (departmentFilter !== 'All Departments' && !departments.includes(departmentFilter)) {
+            setDepartmentFilter('All Departments');
+        }
+    }, [departmentFilter, departments]);
 
     // Translated Helpers
     const getTranslatedDecision = (decision: string) => {
@@ -297,12 +356,15 @@ const TemplatesStandards: React.FC = () => {
             'Zurich': 'admin.universityHospitalZurich',
             'Geneva': 'admin.genevaUniversityHospitals',
             'Lausanne': 'admin.chuvLausanne',
+            'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
+            'Bern': 'admin.inselspitalBern',
+            'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
+            'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
+            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
             'Universitätsspital Basel (BS)': 'admin.universityHospitalBasel',
-            'Inselspital Bern (BE)': 'admin.inselspitalBern',
             'Universitätsspital Zürich (ZH)': 'admin.universityHospitalZurich',
             'Genfer Universitätsspitäler (GE)': 'admin.genevaUniversityHospitals',
-            'CHUV Lausanne (VD)': 'admin.chuvLausanne',
-            'University Hospital Basel (BS)': 'admin.universityHospitalBasel'
+            'Centre hospitalier universitaire vaudois (VD)': 'admin.chuvLausanne'
         };
         return map[name] ? t(map[name]) : name;
     };
@@ -311,7 +373,7 @@ const TemplatesStandards: React.FC = () => {
         const titleMap: Record<string, string> = {
             'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
             'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
-            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des SturzprÃ¤ventionsprotokolls',
             'Reduktion von Fehlern bei der Medikamentenabgabe': 'Reduktion von Medikationsfehlern'
         };
         return titleMap[title] || title;
@@ -363,6 +425,120 @@ const TemplatesStandards: React.FC = () => {
             'Archived': 'templatesStandards.badges.archived'
         };
         return map[status] ? t(map[status]) : status;
+    };
+
+    const getOutcomeFromSource = (source: string): PDCAOutcome | null => {
+        const match = source.match(/T-\d+/i);
+        if (!match) return null;
+        const ref = match[0].toUpperCase();
+        return outcomes.find(o => o.ref.toUpperCase() === ref) || null;
+    };
+
+    const filteredTemplates = useMemo(() => {
+        return templates.filter(template => {
+            const linkedOutcome = getOutcomeFromSource(template.source);
+            const matchesSearch =
+                template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                template.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                template.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (linkedOutcome?.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (linkedOutcome?.ref || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesLocation =
+                locationFilter === 'All Locations' || (linkedOutcome?.location || '') === locationFilter;
+            const matchesDepartment =
+                departmentFilter === 'All Departments' || (linkedOutcome?.department || '') === departmentFilter;
+            return matchesSearch && matchesLocation && matchesDepartment;
+        });
+    }, [templates, outcomes, searchTerm, locationFilter, departmentFilter]);
+
+    const downloadTemplateDetails = (template: Template) => {
+        const linkedOutcome = getOutcomeFromSource(template.source);
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        const left = 14;
+        const maxW = 182;
+        const pageBottom = 285;
+        const lineH = 5.5;
+        let y = 16;
+
+        const ensureSpace = (needed: number) => {
+            if (y + needed > pageBottom) {
+                doc.addPage();
+                y = 16;
+            }
+        };
+
+        const heading = (text: string) => {
+            ensureSpace(10);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(text, left, y);
+            y += 8;
+        };
+
+        const subheading = (text: string) => {
+            ensureSpace(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text(text, left, y);
+            y += 6;
+        };
+
+        const field = (label: string, value: string) => {
+            const text = `${label}: ${value || '-'}`;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            const lines = doc.splitTextToSize(text, maxW);
+            ensureSpace(lines.length * lineH + 2);
+            doc.text(lines, left, y);
+            y += lines.length * lineH + 1;
+        };
+
+        heading('Template / Standard Details');
+        field('ID', template.id);
+        field('Title', template.title);
+        field('Kind', getTranslatedTemplateKind(template.kind));
+        field('Step', getTranslatedStep(template.step));
+        field('Status', getTranslatedTemplateStatus(template.status));
+        field('Source', template.source || '-');
+
+        y += 2;
+        subheading('Linked PDCA Outcome');
+
+        if (!linkedOutcome) {
+            field('Info', 'No linked PDCA outcome details found for this source.');
+            doc.save(`${template.id}_details.pdf`);
+            return;
+        }
+
+        field('Reference', linkedOutcome.ref);
+        field('Title', linkedOutcome.title);
+        field('Owner', linkedOutcome.owner || '-');
+        field('Description', linkedOutcome.description || '-');
+        field('Lessons Learned', linkedOutcome.lessons || '-');
+        field('Why Not Standardized', linkedOutcome.whyNot || '-');
+
+        const scopeText = (linkedOutcome.scope || []).length > 0
+            ? linkedOutcome.scope.map(s => getTranslatedTag(s)).join(', ')
+            : '-';
+        const areasText = (linkedOutcome.areas || []).length > 0
+            ? linkedOutcome.areas.map(a => getTranslatedTag(a)).join(', ')
+            : '-';
+
+        field('Scope', scopeText);
+        field('Affected Areas / Rollout', areasText);
+        field('Date', new Date(linkedOutcome.createdAt).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB'));
+
+        const kpis = linkedOutcome.kpi || [];
+        if (kpis.length > 0) {
+            y += 2;
+            subheading('KPIs');
+            kpis.forEach((kpi, idx) => {
+                field(`KPI ${idx + 1}`, `${kpi.name} | Target: ${kpi.target}% | Actual: ${kpi.actual}% | Status: ${getTranslatedKPIStatus(kpi.status)}`);
+            });
+        }
+
+        doc.save(`${template.id}_details.pdf`);
     };
 
 
@@ -420,6 +596,7 @@ const TemplatesStandards: React.FC = () => {
             owner: editingOutcome.owner || '',
             category: editingOutcome.category || '',
             location: editingOutcome.location || '',
+            department: editingOutcome.department || '',
             effectiveness: editingOutcome.effectiveness || 'Effective',
             decision: editingOutcome.decision || 'Standardize',
             scope: editingOutcome.scope || [],
@@ -454,7 +631,7 @@ const TemplatesStandards: React.FC = () => {
             </div>
 
             {/* KPI SUMMARY ROW */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(100,116,139,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <FileText size={20} color="#64748B" strokeWidth={1.5} />
@@ -476,43 +653,34 @@ const TemplatesStandards: React.FC = () => {
                 </div>
 
                 <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(245,158,11,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <AlertCircle size={20} color="#F59E0B" strokeWidth={1.5} />
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(95,174,158,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <RefreshCw size={20} color="#5FAE9E" strokeWidth={1.8} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.notStandardized')}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B' }}>{notStandardized}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#5FAE9E' }}>{notStandardized}</div>
                     </div>
                 </div>
 
-                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <FileText size={20} color="#3B82F6" strokeWidth={1.5} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.standards')}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#3B82F6' }}>{totalStandards}</div>
-                    </div>
-                </div>
             </div>
 
             {/* MAIN PANEL WITH TABS */}
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 {/* TABS */}
-                <div style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 1.5rem', display: 'flex', gap: '1rem' }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', padding: '0 1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
                     <button
                         onClick={() => setActiveTab('standardizations')}
                         style={{
-                            padding: '0.5rem 1.25rem',
-                            borderRadius: '20px',
+                            padding: '0.9rem 1.1rem 0.8rem',
+                            borderRadius: 0,
                             fontSize: '13px',
                             fontWeight: 600,
                             cursor: 'pointer',
-                            border: '1px solid',
-                            background: activeTab === 'standardizations' ? '#cbeee2' : 'white',
-                            color: activeTab === 'standardizations' ? '#5FAE9E' : 'var(--color-text-muted)',
-                            borderColor: activeTab === 'standardizations' ? '#5FAE9E' : 'var(--color-border)',
-                            transition: 'all 0.2s'
+                            border: 'none',
+                            background: 'transparent',
+                            color: activeTab === 'standardizations' ? '#5FAE9E' : '#94a3b8',
+                            borderBottom: activeTab === 'standardizations' ? '2px solid #5FAE9E' : '2px solid transparent',
+                            transition: 'all 0.15s'
                         }}
                     >
                         {t('templatesStandards.tabStandardizations')}
@@ -520,16 +688,16 @@ const TemplatesStandards: React.FC = () => {
                     <button
                         onClick={() => setActiveTab('templates')}
                         style={{
-                            padding: '0.5rem 1.25rem',
-                            borderRadius: '20px',
+                            padding: '0.9rem 1.1rem 0.8rem',
+                            borderRadius: 0,
                             fontSize: '13px',
                             fontWeight: 600,
                             cursor: 'pointer',
-                            border: '1px solid',
-                            background: activeTab === 'templates' ? '#cbeee2' : 'white',
-                            color: activeTab === 'templates' ? '#5FAE9E' : 'var(--color-text-muted)',
-                            borderColor: activeTab === 'templates' ? '#5FAE9E' : 'var(--color-border)',
-                            transition: 'all 0.2s'
+                            border: 'none',
+                            background: 'transparent',
+                            color: activeTab === 'templates' ? '#5FAE9E' : '#94a3b8',
+                            borderBottom: activeTab === 'templates' ? '2px solid #5FAE9E' : '2px solid transparent',
+                            transition: 'all 0.15s'
                         }}
                     >
                         {t('templatesStandards.tabTemplates')}
@@ -537,44 +705,45 @@ const TemplatesStandards: React.FC = () => {
                 </div>
 
                 {/* FILTERS ROW */}
-                {activeTab === 'standardizations' && (
-                    <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ position: 'relative', flex: '1 1 300px' }}>
+                {(activeTab === 'standardizations' || activeTab === 'templates') && (
+                    <div style={{ padding: '0.8rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'nowrap' }}>
+                        <div style={{ position: 'relative', flex: '0 1 360px', minWidth: '260px' }}>
                             <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                             <input
                                 type="text"
                                 placeholder={t('templatesStandards.searchPlaceholder')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ width: '100%', padding: '10px 16px 10px 40px', borderRadius: '8px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '14px' }}
+                                style={{ width: '100%', padding: '10px 16px 10px 40px', borderRadius: '10px', border: '1px solid var(--color-border)', outline: 'none', fontSize: '14px' }}
                             />
                         </div>
                         <select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
-                        >
-                            <option value="All Categories">{t('templatesStandards.filters.allCategories')}</option>
-                            {categories.map(c => <option key={c} value={c}>{getTranslatedCategory(c)}</option>)}
-                        </select>
-                        <select
                             value={locationFilter}
                             onChange={(e) => setLocationFilter(e.target.value)}
-                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
+                            style={{ width: '160px', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', flexShrink: 0 }}
                         >
                             <option value="All Locations">{t('templatesStandards.filters.allLocations')}</option>
                             {locations.map(l => <option key={l} value={l}>{getTranslatedLocationName(l)}</option>)}
                         </select>
                         <select
-                            value={decisionFilter}
-                            onChange={(e) => setDecisionFilter(e.target.value)}
-                            style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer' }}
+                            value={departmentFilter}
+                            onChange={(e) => setDepartmentFilter(e.target.value)}
+                            style={{ width: '170px', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', flexShrink: 0 }}
                         >
-                            <option value="All Decisions">{t('templatesStandards.filters.allDecisions')}</option>
-                            <option value="Standardize">{t('templatesStandards.badges.standardize')}</option>
-                            <option value="Improve & Re-run">{t('templatesStandards.badges.improveRerun')}</option>
-                            <option value="Close">{t('templatesStandards.badges.close')}</option>
+                            <option value="All Departments">{language === 'de' ? 'Alle Betriebe' : 'All Departments'}</option>
+                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
                         </select>
+                        {activeTab === 'standardizations' && (
+                            <select
+                                value={decisionFilter}
+                                onChange={(e) => setDecisionFilter(e.target.value)}
+                                style={{ width: '160px', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', flexShrink: 0 }}
+                            >
+                                <option value="All Decisions">{t('templatesStandards.filters.allDecisions')}</option>
+                                <option value="Standardize">{t('templatesStandards.badges.standardize')}</option>
+                                <option value="Improve & Re-run">{t('templatesStandards.badges.improveRerun')}</option>
+                            </select>
+                        )}
                     </div>
                 )}
 
@@ -587,33 +756,28 @@ const TemplatesStandards: React.FC = () => {
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.topicRef')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.title')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.outcome')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kpiSummary')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.scope')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.date')}</th>
                                     <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredOutcomes.length === 0 ? (
-                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noOutcomes')}</td></tr>
+                                    <tr><td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noOutcomes')}</td></tr>
                                 ) : (
                                     filteredOutcomes.map(outcome => {
-                                        const achievedKPIs = outcome.kpi.filter(k => k.status === 'Achieved').length;
-                                        const totalKPIs = outcome.kpi.length;
-
                                         return (
                                             <tr key={outcome.ref} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                 <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>{outcome.ref}</td>
                                                 <td style={{ padding: '1rem' }}>
                                                     <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '4px' }}>{getTranslatedTitle(outcome.title)}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748b' }}>
-                                                        {outcome.owner} · {getTranslatedCategory(outcome.category)} · {getTranslatedLocationName(outcome.location)}
+                                                        {getTranslatedLocationName(outcome.location)}
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem' }}>
                                                     <div style={{
-                                                        background: '#F8F9FA',
-                                                        borderLeft: `4px solid ${outcome.decision === 'Standardize' ? '#22C55E' : '#F59E0B'}`,
+                                                        background: 'transparent',
+                                                        borderLeft: '4px solid #5FAE9E',
                                                         padding: '10px 14px',
                                                         borderRadius: '4px',
                                                         display: 'flex',
@@ -630,41 +794,6 @@ const TemplatesStandards: React.FC = () => {
                                                         }}>
                                                             {getTranslatedDecision(outcome.decision)}
                                                         </div>
-                                                        <div style={{
-                                                            fontSize: '14px',
-                                                            fontWeight: 600,
-                                                            color: '#334155'
-                                                        }}>
-                                                            {getTranslatedEffectiveness(outcome.effectiveness)}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td style={{ padding: '1rem', color: '#64748b' }}>{achievedKPIs}/{totalKPIs} {t('templatesStandards.badges.achieved')}</td>
-                                                <td style={{ padding: '1rem' }}>
-                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                                        {outcome.scope.slice(0, 2).map((s, i) => (
-                                                            <span key={i} style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '8px',
-                                                                padding: '6px 14px',
-                                                                background: '#F3F4F6',
-                                                                borderRadius: '999px',
-                                                                fontSize: '12px',
-                                                                color: '#475569',
-                                                                fontWeight: 500
-                                                            }}>
-                                                                <span style={{
-                                                                    width: '6px',
-                                                                    height: '6px',
-                                                                    borderRadius: '50%',
-                                                                    background: '#5FAE9E',
-                                                                    display: 'inline-block'
-                                                                }} />
-                                                                {getTranslatedTag(s)}
-                                                            </span>
-                                                        ))}
-                                                        {outcome.scope.length > 2 && <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>+{outcome.scope.length - 2}</span>}
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>
@@ -699,59 +828,32 @@ const TemplatesStandards: React.FC = () => {
                                 <tr>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.id')}</th>
                                     <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.title')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kind')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.category')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.step')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.status')}</th>
-                                    <th style={{ textAlign: 'left', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.source')}</th>
+                                    <th style={{ textAlign: 'right', padding: '1rem', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {templates.length === 0 ? (
-                                    <tr><td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noTemplates')}</td></tr>
+                                {filteredTemplates.length === 0 ? (
+                                    <tr><td colSpan={3} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>{t('templatesStandards.emptyStates.noTemplates')}</td></tr>
                                 ) : (
-                                    templates.map(template => (
-                                        <tr key={template.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    filteredTemplates.map(template => (
+                                        <tr
+                                            key={template.id}
+                                            style={{ borderBottom: '1px solid #f1f5f9' }}
+                                        >
                                             <td style={{ padding: '1rem', fontFamily: 'monospace', fontWeight: 600, color: '#1e293b' }}>{template.id}</td>
                                             <td style={{ padding: '1rem', fontWeight: 600, color: '#1e293b' }}>{template.title}</td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '10px',
-                                                    fontWeight: 600,
-                                                    background: template.kind === 'standard' ? '#dbeafe' : '#f3e8ff',
-                                                    color: template.kind === 'standard' ? '#1e40af' : '#7e22ce'
-                                                }}>
-                                                    {getTranslatedTemplateKind(template.kind)}
-                                                </span>
+                                            <td style={{ padding: '1rem', textAlign: 'right' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                    <button
+                                                        onClick={() => { setViewingTemplate(template); setTemplateModalOpen(true); }}
+                                                        className="btn btn-outline"
+                                                        style={{ padding: '4px 8px' }}
+                                                        title={t('common.view')}
+                                                    >
+                                                        <Eye size={13} />
+                                                    </button>
+                                                </div>
                                             </td>
-                                            <td style={{ padding: '1rem', color: '#64748b' }}>{getTranslatedCategory(template.category)}</td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '10px',
-                                                    fontWeight: 600,
-                                                    background: '#f1f5f9',
-                                                    color: '#64748b'
-                                                }}>
-                                                    {getTranslatedStep(template.step)}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <span style={{
-                                                    padding: '2px 8px',
-                                                    borderRadius: '12px',
-                                                    fontSize: '10px',
-                                                    fontWeight: 600,
-                                                    background: template.status === 'Published' ? '#dcfce7' : template.status === 'Draft' ? '#fef3c7' : '#fee2e2',
-                                                    color: template.status === 'Published' ? '#166534' : template.status === 'Draft' ? '#92400e' : '#991b1b'
-                                                }}>
-                                                    {getTranslatedTemplateStatus(template.status)}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '1rem', color: '#64748b', fontSize: '12px' }}>{template.source}</td>
                                         </tr>
                                     ))
                                 )}
@@ -760,6 +862,187 @@ const TemplatesStandards: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* TEMPLATE/STANDARD VIEW MODAL */}
+            {isTemplateModalOpen && viewingTemplate && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: '760px', maxHeight: '82vh', overflow: 'auto', padding: 0 }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
+                            <h3 style={{ margin: 0 }}>{viewingTemplate.kind === 'standard' ? 'Standard Details' : 'Template Details'}</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <button
+                                    onClick={() => downloadTemplateDetails(viewingTemplate)}
+                                    className="btn btn-outline"
+                                    style={{ padding: '6px 10px' }}
+                                >
+                                    <Download size={14} />
+                                    Download
+                                </button>
+                                <button onClick={() => { setTemplateModalOpen(false); setViewingTemplate(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>ID</div>
+                                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{viewingTemplate.id}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.source')}</div>
+                                    <div>{viewingTemplate.source || '-'}</div>
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.title')}</div>
+                                <div style={{ fontWeight: 600 }}>{viewingTemplate.title}</div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.kind')}</div>
+                                    <div>{getTranslatedTemplateKind(viewingTemplate.kind)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.step')}</div>
+                                    <div>{getTranslatedStep(viewingTemplate.step)}</div>
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.status')}</div>
+                                    <div>{getTranslatedTemplateStatus(viewingTemplate.status)}</div>
+                                </div>
+                            </div>
+
+                            {(() => {
+                                const linkedOutcome = getOutcomeFromSource(viewingTemplate.source);
+                                if (!linkedOutcome) {
+                                    return (
+                                        <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', color: '#64748b' }}>
+                                            No linked PDCA outcome details found for this source.
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <>
+                                        <div style={{ borderTop: '1px solid var(--color-border)', marginTop: '0.5rem', paddingTop: '1rem' }}>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', fontWeight: 600 }}>Linked PDCA Outcome</div>
+                                            <div style={{ fontFamily: 'monospace', fontWeight: 600, marginBottom: '6px' }}>{linkedOutcome.ref}</div>
+                                            <div style={{ fontWeight: 600 }}>{linkedOutcome.title}</div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.owner')}</div>
+                                                <div>{linkedOutcome.owner || '-'}</div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.description')}</div>
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>{linkedOutcome.description || '-'}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.lessonsLearned')}</div>
+                                            <div style={{ whiteSpace: 'pre-wrap' }}>{linkedOutcome.lessons || '-'}</div>
+                                        </div>
+                                        {linkedOutcome.whyNot && (
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.whyNotStandardized')}</div>
+                                                <div style={{ padding: '0.75rem', background: '#dff5ef', borderRadius: '8px', color: '#2f7f72' }}>{linkedOutcome.whyNot}</div>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.kpis')}</div>
+                                            {linkedOutcome.kpi && linkedOutcome.kpi.length > 0 ? (
+                                                linkedOutcome.kpi.map((k, i) => (
+                                                    <div key={i} style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', marginBottom: '8px' }}>
+                                                        <div style={{ fontWeight: 600, marginBottom: '4px' }}>{k.name}</div>
+                                                        <div style={{ fontSize: '12px', color: '#64748b' }}>
+                                                            {t('templatesStandards.modal.target')}: {k.target}% | {t('templatesStandards.modal.actual')}: {k.actual}% | {t('templatesStandards.modal.status')}: <span style={{
+                                                                padding: '2px 6px',
+                                                                borderRadius: '8px',
+                                                                background: k.status === 'Achieved' ? '#dcfce7' : k.status === 'Partial' ? '#dff5ef' : '#fee2e2',
+                                                                color: k.status === 'Achieved' ? '#166534' : k.status === 'Partial' ? '#2f7f72' : '#991b1b',
+                                                                fontWeight: 600
+                                                            }}>{getTranslatedKPIStatus(k.status)}</span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ color: '#64748b' }}>-</div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.scope')}</div>
+                                            {linkedOutcome.scope && linkedOutcome.scope.length > 0 ? (
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                    {linkedOutcome.scope.map((s, i) => (
+                                                        <span key={i} style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            padding: '6px 14px',
+                                                            background: '#F3F4F6',
+                                                            borderRadius: '999px',
+                                                            fontSize: '12px',
+                                                            color: '#475569',
+                                                            fontWeight: 500
+                                                        }}>
+                                                            <span style={{
+                                                                width: '6px',
+                                                                height: '6px',
+                                                                borderRadius: '50%',
+                                                                background: '#5FAE9E',
+                                                                display: 'inline-block'
+                                                            }} />
+                                                            {getTranslatedTag(s)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div style={{ color: '#64748b' }}>-</div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>{t('pdca.affectedAreas')}</div>
+                                            {linkedOutcome.areas && linkedOutcome.areas.length > 0 ? (
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                    {linkedOutcome.areas.map((area, idx) => (
+                                                        <span key={idx} style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            padding: '6px 14px',
+                                                            background: '#F3F4F6',
+                                                            borderRadius: '999px',
+                                                            fontSize: '12px',
+                                                            color: '#475569',
+                                                            fontWeight: 500
+                                                        }}>
+                                                            <span style={{
+                                                                width: '6px',
+                                                                height: '6px',
+                                                                borderRadius: '50%',
+                                                                background: '#5FAE9E',
+                                                                display: 'inline-block'
+                                                            }} />
+                                                            {getTranslatedTag(area)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div style={{ color: '#64748b' }}>-</div>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.date')}</div>
+                                            <div>{new Date(linkedOutcome.createdAt).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB')}</div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* VIEW MODAL */}
             {isViewModalOpen && viewingOutcome && (
@@ -801,7 +1084,7 @@ const TemplatesStandards: React.FC = () => {
                             {viewingOutcome.whyNot && (
                                 <div>
                                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.modal.whyNotStandardized')}</div>
-                                    <div style={{ padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', color: '#92400e' }}>{viewingOutcome.whyNot}</div>
+                                    <div style={{ padding: '0.75rem', background: '#dff5ef', borderRadius: '8px', color: '#2f7f72' }}>{viewingOutcome.whyNot}</div>
                                 </div>
                             )}
                             <div>
@@ -813,13 +1096,48 @@ const TemplatesStandards: React.FC = () => {
                                             {t('templatesStandards.modal.target')}: {k.target}% | {t('templatesStandards.modal.actual')}: {k.actual}% | {t('templatesStandards.modal.status')}: <span style={{
                                                 padding: '2px 6px',
                                                 borderRadius: '8px',
-                                                background: k.status === 'Achieved' ? '#dcfce7' : k.status === 'Partial' ? '#fef3c7' : '#fee2e2',
-                                                color: k.status === 'Achieved' ? '#166534' : k.status === 'Partial' ? '#92400e' : '#991b1b',
+                                                background: k.status === 'Achieved' ? '#dcfce7' : k.status === 'Partial' ? '#dff5ef' : '#fee2e2',
+                                                color: k.status === 'Achieved' ? '#166534' : k.status === 'Partial' ? '#2f7f72' : '#991b1b',
                                                 fontWeight: 600
                                             }}>{getTranslatedKPIStatus(k.status)}</span>
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.scope')}</div>
+                                {viewingOutcome.scope && viewingOutcome.scope.length > 0 ? (
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        {viewingOutcome.scope.map((s, i) => (
+                                            <span key={i} style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '6px 14px',
+                                                background: '#F3F4F6',
+                                                borderRadius: '999px',
+                                                fontSize: '12px',
+                                                color: '#475569',
+                                                fontWeight: 500
+                                            }}>
+                                                <span style={{
+                                                    width: '6px',
+                                                    height: '6px',
+                                                    borderRadius: '50%',
+                                                    background: '#5FAE9E',
+                                                    display: 'inline-block'
+                                                }} />
+                                                {getTranslatedTag(s)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: '#64748b' }}>-</div>
+                                )}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>{t('templatesStandards.columns.date')}</div>
+                                <div>{new Date(viewingOutcome.createdAt).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB')}</div>
                             </div>
                         </div>
                     </div>
@@ -910,3 +1228,7 @@ const TemplatesStandards: React.FC = () => {
 };
 
 export default TemplatesStandards;
+
+
+
+

@@ -10,16 +10,22 @@ export interface Department {
     id: string;
     name: string;
     locationId: string;
-    locationName?: string; // Helpful for display
+    address?: string;
 }
 
 export interface AppUser {
     id: string;
-    fullName: string;
+    name: string;
     email: string;
     role: 'Admin' | 'Owner' | 'Assigned' | 'Viewer';
     locationId: string;
-    departmentId?: string;
-    locationName?: string;
-    departmentName?: string;
+    departmentId: string;
+    // Legacy compatibility for old UI code that still reads fullName.
+    fullName?: string;
+}
+
+export interface AdminData {
+    locations: Location[];
+    departments: Department[];
+    users: AppUser[];
 }

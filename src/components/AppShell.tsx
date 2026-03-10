@@ -93,10 +93,7 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '1.5rem',
-                        background: 'white',
-                        padding: '0.5rem 1.5rem',
-                        borderRadius: '12px',
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                        padding: '0.5rem 0'
                     }}>
                         {/* Language Switcher */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

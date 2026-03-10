@@ -1,4 +1,4 @@
-import { Audit, AuditFinding } from '../types';
+﻿import { Audit, AuditFinding } from '../types';
 
 export const MOCK_AUDITS: Audit[] = [
     {
@@ -25,7 +25,7 @@ export const MOCK_AUDITS: Audit[] = [
         id: 'AUD-2026-003',
         name: 'Pharmacy Compliance Review',
         type: 'External',
-        location: 'Inselspital Bern (BE)',
+        location: 'Bern',
         startDate: '2026-02-15',
         endDate: '2026-02-16',
         auditor: 'State Board of Pharmacy',
@@ -76,8 +76,8 @@ export const MOCK_FINDINGS: AuditFinding[] = [
     { id: 'F-007', title: 'Expired local anesthetics in OR cabinet', rating: 'Major', location: 'Geneva University Hospitals (GE)', responsible: 'Pharmacist Lead', assigned: 'OR Nurse', status: 'DO', deadline: '2026-04-08', cause: 'Inventory Control', auditId: 'AUD-2026-002', auditName: 'Annual Clinical Safety Audit', auditType: 'Internal', createdAt: '2026-04-05' },
 
     // AUD-2026-003 (Pharmacy)
-    { id: 'F-008', title: 'Controlled substance log discrepancy', rating: 'Major', location: 'Inselspital Bern (BE)', responsible: 'Pharmacy Director', assigned: 'Lead Pharmacist', status: 'ACT', deadline: '2026-03-01', cause: 'Accountability Gap', auditId: 'AUD-2026-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2026-02-16' },
-    { id: 'F-009', title: 'Medication fridge temperature log missing', rating: 'Minor', location: 'Inselspital Bern (BE)', responsible: 'Pharmacy Director', assigned: 'Pharmacy Tech', status: 'CHECK', deadline: '2026-03-15', cause: 'System Fault', auditId: 'AUD-2026-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2026-02-16' },
+    { id: 'F-008', title: 'Controlled substance log discrepancy', rating: 'Major', location: 'Bern', responsible: 'Pharmacy Director', assigned: 'Lead Pharmacist', status: 'ACT', deadline: '2026-03-01', cause: 'Accountability Gap', auditId: 'AUD-2026-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2026-02-16' },
+    { id: 'F-009', title: 'Medication fridge temperature log missing', rating: 'Minor', location: 'Bern', responsible: 'Pharmacy Director', assigned: 'Pharmacy Tech', status: 'CHECK', deadline: '2026-03-15', cause: 'System Fault', auditId: 'AUD-2026-003', auditName: 'Pharmacy Compliance Review', auditType: 'External', createdAt: '2026-02-16' },
 
     // AUD-2026-005 (Pediatrics)
     { id: 'F-010', title: 'Pediatric crash cart missing list items', rating: 'Minor', location: 'CHUV Lausanne (VD)', responsible: 'Pediatric Lead', assigned: 'Ward Nurse', status: 'ACT', deadline: '2026-02-01', cause: 'Usage Overload', auditId: 'AUD-2026-005', auditName: 'Pediatric Care Quality Review', auditType: 'Patient Safety', createdAt: '2026-01-22' },
@@ -107,4 +107,5 @@ export const getAuditStats = (auditId: string) => {
         closed: findings.filter(f => f.status === 'ACT').length
     };
 };
+
 

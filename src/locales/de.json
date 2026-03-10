@@ -87,7 +87,7 @@
         "auditDesc": "QM",
         "ideen": "IDEEN",
         "ideenDesc": "Innovation & VorschlÃ¤ge",
-        "open": "Ã–ffnen",
+        "open": "Offnen",
         "neuigkeiten": "Neuigkeiten",
         "meineAufgaben": "Meine Aufgaben",
         "keineNachrichten": "Keine aktuellen Neuigkeiten.",
@@ -114,8 +114,8 @@
         "noLocationsFound": "Keine Standorte gefunden.",
         "universityHospitalZurich": "Z\u00fcrich",
         "genevaUniversityHospitals": "Bern",
-        "inselspitalBern": "Inselspital Bern (BE)",
-        "universityHospitalBasel": "UniversitÃ¤tsspital Basel (BS)",
+        "inselspitalBern": "Bern",
+        "universityHospitalBasel": "Universit\u00e4tsspital Basel (BS)",
         "chuvLausanne": "CHUV Lausanne (VD)",
         "departments": "Betriebe",
         "department": "Betrieb",
@@ -224,7 +224,7 @@
         "department": "BETRIEBE",
         "status": "STATUS",
         "allEntities": "Alle Einheiten",
-        "allDepartments": "Alle Betriebe",
+        "allDepartments": "Betriebe",
         "deptNursing": "Pflege",
         "deptLaboratory": "Labor",
         "deptTechnical": "Technik",
@@ -246,8 +246,8 @@
         "criticalIssues": "Handlungsphase",
         "universityHospitalZurich": "Z\u00fcrich",
         "genevaUniversityHospitals": "Bern",
-        "inselspitalBern": "Inselspital Bern (BE)",
-        "universityHospitalBasel": "UniversitÃ¤tsspital Basel (BS)",
+        "inselspitalBern": "Bern",
+        "universityHospitalBasel": "Universit\u00e4tsspital Basel (BS)",
         "chuvLausanne": "CHUV Lausanne (VD)"
     },
     "time": {
@@ -315,15 +315,6 @@
         "sendMeetingInvites": "Besprechungseinladungen senden",
         "locationPlaceholder": "Standort",
         "meetingLinkPlaceholder": "Meeting-Link einfÃ¼gen... (https://)",
-        "externalUsers": "Externe Benutzer",
-        "hideExternal": "Extern ausblenden",
-        "inviteExternalUsers": "Externe Benutzer einladen",
-        "addPerson": "Person hinzufÃ¼gen",
-        "confirmExternalUsers": "{{count}} externe Benutzer bestÃ¤tigen",
-        "fullName": "VOLLSTÃ„NDIGER NAME",
-        "emailAddress": "E-MAIL-ADRESSE",
-        "note": "NOTIZ",
-        "externalUsersHelpText": "FÃ¼gen Sie externe Teilnehmende hinzu. Jede Person erhÃ¤lt die Besprechungsdetails per E-Mail.",
         "standardizationScope": "Standardisierungs-Umfang",
         "affectedAreas": "Betroffene Bereiche / Rollout",
         "standardizationDesc": "Beschreibung Standardisierung",
@@ -358,6 +349,7 @@
         "actionTitle": "Titel der MaÃŸnahme (Was)",
         "implementationDetails": "Umsetzungsdetails (Wie)",
         "responsiblePersons": "VERANTWORTLICHE PERSONEN",
+        "meetingParticipants": "TEILNEHMENDE",
         "meetingType": "SITZUNGSTYP",
         "meetingDateTime": "SITZUNGSTERMIN",
         "officeLocation": "BÃœRO / STANDORT",
@@ -519,7 +511,7 @@
             "date": "Datum",
             "actions": "Aktionen",
             "id": "ID",
-            "kind": "Art",
+            "kind": "Typ",
             "category": "Kategorie",
             "step": "Schritt",
             "status": "Status",
@@ -575,6 +567,9 @@
         "productName": "VIRENA â€“ KVP"
     }
 }
+
+
+
 
 
 

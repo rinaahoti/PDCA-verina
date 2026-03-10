@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService } from '../services';
 import { Topic, Step } from '../types';
+import { adminService } from '../services/adminService';
 import { ChevronRight, ArrowLeft, CheckCircle2, Clock, AlertTriangle, FileText, Activity, BarChart3, Repeat, MapPin, Shield } from 'lucide-react';
-import { getStatusMeta, getStatusBadgeStyle } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const TopicWorkspace: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { t, language } = useLanguage();
     const [topic, setTopic] = useState<Topic | null>(null);
     const [activeTab, setActiveTab] = useState<Step>('PLAN');
@@ -18,10 +19,25 @@ const TopicWorkspace: React.FC = () => {
             const t = topicsService.getById(id);
             if (t) {
                 setTopic(t);
-                setActiveTab(t.step);
+                const tabParam = (searchParams.get('tab') || '').toUpperCase();
+                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK' || tabParam === 'ACT')
+                    ? (tabParam as Step)
+                    : t.step;
+
+                const canOpenRequested =
+                    (t.step === 'PLAN' && requestedTab === 'PLAN') ||
+                    (t.step === 'DO' && (requestedTab === 'PLAN' || requestedTab === 'DO')) ||
+                    (t.step === 'CHECK' && requestedTab !== 'ACT') ||
+                    (t.step === 'ACT');
+
+                if (canOpenRequested) {
+                    setActiveTab(requestedTab);
+                } else {
+                    setActiveTab(t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
+                }
             }
         }
-    }, [id]);
+    }, [id, searchParams]);
 
     if (!topic) return <div style={{ padding: '2rem' }}>{t('common.noTopicsFound')}</div>;
 
@@ -32,9 +48,26 @@ const TopicWorkspace: React.FC = () => {
                 ? (language === 'de' ? 'Check-Phase Aktivierung' : 'Check Phase Activation')
                 : (language === 'de' ? 'Durchführen-Phase Aktivierung' : 'DO Phase Activation');
 
+    const canOpenTab = (target: Step): boolean => {
+        if (!topic) return false;
+        const current = topic.step;
+
+        // PLAN topics: only PLAN is accessible until moved in Cockpit.
+        if (current === 'PLAN') return target === 'PLAN';
+        // DO topics: PLAN and DO are accessible.
+        if (current === 'DO') return target === 'PLAN' || target === 'DO';
+        // CHECK topics: PLAN, DO, CHECK are accessible; ACT is locked.
+        if (current === 'CHECK') return target !== 'ACT';
+        // ACT topics: all tabs accessible.
+        return true;
+    };
+
     const TabButton = ({ step, label, icon: Icon }: { step: Step, label: string, icon: any }) => (
         <button
-            onClick={() => setActiveTab(step)}
+            onClick={() => {
+                if (!canOpenTab(step)) return;
+                setActiveTab(step);
+            }}
             style={{
                 flex: 1,
                 display: 'flex',
@@ -44,12 +77,16 @@ const TopicWorkspace: React.FC = () => {
                 padding: '1rem',
                 border: 'none',
                 background: activeTab === step ? 'white' : 'transparent',
-                color: activeTab === step ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                color: !canOpenTab(step)
+                    ? '#94a3b8'
+                    : (activeTab === step ? 'var(--color-primary)' : 'var(--color-text-muted)'),
                 borderBottom: activeTab === step ? '3px solid var(--color-primary)' : '3px solid transparent',
                 fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                cursor: canOpenTab(step) ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s',
+                opacity: canOpenTab(step) ? 1 : 0.55
             }}
+            disabled={!canOpenTab(step)}
         >
             <Icon size={18} />
             {label}
@@ -116,13 +153,34 @@ const TopicWorkspace: React.FC = () => {
     };
 
     const isAudit = topic.type === 'Audit Finding' || topic.type === 'Audit-Feststellung';
+    const planPurposes = (topic.plan.improvementPurpose && topic.plan.improvementPurpose.length > 0)
+        ? topic.plan.improvementPurpose
+        : (topic.plan.objectives || []);
+    const allLocations = adminService.getLocations();
+    const allDepartments = adminService.getDepartments();
+    const resolvedLocation = topic.locationId
+        ? allLocations.find(loc => loc.id === topic.locationId)
+        : undefined;
+    const resolvedDepartment = topic.departmentId
+        ? allDepartments.find(dep => dep.id === topic.departmentId)
+        : undefined;
+    const fallbackDepartment = topic.locationId
+        ? allDepartments.find(dep => dep.locationId === topic.locationId)
+        : undefined;
+
+    const planLocation = resolvedLocation?.name || topic.location || topic.locationId || '';
+    const planDepartment =
+        resolvedDepartment?.name ||
+        topic.departmentId ||
+        fallbackDepartment?.name ||
+        '';
 
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="btn btn-outline"
-                style={{ marginBottom: '1.5rem', border: 'none', padding: 0, color: 'var(--color-primary)' }}
+                className="btn"
+                style={{ marginBottom: '1.5rem', border: 'none', padding: 0, background: 'transparent', color: '#424b55' }}
             >
                 <ArrowLeft size={18} /> {t('pdca.backToOverview')}
             </button>
@@ -149,7 +207,6 @@ const TopicWorkspace: React.FC = () => {
                 <h1 style={{ margin: '0.5rem 0', fontSize: '1.75rem' }}>{getTranslatedText(topic.title)}</h1>
                 <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', fontSize: '14px', flexWrap: 'wrap' }}>
                     <div><span style={{ opacity: 0.7 }}>{t('common.owner')}:</span> <span style={{ fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</span></div>
-                    <div><span style={{ opacity: 0.7 }}>{t('common.responsible')}:</span> <span style={{ fontWeight: 600 }}>{'Felix Worker'}</span></div>
                     {activeTab !== 'ACT' && (
                         <div>
                             <span style={{ opacity: 0.7 }}>
@@ -182,9 +239,23 @@ const TopicWorkspace: React.FC = () => {
                     {activeTab === 'PLAN' && (
                         <div>
                             <h3 style={{ marginTop: 0 }}>{t('pdca.rootCauseAnalysis')} & {t('pdca.plan')}</h3>
+                            <div style={{ marginBottom: '2rem', background: 'var(--color-bg)', padding: '1rem', borderRadius: '8px' }}>
+                                <div style={{ marginBottom: '0.45rem' }}><strong>{t('common.location')}:</strong> {planLocation || '-'}</div>
+                                <div><strong>{t('admin.department')}:</strong> {planDepartment || '-'}</div>
+                            </div>
                             <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.purpose')}</label>
-                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{getTranslatedText(topic.plan.description) || t('pdca.noToBe')}</p>
+                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.objective')}</label>
+                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+                                    {getTranslatedText(topic.plan.goal || topic.objective || '') || t('pdca.noToBe')}
+                                </p>
+                            </div>
+                            <div style={{ marginBottom: '2rem' }}>
+                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>IST-Zustand</label>
+                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{getTranslatedText(topic.plan.asIs || '') || t('pdca.noToBe')}</p>
+                            </div>
+                            <div style={{ marginBottom: '2rem' }}>
+                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>SOLL-Zustand</label>
+                                <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{getTranslatedText(topic.plan.toBe || '') || t('pdca.noToBe')}</p>
                             </div>
                             <div style={{ marginBottom: '2rem' }}>
                                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.rootCauseAnalysis')}</label>
@@ -193,71 +264,178 @@ const TopicWorkspace: React.FC = () => {
                                 </div>
                             </div>
                             <div>
-                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.objective')}</label>
+                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.improvementPurpose')}</label>
                                 <ul style={{ paddingLeft: '1.25rem' }}>
-                                    {topic.plan.objectives && topic.plan.objectives.length > 0 ? topic.plan.objectives.map((obj, i) => (
+                                    {planPurposes.length > 0 ? planPurposes.map((obj, i) => (
                                         <li key={i} style={{ marginBottom: '0.5rem', color: '#4a5568' }}>{getTranslatedText(obj)}</li>
                                     )) : <li>{t('pdca.noActions')}</li>}
                                 </ul>
                             </div>
+                            {topic.plan.meeting && (
+                                <div style={{ marginTop: '2rem' }}>
+                                    <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Meeting</label>
+                                    <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px' }}>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('common.title')}:</strong> {topic.plan.meeting.title || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>Meeting type:</strong> {topic.plan.meeting.meetingType || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>Meeting Date & Time:</strong> {topic.plan.meeting.meetingDateTime ? new Date(topic.plan.meeting.meetingDateTime).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('common.location')}:</strong> {topic.plan.meeting.location || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('pdca.meetingParticipants')}:</strong> {(topic.plan.meeting.responsiblePersons || []).join(', ') || '-'}</div>
+                                        <div>
+                                            <strong>{t('pdca.externalUsers')}:</strong>{' '}
+                                            {(topic.plan.meeting.externalUsers && topic.plan.meeting.externalUsers.length > 0) ? (
+                                                <span>
+                                                    {topic.plan.meeting.externalUsers.map((user, idx) => (
+                                                        <span key={user.id}>
+                                                            {idx > 0 ? '; ' : ''}
+                                                            {user.fullName} ({user.email}){user.note ? ` - ${user.note}` : ''}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            ) : '-'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'DO' && (
                         <div>
                             <h3 style={{ marginTop: 0 }}>{t('pdca.executionActions')}</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>{t('pdca.actionTitle')}</th>
-                                        <th>{t('common.responsible')}</th>
-                                        <th>{t('common.dueDate')}</th>
-                                        <th>{t('common.status')}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {topic.do.actions.length > 0 ? topic.do.actions.map(action => (
-                                        <tr key={action.id}>
-                                            <td style={{ fontWeight: 600 }}>{getTranslatedText(action.title)} ({t('pdca.implementationDetails')}: {action.description === 'Validation audit' ? 'Validierungsaudit' : action.description})</td>
-                                            <td>{action.assignments.map(a => a.userName).join(', ')}</td>
-                                            <td>{new Date(action.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
-                                            <td>
-                                                <span style={{
-                                                    padding: '0.25rem 0.75rem',
-                                                    borderRadius: '999px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 600,
-                                                    ...getStatusBadgeStyle(action.status, action.dueDate)
-                                                }}>
-                                                    {getStatusMeta(action.status, action.dueDate, undefined, t).label}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>{t('pdca.noActions')}</td></tr>
+                            {topic.do.actions.length > 0 ? topic.do.actions.map(action => (
+                                <div key={action.id} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{getTranslatedText(action.title)}</div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>{t('pdca.implementationDetails')}:</strong>{' '}
+                                        <span>{action.description === 'Validation audit' ? 'Validierungsaudit' : action.description || '-'}</span>
+                                    </div>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>{t('pdca.meetingParticipants')}:</strong>{' '}
+                                        <span>{action.assignments.map(a => a.userName).join(', ') || '-'}</span>
+                                    </div>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>{t('common.dueDate')}:</strong>{' '}
+                                        <span>{action.dueDate ? new Date(action.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
+                                    </div>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>Meeting type:</strong>{' '}
+                                        <span>{action.meetingType || '-'}</span>
+                                    </div>
+                                    <div style={{ marginBottom: '0.5rem' }}>
+                                        <strong>Meeting Date & Time:</strong>{' '}
+                                        <span>{action.teamsMeeting ? new Date(action.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
+                                    </div>
+                                    {(action.meetingType || '').toLowerCase() === 'online' ? (
+                                        <div style={{ marginBottom: '0.5rem' }}>
+                                            <strong>Online Meeting Link:</strong>{' '}
+                                            {action.teamsMeetingLink ? (
+                                                <a href={action.teamsMeetingLink} target="_blank" rel="noreferrer">
+                                                    {action.teamsMeetingLink}
+                                                </a>
+                                            ) : (
+                                                <span>-</span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div style={{ marginBottom: '0.5rem' }}>
+                                            <strong>{t('common.location')}:</strong>{' '}
+                                            <span>{action.meetingLocation || '-'}</span>
+                                        </div>
                                     )}
-                                </tbody>
-                            </table>
+                                    <div>
+                                        <strong>{t('pdca.externalUsers')}:</strong>{' '}
+                                        {(action.externalUsers && action.externalUsers.length > 0) ? (
+                                            <span>
+                                                {action.externalUsers.map((user, idx) => (
+                                                    <span key={user.id}>
+                                                        {idx > 0 ? '; ' : ''}
+                                                        {user.fullName} ({user.email}){user.note ? ` - ${user.note}` : ''}
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        ) : '-'}
+                                    </div>
+                                </div>
+                            )) : (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>{t('pdca.noActions')}</div>
+                            )}
                         </div>
                     )}
 
                     {activeTab === 'CHECK' && (
                         <div>
                             <h3 style={{ marginTop: 0 }}>{t('pdca.kpiEvaluation')}</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-                                <div className="card" style={{ background: 'var(--color-primary-light)', borderColor: 'var(--color-primary)' }}>
-                                    <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-dark)' }}>{t('common.kpi')}</h4>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>{getTranslatedText(topic.kpi)}</div>
-                                </div>
-                                <div className="card" style={{ background: 'var(--color-primary-light)', borderColor: 'var(--color-primary)', opacity: 0.9 }}>
-                                    <h4 style={{ margin: '0 0 1rem 0', color: 'var(--color-primary-dark)' }}>{t('pdca.objective')}</h4>
-                                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-primary-dark)' }}>{getTranslatedText(topic.objective)}</div>
-                                </div>
+                            <div style={{ marginBottom: '1rem', background: 'var(--color-bg)', padding: '1rem', borderRadius: '8px' }}>
+                                <div style={{ marginBottom: '0.45rem' }}><strong>{t('common.location')}:</strong> {planLocation || '-'}</div>
+                                <div><strong>{t('admin.department')}:</strong> {planDepartment || '-'}</div>
                             </div>
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <label style={{ fontWeight: 700 }}>{t('pdca.effectivenessReview')}</label>
-                                <p style={{ color: '#4a5568' }}>{getTranslatedText(topic.check.effectivenessReview) || t('common.loading')}</p>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>Effectiveness Assessment:</strong> {topic.check.effectivenessStatus || '-'}
                             </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>{t('pdca.effectivenessReview')}:</strong>{' '}
+                                <span>{getTranslatedText(topic.check.effectivenessReview || topic.check.effectivenessReviewText || '') || '-'}</span>
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>{t('pdca.kpiEvaluation')}:</strong>
+                                {topic.check.kpiEvaluations && topic.check.kpiEvaluations.length > 0 ? (
+                                    <div style={{ marginTop: '0.75rem', border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ background: 'var(--color-bg)' }}>
+                                                    <th style={{ textAlign: 'left', padding: '10px' }}>KPI</th>
+                                                    <th style={{ textAlign: 'left', padding: '10px' }}>Target</th>
+                                                    <th style={{ textAlign: 'left', padding: '10px' }}>Actual</th>
+                                                    <th style={{ textAlign: 'left', padding: '10px' }}>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {topic.check.kpiEvaluations.map(item => (
+                                                    <tr key={item.id} style={{ borderTop: '1px solid var(--color-border)' }}>
+                                                        <td style={{ padding: '10px' }}>{item.name}</td>
+                                                        <td style={{ padding: '10px' }}>{item.targetValue}</td>
+                                                        <td style={{ padding: '10px' }}>{item.actualResult}</td>
+                                                        <td style={{ padding: '10px' }}>{item.status}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginTop: '0.5rem', color: '#64748b' }}>-</div>
+                                )}
+                            </div>
+
+                            {topic.check.meeting && (
+                                <div style={{ marginTop: '2rem' }}>
+                                    <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>Meeting</label>
+                                    <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px' }}>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('common.title')}:</strong> {topic.check.meeting.title || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>Meeting type:</strong> {topic.check.meeting.meetingType || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>Meeting Date & Time:</strong> {topic.check.meeting.meetingDateTime ? new Date(topic.check.meeting.meetingDateTime).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('common.location')}:</strong> {topic.check.meeting.location || '-'}</div>
+                                        <div style={{ marginBottom: '0.5rem' }}><strong>{t('pdca.meetingParticipants')}:</strong> {(topic.check.meeting.responsiblePersons || []).join(', ') || '-'}</div>
+                                        <div>
+                                            <strong>{t('pdca.externalUsers')}:</strong>{' '}
+                                            {(topic.check.meeting.externalUsers && topic.check.meeting.externalUsers.length > 0) ? (
+                                                <span>
+                                                    {topic.check.meeting.externalUsers.map((user, idx) => (
+                                                        <span key={user.id}>
+                                                            {idx > 0 ? '; ' : ''}
+                                                            {user.fullName} ({user.email}){user.note ? ` - ${user.note}` : ''}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            ) : '-'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
                     )}
 

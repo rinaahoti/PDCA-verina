@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { activityService } from '../services/activityService';
 import { ActivityEntry, ActivityType } from '../types/activity';
 import {
@@ -33,7 +33,7 @@ const ActivityLog: React.FC = () => {
             'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
             'Geneva University Hospitals': 'admin.genevaUniversityHospitals',
             'Geneva': 'admin.geneva',
-            'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'Bern': 'admin.inselspitalBern',
             'Inselspital Bern': 'admin.inselspitalBern',
             'Bern': 'admin.bern',
             'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
@@ -66,10 +66,10 @@ const ActivityLog: React.FC = () => {
         const map: Record<string, string> = {
             'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
             'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
-            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
-            'New Clinical PDCA: Fall Prevention': 'Neues klinisches KVP: Sturzprävention',
-            'Fall Prevention': 'Sturzprävention',
-            'Pediatric crash cart missing items': 'Fehlende Gegenstände im pädiatrischen Notfallwagen',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des SturzprÃ¤ventionsprotokolls',
+            'New Clinical PDCA: Fall Prevention': 'Neues klinisches KVP: SturzprÃ¤vention',
+            'Fall Prevention': 'SturzprÃ¤vention',
+            'Pediatric crash cart missing items': 'Fehlende GegenstÃ¤nde im pÃ¤diatrischen Notfallwagen',
             'Internal Patient Safety Audit 2026': 'Internes Patientensicherheits-Audit 2026',
             'Joint Commission Hospital Accreditation': 'Joint Commission Krankenhausakkreditierung'
         };
@@ -85,7 +85,7 @@ const ActivityLog: React.FC = () => {
         if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
 
         // Topic Moved Check
-        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-–] (.*)/) || message.match(/Topic moved to CHECK phase [-–] (.*)/);
+        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-â€“] (.*)/) || message.match(/Topic moved to CHECK phase [-â€“] (.*)/);
         if (topicCheck) {
             // If Group 2 exists it is location, if only Group 1 exists (from second regex) it is location
             const location = topicCheck[2] || topicCheck[1];
@@ -93,7 +93,7 @@ const ActivityLog: React.FC = () => {
         }
 
         // Topic Moved Act
-        const topicAct = message.match(/PDCA topic moved to ACT phase [-–] (.*)/) || message.match(/KVP Topic moved to ACT phase [-–] (.*)/);
+        const topicAct = message.match(/PDCA topic moved to ACT phase [-â€“] (.*)/) || message.match(/KVP Topic moved to ACT phase [-â€“] (.*)/);
         if (topicAct) return t('activityLog.messages.topicMovedAct', { location: getTranslatedLocationName(topicAct[1]) });
 
         // Dept Created - Specific format "Department created: Name"
@@ -105,14 +105,14 @@ const ActivityLog: React.FC = () => {
         if (locAdded) return t('activityLog.messages.locAdded', { name: getTranslatedLocationName(locAdded[1]) });
 
         // Audit Completed
-        const auditComp = message.match(/Clinical audit completed [-–] (.*)/) || message.match(/Clinical Audit completed [-–] (.*)/);
+        const auditComp = message.match(/Clinical audit completed [-â€“] (.*)/) || message.match(/Clinical Audit completed [-â€“] (.*)/);
         if (auditComp) return t('activityLog.messages.auditCompleted', { location: getTranslatedLocationName(auditComp[1]) });
 
         // Profile Updated
         if (message.includes('Clinical profile updated')) return t('activityLog.messages.profileUpdated');
 
         // Incident Reported
-        const incident = message.match(/Patient safety incident reported [-–] (.*)/);
+        const incident = message.match(/Patient safety incident reported [-â€“] (.*)/);
         if (incident) return t('activityLog.messages.incidentReported', { location: getTranslatedLocationName(incident[1]) });
 
         // New Clinical PDCA
@@ -427,3 +427,7 @@ const ActivityLog: React.FC = () => {
 };
 
 export default ActivityLog;
+
+
+
+

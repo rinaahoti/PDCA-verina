@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { adminService } from '../services/adminService';
+import { useAdminDataStore } from '../hooks/useAdminDataStore';
 import { Location, Department, AppUser } from '../types/admin';
 import {
     Plus, Edit2, Trash2, MapPin, Building2, Users,
@@ -7,6 +7,9 @@ import {
     ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { LocationModal } from './administration/components/LocationModal';
+import { DepartmentModal, DepartmentDeleteDialog } from './administration/components/DepartmentModals';
+import { AddEditUserModal, TransferUserModal, UserProfileModal } from './administration/components/UserModals';
 
 const Administration: React.FC = () => {
     const { t } = useLanguage();
@@ -14,9 +17,11 @@ const Administration: React.FC = () => {
     // Helper to translate known location names
     const getTranslatedLocationName = (name: string) => {
         const map: Record<string, string> = {
+            'Zurich': 'admin.universityHospitalZurich',
+            'Bern': 'admin.genevaUniversityHospitals',
             'University Hospital Zurich (ZH)': 'admin.universityHospitalZurich',
             'Geneva University Hospitals (GE)': 'admin.genevaUniversityHospitals',
-            'Inselspital Bern (BE)': 'admin.inselspitalBern',
+            'Bern': 'admin.inselspitalBern',
             'University Hospital Basel (BS)': 'admin.universityHospitalBasel',
             'CHUV Lausanne (VD)': 'admin.chuvLausanne'
         };
@@ -42,9 +47,21 @@ const Administration: React.FC = () => {
     };
 
     const [activeTab, setActiveTab] = useState<'locations' | 'departments' | 'users'>('locations');
-    const [locations, setLocations] = useState<Location[]>([]);
-    const [departments, setDepartments] = useState<Department[]>([]);
-    const [users, setUsers] = useState<AppUser[]>([]);
+    const {
+        adminData,
+        saveLocation,
+        deleteLocation,
+        saveDepartment,
+        deleteDepartment,
+        saveUser,
+        deleteUser,
+        restoreDefaults,
+        getLocationDependencies,
+        getDepartmentDependencies
+    } = useAdminDataStore();
+    const locations = adminData.locations;
+    const departments = adminData.departments;
+    const users = adminData.users;
     const [locationSearch, setLocationSearch] = useState('');
     const [locationCountryFilter, setLocationCountryFilter] = useState('');
     const [departmentExpandedLocs, setDepartmentExpandedLocs] = useState<Record<string, boolean>>({});
@@ -53,9 +70,6 @@ const Administration: React.FC = () => {
     const [allExpanded, setAllExpanded] = useState(false);
     const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
     const [depFormCode, setDepFormCode] = useState('');
-    const [depFormUsers, setDepFormUsers] = useState('0');
-    const [depCodeMeta, setDepCodeMeta] = useState<Record<string, string>>({});
-    const [depUsersMeta, setDepUsersMeta] = useState<Record<string, number>>({});
     const [toastMessage, setToastMessage] = useState('');
     const [isToastVisible, setIsToastVisible] = useState(false);
     const toastTimerRef = useRef<number | null>(null);
@@ -71,11 +85,15 @@ const Administration: React.FC = () => {
     const [isAddEditUserModalOpen, setAddEditUserModalOpen] = useState(false);
     const [isTransferUserModalOpen, setTransferUserModalOpen] = useState(false);
     const [isProfileUserModalOpen, setProfileUserModalOpen] = useState(false);
+    const [locationFormError, setLocationFormError] = useState('');
+    const [departmentFormError, setDepartmentFormError] = useState('');
+    const [userFormError, setUserFormError] = useState('');
+    const [transferFormError, setTransferFormError] = useState('');
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
     const [transferUserId, setTransferUserId] = useState<string | null>(null);
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
     const [userForm, setUserForm] = useState({
-        fullName: '',
+        name: '',
         email: '',
         locationId: '',
         departmentId: '',
@@ -86,17 +104,6 @@ const Administration: React.FC = () => {
         departmentId: '',
         role: 'Assigned' as AppUser['role']
     });
-
-    useEffect(() => {
-        const load = () => {
-            setLocations(adminService.getLocations());
-            setDepartments(adminService.getDepartments());
-            setUsers(adminService.getUsers());
-        };
-        load();
-        window.addEventListener('storage-admin', load);
-        return () => window.removeEventListener('storage-admin', load);
-    }, []);
 
     const filteredLocations = useMemo(() => {
         const query = locationSearch.trim().toLowerCase();
@@ -128,10 +135,10 @@ const Administration: React.FC = () => {
     );
 
     const getDepartmentCode = (dep: Department) => {
+        if (dep.address?.trim()) return dep.address;
         if (dep.name === 'Quality & Patient Safety') return 'M\u00fcllackerstrasse 2/4\n8152 Glattbrugg';
         if (dep.name === 'Tertianum Restelberg') return 'Restelbergstrasse 108\n8044 Z\u00fcrich';
         if (dep.name === 'Surgery Department') return 'K\u00f6nizstrasse 74\n3008 Bern';
-        if (depCodeMeta[dep.id]) return depCodeMeta[dep.id];
         const base = (dep.name || '')
             .replace(/[^a-zA-Z0-9 ]/g, '')
             .split(' ')
@@ -143,7 +150,6 @@ const Administration: React.FC = () => {
     };
 
     const getDepartmentUsersCount = (dep: Department) => {
-        if (typeof depUsersMeta[dep.id] === 'number') return depUsersMeta[dep.id];
         return users.filter(u => u.departmentId === dep.id).length;
     };
 
@@ -178,7 +184,7 @@ const Administration: React.FC = () => {
             acc.push({ loc, depts: locDepts, totalUsers });
             return acc;
         }, []);
-    }, [locations, departments, departmentCityFilter, departmentSearch, depCodeMeta, depUsersMeta, users]);
+    }, [locations, departments, departmentCityFilter, departmentSearch, users]);
 
     const departmentStats = useMemo(() => {
         const locationsShown = visibleDepartmentGroups.length;
@@ -207,7 +213,6 @@ const Administration: React.FC = () => {
     );
 
     const getUserDepartmentName = (user: AppUser) => {
-        if (user.departmentName) return getTranslatedDepartmentName(user.departmentName);
         const dep = departments.find(d => d.id === user.departmentId);
         return dep ? getTranslatedDepartmentName(dep.name) : '-';
     };
@@ -251,7 +256,7 @@ const Administration: React.FC = () => {
                 if (localRole !== 'All' && u.role !== localRole) return false;
                 if (userDepartmentFilter && getUserDepartmentName(u) !== userDepartmentFilter) return false;
                 if (q) {
-                    const nameMatch = (u.fullName || '').toLowerCase().includes(q);
+                    const nameMatch = (u.name || '').toLowerCase().includes(q);
                     const emailMatch = (u.email || '').toLowerCase().includes(q);
                     if (!nameMatch && !emailMatch) return false;
                 }
@@ -344,6 +349,33 @@ const Administration: React.FC = () => {
         setUsersExpandedDeps(prev => ({ ...depMap, ...prev }));
     }, [userGlobalRole, locations, departments]);
 
+    useEffect(() => {
+        if (!selectedUsersDepartment) return;
+        const hasLocation = locations.some(loc => loc.id === selectedUsersDepartment.locationId);
+        const hasDepartment = departments.some(
+            dep => dep.id === selectedUsersDepartment.departmentId && dep.locationId === selectedUsersDepartment.locationId
+        );
+        if (!hasLocation || !hasDepartment) {
+            setSelectedUsersDepartment(null);
+        }
+    }, [selectedUsersDepartment, locations, departments]);
+
+    useEffect(() => {
+        if (!userForm.locationId || !userForm.departmentId) return;
+        const valid = departments.some(dep => dep.id === userForm.departmentId && dep.locationId === userForm.locationId);
+        if (!valid) {
+            setUserForm(prev => ({ ...prev, departmentId: '' }));
+        }
+    }, [departments, userForm.locationId, userForm.departmentId]);
+
+    useEffect(() => {
+        if (!transferForm.locationId || !transferForm.departmentId) return;
+        const valid = departments.some(dep => dep.id === transferForm.departmentId && dep.locationId === transferForm.locationId);
+        if (!valid) {
+            setTransferForm(prev => ({ ...prev, departmentId: '' }));
+        }
+    }, [departments, transferForm.locationId, transferForm.departmentId]);
+
     // --- DRAWER STATE ---
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
     const [drawerUserRoleFilter, setDrawerUserRoleFilter] = useState<string>('All');
@@ -372,6 +404,13 @@ const Administration: React.FC = () => {
         }, 2400);
     };
 
+    const handleResetDefaultData = () => {
+        restoreDefaults();
+        setSelectedLocation(null);
+        setSelectedUsersDepartment(null);
+        showToast('Default data restored');
+    };
+
     // --- MODAL STATES ---
     const [isLocationModalOpen, setLocModalOpen] = useState(false);
     const [editingLoc, setEditingLoc] = useState<Partial<Location>>({});
@@ -380,36 +419,42 @@ const Administration: React.FC = () => {
     const [editingDep, setEditingDep] = useState<Partial<Department>>({});
     const [departmentDeleteTarget, setDepartmentDeleteTarget] = useState<Department | null>(null);
 
-    const [isUserModalOpen, setUserModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState<Partial<AppUser>>({});
-
     // --- HANDLERS ---
 
     // Locations
     const handleSaveLocation = () => {
-        if (!editingLoc.name) return alert(t('admin.validation.nameRequired'));
+        if (!editingLoc.name?.trim()) {
+            setLocationFormError(t('admin.validation.nameRequired') || 'Location name is required.');
+            return;
+        }
+        setLocationFormError('');
         const isEditing = !!editingLoc.id;
         const loc: Location = {
             id: editingLoc.id || `LOC-${Date.now()}`,
-            name: editingLoc.name!,
+            name: editingLoc.name.trim(),
             city: editingLoc.city || '',
             country: editingLoc.country || '',
             code: editingLoc.code || ''
         };
-        adminService.saveLocation(loc);
+        saveLocation(loc);
         setLocModalOpen(false);
         // If editing the currently open location, update it
         if (selectedLocation && selectedLocation.id === loc.id) {
             setSelectedLocation(loc);
         }
-        showToast(isEditing ? '✓ Location updated' : '✓ Location added');
+        showToast(isEditing ? 'Location updated' : 'Location added');
     };
     const handleDeleteLocation = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation(); // Prevent drawer opening
-        if (confirm(t('admin.confirm.deleteLocation'))) {
+        const deps = getLocationDependencies(id);
+        const confirmText = deps.departmentsCount > 0 || deps.usersCount > 0
+            ? `Delete this location and its ${deps.departmentsCount} departments / ${deps.usersCount} users?`
+            : (t('admin.confirm.deleteLocation') || 'Delete this location?');
+        if (confirm(confirmText)) {
             try {
-                adminService.deleteLocation(id);
+                deleteLocation(id);
                 if (selectedLocation?.id === id) setSelectedLocation(null);
+                showToast('Location removed');
             } catch (e: any) {
                 alert(e.message);
             }
@@ -418,21 +463,18 @@ const Administration: React.FC = () => {
 
     // Departments
     const handleSaveDepartment = () => {
-        if (!editingDep.name || !editingDep.locationId) return alert(t('admin.validation.nameLocationRequired'));
+        if (!editingDep.name?.trim() || !editingDep.locationId) {
+            setDepartmentFormError(t('admin.validation.nameLocationRequired') || 'Department name and location are required.');
+            return;
+        }
+        setDepartmentFormError('');
         const dep: Department = {
             id: editingDep.id || `DEP-${Date.now()}`,
-            name: editingDep.name!,
-            locationId: editingDep.locationId!
+            name: editingDep.name.trim(),
+            locationId: editingDep.locationId!,
+            address: depFormCode.trim()
         };
-        adminService.saveDepartment(dep);
-
-        const normalizedCode = depFormCode.trim();
-        const normalizedUsers = Math.max(0, parseInt(depFormUsers || '0', 10) || 0);
-        if (normalizedCode) {
-            setDepCodeMeta(prev => ({ ...prev, [dep.id]: normalizedCode }));
-        }
-        setDepUsersMeta(prev => ({ ...prev, [dep.id]: normalizedUsers }));
-
+        saveDepartment(dep);
         if (editingDepartmentId) {
             showToast('Department updated');
         } else {
@@ -444,7 +486,6 @@ const Administration: React.FC = () => {
         setLockLocationId(null);
         setEditingDepartmentId(null);
         setDepFormCode('');
-        setDepFormUsers('0');
     };
     const handleDeleteDepartment = (dep: Department, e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -454,17 +495,12 @@ const Administration: React.FC = () => {
     const confirmDeleteDepartment = () => {
         if (!departmentDeleteTarget) return;
         try {
-            adminService.deleteDepartment(departmentDeleteTarget.id);
-            setDepCodeMeta(prev => {
-                const next = { ...prev };
-                delete next[departmentDeleteTarget.id];
-                return next;
-            });
-            setDepUsersMeta(prev => {
-                const next = { ...prev };
-                delete next[departmentDeleteTarget.id];
-                return next;
-            });
+            const deps = getDepartmentDependencies(departmentDeleteTarget.id);
+            if (deps.usersCount > 0) {
+                const ok = confirm(`Delete this department and ${deps.usersCount} related users?`);
+                if (!ok) return;
+            }
+            deleteDepartment(departmentDeleteTarget.id);
             setDepartmentDeleteTarget(null);
             showToast('Department removed');
         } catch (err: any) {
@@ -472,25 +508,11 @@ const Administration: React.FC = () => {
         }
     };
 
-    // Users
-    const handleSaveUser = () => {
-        if (!editingUser.fullName || !editingUser.email || !editingUser.locationId) return alert(t('admin.validation.nameEmailLocationRequired'));
-        const usr: AppUser = {
-            id: editingUser.id || `USR-${Date.now()}`,
-            fullName: editingUser.fullName!,
-            email: editingUser.email!,
-            role: (editingUser.role as any) || 'Viewer',
-            locationId: editingUser.locationId!,
-            departmentId: editingUser.departmentId
-        };
-        adminService.saveUser(usr);
-        setUserModalOpen(false);
-    };
     const handleDeleteUser = (id: string, e?: React.MouseEvent) => {
         e?.stopPropagation();
         if (confirm(t('admin.confirm.deleteUser'))) {
             try {
-                adminService.deleteUser(id);
+                deleteUser(id);
                 showToast('User removed');
             } catch (err: any) {
                 alert(err.message);
@@ -506,7 +528,7 @@ const Administration: React.FC = () => {
         setEditingDep({ locationId: id });
         setEditingDepartmentId(null);
         setDepFormCode('');
-        setDepFormUsers('0');
+        setDepartmentFormError('');
         setDepModalOpen(true);
     };
 
@@ -514,7 +536,7 @@ const Administration: React.FC = () => {
         setEditingDepartmentId(dep.id);
         setEditingDep(dep);
         setDepFormCode(getDepartmentCode(dep));
-        setDepFormUsers(String(getDepartmentUsersCount(dep)));
+        setDepartmentFormError('');
         setDepModalOpen(true);
     };
 
@@ -542,9 +564,7 @@ const Administration: React.FC = () => {
     const onAddUser = (locId?: string) => {
         const id = locId || selectedLocation?.id;
         if (!id) return;
-        setLockLocationId(id);
-        setEditingUser({ locationId: id, role: 'Viewer' });
-        setUserModalOpen(true);
+        openAddUserModal(id);
     };
 
     const roleBadgeStyle = (role: AppUser['role']): React.CSSProperties => {
@@ -558,8 +578,9 @@ const Administration: React.FC = () => {
         const preLocId = locationId || '';
         const localDepartments = departments.filter(dep => dep.locationId === preLocId);
         setEditingUserId(null);
+        setUserFormError('');
         setUserForm({
-            fullName: '',
+            name: '',
             email: '',
             locationId: preLocId,
             departmentId: departmentId || localDepartments[0]?.id || '',
@@ -570,14 +591,11 @@ const Administration: React.FC = () => {
 
     const openEditUserModal = (user: AppUser) => {
         setEditingUserId(user.id);
+        setUserFormError('');
         const localDepartments = departments.filter(dep => dep.locationId === user.locationId);
-        const departmentId =
-            user.departmentId ||
-            localDepartments.find(dep => dep.name === user.departmentName)?.id ||
-            localDepartments[0]?.id ||
-            '';
+        const departmentId = user.departmentId || localDepartments[0]?.id || '';
         setUserForm({
-            fullName: user.fullName,
+            name: user.name,
             email: user.email,
             locationId: user.locationId,
             departmentId,
@@ -587,36 +605,40 @@ const Administration: React.FC = () => {
     };
 
     const saveAddEditUser = () => {
-        const fullName = userForm.fullName.trim();
+        const name = userForm.name.trim();
         const email = userForm.email.trim();
-        if (!fullName || !email || !userForm.locationId) return;
+        if (!name || !email || !userForm.locationId || !userForm.departmentId) {
+            setUserFormError('Name, email, location and department are required.');
+            return;
+        }
         const selectedDep = departments.find(dep => dep.id === userForm.departmentId);
+        if (!selectedDep || selectedDep.locationId !== userForm.locationId) {
+            setUserFormError('Selected department does not belong to selected location.');
+            return;
+        }
+        setUserFormError('');
         const payload: AppUser = {
             id: editingUserId || `USR-${Date.now()}`,
-            fullName,
+            name,
             email,
             locationId: userForm.locationId,
-            departmentId: userForm.departmentId || undefined,
-            departmentName: selectedDep ? selectedDep.name : undefined,
+            departmentId: userForm.departmentId,
             role: userForm.role
         };
-        adminService.saveUser(payload);
+        saveUser(payload);
         setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
         if (payload.departmentId) {
             setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
         }
         setAddEditUserModalOpen(false);
-        showToast(editingUserId ? '✓ User updated' : '✓ User added');
+        showToast(editingUserId ? 'User updated' : 'User added');
     };
 
     const openTransferModal = (user: AppUser) => {
         setTransferUserId(user.id);
+        setTransferFormError('');
         const localDepartments = departments.filter(dep => dep.locationId === user.locationId);
-        const departmentId =
-            user.departmentId ||
-            localDepartments.find(dep => dep.name === user.departmentName)?.id ||
-            localDepartments[0]?.id ||
-            '';
+        const departmentId = user.departmentId || localDepartments[0]?.id || '';
         setTransferForm({
             locationId: user.locationId,
             departmentId,
@@ -626,24 +648,31 @@ const Administration: React.FC = () => {
     };
 
     const saveTransferUser = () => {
-        if (!transferUserId || !transferForm.locationId) return;
+        if (!transferUserId || !transferForm.locationId || !transferForm.departmentId) {
+            setTransferFormError('Location and department are required.');
+            return;
+        }
         const user = users.find(u => u.id === transferUserId);
         if (!user) return;
         const selectedDep = departments.find(dep => dep.id === transferForm.departmentId);
+        if (!selectedDep || selectedDep.locationId !== transferForm.locationId) {
+            setTransferFormError('Selected department does not belong to selected location.');
+            return;
+        }
+        setTransferFormError('');
         const payload: AppUser = {
             ...user,
             locationId: transferForm.locationId,
-            departmentId: transferForm.departmentId || undefined,
-            departmentName: selectedDep ? selectedDep.name : undefined,
+            departmentId: transferForm.departmentId,
             role: transferForm.role
         };
-        adminService.saveUser(payload);
+        saveUser(payload);
         setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
         if (payload.departmentId) {
             setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
         }
         setTransferUserModalOpen(false);
-        showToast('✓ User transferred');
+        showToast('User transferred');
     };
 
     const openProfileModal = (user: AppUser) => {
@@ -692,7 +721,7 @@ const Administration: React.FC = () => {
                             <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '1.8rem', color: 'var(--color-text)' }}>{t('admin.pageTitle')}</h1>
                             <div style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>{t('admin.subtitle')}</div>
                         </div>
-                        <button onClick={adminService.resetData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={handleResetDefaultData} className="btn btn-outline" style={{ display: 'flex', gap: '8px' }}>
                             <RefreshCw size={16} /> {t('admin.restoreDefaultData')}
                         </button>
                     </div>
@@ -749,7 +778,7 @@ const Administration: React.FC = () => {
             <div
                 className="card"
                 style={
-                    activeTab === 'users'
+                    activeTab === 'users' || activeTab === 'departments' || activeTab === 'locations'
                         ? { padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }
                         : { padding: 0 }
                 }
@@ -759,14 +788,14 @@ const Administration: React.FC = () => {
                     <div
                         style={{
                             background: '#ffffff',
-                            border: 'none',
-                            borderRadius: 0,
+                            border: '1px solid #dbe5ec',
+                            borderRadius: '14px',
                             boxShadow: 'none',
                             overflow: 'hidden'
                         }}
                     >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', padding: '12px 14px', borderBottom: '1px solid #ddecea', background: '#ffffff' }}>
-                            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 700, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>{t('admin.locations')}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', padding: '12px 18px', borderBottom: 'none', background: '#ffffff' }}>
+                            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>{t('admin.locations')}</span>
 
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '11px', color: '#6b8583', pointerEvents: 'none' }}>
@@ -778,7 +807,7 @@ const Administration: React.FC = () => {
                                     value={locationSearch}
                                     onChange={e => setLocationSearch(e.target.value)}
                                     placeholder="Search locations..."
-                                    style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', padding: '8px 30px 8px 34px', border: '1.5px solid #c8d8d6', borderRadius: '10px', outline: 'none', background: '#f2f9f8', color: '#1a2e2d', width: '240px', transition: 'all .2s' }}
+                                    style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', padding: '8px 30px 8px 34px', border: '1.5px solid #c8d8d6', borderRadius: '10px', outline: 'none', background: '#f2f9f8', color: '#1a2e2d', width: '275px', transition: 'all .2s' }}
                                     onFocus={(e) => {
                                         e.currentTarget.style.borderColor = '#5ba8a0';
                                         e.currentTarget.style.background = '#ffffff';
@@ -798,7 +827,7 @@ const Administration: React.FC = () => {
                             <select
                                 value={locationCountryFilter}
                                 onChange={(e) => setLocationCountryFilter(e.target.value)}
-                                style={{ width: '140px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none', cursor: 'pointer' }}
+                                style={{ width: '139px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none', cursor: 'pointer' }}
                                 onFocus={(e) => {
                                     e.currentTarget.style.borderColor = '#5ba8a0';
                                 }}
@@ -813,8 +842,8 @@ const Administration: React.FC = () => {
                             </select>
 
                             <button
-                                onClick={() => { setEditingLoc({ country: 'Switzerland' }); setLocModalOpen(true); }}
-                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', fontWeight: 600, padding: '9px 15px', background: '#5ba8a0', color: '#ffffff', border: 'none', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}
+                                onClick={() => { setLocationFormError(''); setEditingLoc({ country: 'Switzerland' }); setLocModalOpen(true); }}
+                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', fontWeight: 500, padding: '9px 15px', background: '#5ba8a0', color: '#ffffff', border: 'none', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}
                                 onMouseEnter={(e) => { e.currentTarget.style.background = '#3d8880'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.background = '#5ba8a0'; }}
                             >
@@ -826,9 +855,9 @@ const Administration: React.FC = () => {
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '24px', padding: '9px 18px', background: '#ffffff', borderBottom: '1px solid #ddecea', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '24px', padding: '9px 18px', background: '#ffffff', borderTop: '1px solid #ddecea', borderBottom: '1px solid #ddecea', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" /></svg>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{locationStats.totalLocations}</span> locations
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
@@ -844,7 +873,7 @@ const Administration: React.FC = () => {
 
                         {filteredLocations.length === 0 ? (
                             <div style={{ padding: '52px', textAlign: 'center', color: '#6b8583', fontSize: '14px' }}>
-                                <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>🔍</div>
+                                <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>??</div>
                                 <div>No locations match your search.</div>
                             </div>
                         ) : (
@@ -872,7 +901,7 @@ const Administration: React.FC = () => {
                                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                                             <button
                                                 title="Edit"
-                                                onClick={() => { setEditingLoc(loc); setLocModalOpen(true); }}
+                                                onClick={() => { setLocationFormError(''); setEditingLoc(loc); setLocModalOpen(true); }}
                                                 style={{ width: '30px', height: '30px', borderRadius: '6px', border: '1.5px solid #ddecea', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}
                                                 onMouseEnter={(e) => {
                                                     e.currentTarget.style.background = '#e8f4f3';
@@ -918,7 +947,7 @@ const Administration: React.FC = () => {
 
                 {/* --- DEPARTMENTS TAB --- */}
                 {activeTab === 'departments' && (
-                    <div style={{ padding: '0 0 1rem 0' }}>
+                    <div style={{ padding: '0', background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
                         <div
                             style={{
                                 display: 'flex',
@@ -928,12 +957,12 @@ const Administration: React.FC = () => {
                                 background: 'transparent',
                                 border: 'none',
                                 borderRadius: 0,
-                                padding: '16px 20px',
+                                padding: '12px 18px',
                                 borderBottom: 'none'
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, flexWrap: 'nowrap' }}>
-                                <span style={{ fontSize: '17px', fontWeight: 600 }}>{t('admin.tabDepartments')}</span>
+                                <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>{t('admin.tabDepartments')}</span>
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                                     <svg
                                         width="15"
@@ -959,11 +988,11 @@ const Administration: React.FC = () => {
                                             fontSize: '13.5px',
                                             padding: '8px 32px 8px 34px',
                                             border: '1.5px solid #ddecea',
-                                            borderRadius: '8px',
+                                            borderRadius: '10px',
                                             outline: 'none',
                                             background: '#f2f9f8',
                                             color: '#1a2e2d',
-                                            width: '240px',
+                                            width: '275px',
                                             transition: 'all .2s'
                                         }}
                                     />
@@ -990,13 +1019,13 @@ const Administration: React.FC = () => {
                                     value={departmentCityFilter}
                                     onChange={e => setDepartmentCityFilter(e.target.value)}
                                     style={{
-                                        width: '124px',
+                                        width: '139px',
                                         fontFamily: 'DM Sans, sans-serif',
                                         fontSize: '13px',
                                         fontWeight: 500,
                                         padding: '8px 12px',
                                         border: '1.5px solid #c8d8d6',
-                                        borderRadius: '8px',
+                                        borderRadius: '10px',
                                         background: '#f2f9f8',
                                         color: '#3d5c5a',
                                         outline: 'none',
@@ -1018,11 +1047,11 @@ const Administration: React.FC = () => {
                                     fontFamily: 'DM Sans, sans-serif',
                                     fontSize: '13px',
                                     fontWeight: 500,
-                                    padding: '8px 14px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    background: '#ffffff',
-                                    color: '#6b8583',
+                                    padding: '8px 16px',
+                                    border: '1.5px solid #c8d8d6',
+                                    borderRadius: '10px',
+                                    background: '#eef1f1',
+                                    color: '#315a69',
                                     cursor: 'pointer'
                                 }}
                             >
@@ -1034,26 +1063,26 @@ const Administration: React.FC = () => {
                                     setEditingDep({});
                                     setLockLocationId(null);
                                     setDepFormCode('');
-                                    setDepFormUsers('0');
+                                    setDepartmentFormError('');
                                     setDepModalOpen(true);
                                 }}
                                 style={{
                                     fontFamily: 'DM Sans, sans-serif',
                                     fontSize: '13.5px',
-                                    fontWeight: 600,
-                                    padding: '9px 16px',
+                                    fontWeight: 500,
+                                    padding: '9px 15px',
                                     background: '#5ba8a0',
                                     color: '#ffffff',
                                     border: 'none',
-                                    borderRadius: '8px',
+                                    borderRadius: '10px',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '6px',
+                                    gap: '8px',
                                     whiteSpace: 'nowrap'
                                 }}
                             >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round">
                                     <line x1="12" y1="5" x2="12" y2="19" />
                                     <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
@@ -1066,20 +1095,19 @@ const Administration: React.FC = () => {
                                 display: 'flex',
                                 background: 'transparent',
                                 border: 'none',
-                                borderTop: 'none',
+                                borderTop: '1px solid #ddecea',
                                 borderBottom: 'none',
-                                padding: '10px 20px',
+                                padding: '9px 18px',
                                 gap: '24px',
                                 flexWrap: 'wrap'
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                    <rect x="2" y="3" width="20" height="14" rx="2" />
-                                    <line x1="8" y1="21" x2="16" y2="21" />
-                                    <line x1="12" y1="17" x2="12" y2="21" />
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" />
+                                    <circle cx="12" cy="10" r="3" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.locationsShown}</span> locations shown
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.locationsShown}</span> locations
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1088,14 +1116,14 @@ const Administration: React.FC = () => {
                                     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.departmentsTotal}</span> departments total
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.departmentsTotal}</span> departments
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                     <circle cx="12" cy="8" r="4" />
                                     <path d="M20 21a8 8 0 1 0-16 0" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.usersAssigned}</span> users assigned
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.usersAssigned}</span> users
                             </div>
                         </div>
 
@@ -1119,7 +1147,7 @@ const Administration: React.FC = () => {
                                 const isExpanded = departmentExpandedLocs[loc.id] ?? false;
                                 const q = departmentSearch.trim();
                                 return (
-                                    <div key={loc.id} style={{ borderBottom: idx === visibleDepartmentGroups.length - 1 ? 'none' : '1px solid #ddecea' }}>
+                                    <div key={loc.id}>
                                         <div
                                             onClick={() => toggleDepartmentLoc(loc.id)}
                                             style={{
@@ -1130,6 +1158,7 @@ const Administration: React.FC = () => {
                                                 cursor: 'pointer',
                                                 userSelect: 'none',
                                                 background: '#fafefe',
+                                                borderTop: '1px solid #dfe8ee',
                                                 position: 'relative'
                                             }}
                                         >
@@ -1167,7 +1196,7 @@ const Administration: React.FC = () => {
                                             </span>
                                             <div>
                                                 <div
-                                                    style={{ fontSize: '15px', fontWeight: 600, flex: 1 }}
+                                                    style={{ fontSize: '15px', fontWeight: 600, lineHeight: 1.2, color: '#1a2e2d', flex: 1 }}
                                                     dangerouslySetInnerHTML={{ __html: highlight(getTranslatedLocationName(loc.name), q) }}
                                                 />
                                                 <div style={{ fontSize: '13px', color: '#6b8583' }}>
@@ -1231,7 +1260,7 @@ const Administration: React.FC = () => {
                                                     style={{
                                                         display: 'grid',
                                                         gridTemplateColumns: '1fr 260px 70px 80px',
-                                                        padding: '8px 24px 8px 52px',
+                                                        padding: '8px 24px 8px 110px',
                                                         background: '#f7fbfb',
                                                         borderBottom: '1px solid #ddecea'
                                                     }}
@@ -1243,7 +1272,7 @@ const Administration: React.FC = () => {
                                                 </div>
 
                                                 {depts.length === 0 ? (
-                                                    <div style={{ padding: '20px 52px', fontSize: '13px', color: '#6b8583', fontStyle: 'italic' }}>No departments yet — add one above.</div>
+                                                    <div style={{ padding: '20px 110px', fontSize: '13px', color: '#6b8583', fontStyle: 'italic' }}>No departments yet — add one above.</div>
                                                 ) : (
                                                     depts.map(dep => (
                                                         <div
@@ -1251,7 +1280,7 @@ const Administration: React.FC = () => {
                                                             style={{
                                                                 display: 'grid',
                                                                 gridTemplateColumns: '1fr 260px 70px 80px',
-                                                                padding: '12px 24px 12px 52px',
+                                                                padding: '12px 24px 12px 110px',
                                                                 borderBottom: '1px solid #f0f8f7',
                                                                 alignItems: 'center'
                                                             }}
@@ -1345,8 +1374,8 @@ const Administration: React.FC = () => {
                 {/* --- USERS TAB --- */}
                 {activeTab === 'users' && (
                     <div style={{ padding: '0 0 1rem 0' }}>
-                        <div style={{ display: selectedUsersDepartment ? 'none' : 'block' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', background: 'transparent', border: 'none', borderRadius: 0, padding: '12px 14px', borderBottom: 'none' }}>
+                        <div style={{ display: selectedUsersDepartment ? 'none' : 'block', background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', background: 'transparent', border: 'none', borderRadius: 0, padding: '12px 18px', borderBottom: 'none' }}>
                             <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>Users & Roles</span>
 
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -1368,33 +1397,9 @@ const Administration: React.FC = () => {
                                 {userCities.map(city => <option key={city} value={city}>{city}</option>)}
                             </select>
 
-                            <select value={userDepartmentFilter} onChange={(e) => setUserDepartmentFilter(e.target.value)} style={{ width: '153px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none' }}>
+                            <select value={userDepartmentFilter} onChange={(e) => setUserDepartmentFilter(e.target.value)} style={{ width: '139px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none' }}>
                                 <option value="">All Departments</option>
                                 {allDepartmentNames.map(dep => <option key={dep} value={dep}>{dep}</option>)}
-                            </select>
-
-                            <select
-                                value={userGlobalRole}
-                                onChange={(e) => setUserGlobalRole(e.target.value as AppUser['role'] | 'All')}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                    padding: '8px 12px',
-                                    width: '139px',
-                                    border: '1.5px solid #c8d8d6',
-                                    borderRadius: '10px',
-                                    background: '#f2f9f8',
-                                    color: '#315a69',
-                                    outline: 'none',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                <option value="All">All</option>
-                                <option value="Admin">Admin</option>
-                                <option value="Owner">Owner</option>
-                                <option value="Assigned">Assigned</option>
-                                <option value="Viewer">Viewer</option>
                             </select>
 
                             <div style={{ flex: 1 }} />
@@ -1412,56 +1417,43 @@ const Administration: React.FC = () => {
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '24px', background: 'transparent', border: 'none', borderTop: 'none', borderBottom: 'none', padding: '9px 18px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalLocations}</span> locations</div>
+                        <div style={{ display: 'flex', gap: '24px', background: 'transparent', border: 'none', borderTop: '1px solid #ddecea', borderBottom: 'none', padding: '9px 18px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalLocations}</span> locations</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalUsersShown}</span> users</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#fff3e0', color: '#e67e22' }}>Admin</span><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalRoleCounts.Admin}</span></div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#e8f0fe', color: '#3b6fd4' }}>Owner</span><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalRoleCounts.Owner}</span></div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#e8f7f0', color: '#2e9e68' }}>Assigned</span><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalRoleCounts.Assigned}</span></div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#f3f0ff', color: '#7c5cbf' }}>Viewer</span><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalRoleCounts.Viewer}</span></div>
                         </div>
 
-                        <div style={{ background: 'transparent', border: 'none', borderRadius: 0, overflow: 'hidden', boxShadow: 'none' }}>
+                        <div style={{ background: '#f8fbfb', border: 'none', borderRadius: 0, overflow: 'hidden', boxShadow: 'none' }}>
                             {usersViewData.groups.length === 0 && (
-                                <div style={{ padding: '52px', textAlign: 'center', color: '#6b8583', fontSize: '14px' }}><div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>🔍</div>No users match your search or filters.</div>
+                                <div style={{ padding: '52px', textAlign: 'center', color: '#6b8583', fontSize: '14px' }}><div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>??</div>No users match your search or filters.</div>
                             )}
 
-                            {usersViewData.groups.map(({ loc, allLocUsers, visibleUsers }) => {
+                            {usersViewData.groups.map(({ loc, allLocUsers, visibleUsers }, locIndex) => {
                                 const isOpen = !!usersExpandedLocs[loc.id];
                                 const localRole = userLocalRoleFilters[loc.id] || 'All';
                                 const activeSearch = userSearch.trim();
                                 const hasActiveFilter = !!activeSearch || userGlobalRole !== 'All' || localRole !== 'All' || !!userDepartmentFilter;
 
-                                const baseDepartments = departments.filter(dep => dep.locationId === loc.id);
-                                const hasUnassigned = allLocUsers.some(u => !u.departmentId);
-                                const locationDepartments = hasUnassigned
-                                    ? [...baseDepartments, { id: `UNASSIGNED-${loc.id}`, name: 'Unassigned', locationId: loc.id }]
-                                    : baseDepartments;
-
+                                const locationDepartments = departments.filter(dep => dep.locationId === loc.id);
                                 const departmentBlocks = locationDepartments
                                     .map(dep => {
-                                        const depName = dep.id.startsWith('UNASSIGNED-') ? 'Unassigned' : getTranslatedDepartmentName(dep.name);
+                                        const depName = getTranslatedDepartmentName(dep.name);
                                         const depUsersAll = allLocUsers.filter(user => {
-                                            if (dep.id.startsWith('UNASSIGNED-')) return !user.departmentId;
-                                            if (user.departmentId) return user.departmentId === dep.id;
-                                            return user.departmentName === dep.name;
+                                            return user.departmentId === dep.id;
                                         });
                                         const depUsersVisible = visibleUsers.filter(user => {
-                                            if (dep.id.startsWith('UNASSIGNED-')) return !user.departmentId;
-                                            if (user.departmentId) return user.departmentId === dep.id;
-                                            return user.departmentName === dep.name;
+                                            return user.departmentId === dep.id;
                                         });
                                         return { dep, depName, depUsersAll, depUsersVisible };
                                     })
                                     .filter(block => !hasActiveFilter || block.depUsersVisible.length > 0);
 
                                 return (
-                                    <div key={loc.id} style={{ marginBottom: '18px' }}>
+                                    <div key={loc.id} style={{ marginBottom: 0 }}>
                                         <div
                                             onClick={() => setUsersExpandedLocs(prev => ({ ...prev, [loc.id]: !prev[loc.id] }))}
-                                            style={{ background: '#ffffff', border: '1px solid #d3dbe4', borderRadius: isOpen ? '14px 14px 0 0' : '14px', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                                            style={{ background: '#fafefe', border: 'none', borderTop: locIndex === 0 ? '1px solid #dfe8ee' : '1px solid #dfe8ee', borderRadius: 0, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                                         >
-                                            <div style={{ width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6b8583' }}>
+                                            <div style={{ width: '20px', height: '20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#6b8583', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }}>
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                     <polyline points="9 18 15 12 9 6" />
                                                 </svg>
@@ -1471,23 +1463,23 @@ const Administration: React.FC = () => {
                                             </span>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '15px', lineHeight: 1.2, fontWeight: 600, color: '#1a2e2d' }}>{getLocationShortName(loc.name)}</div>
-                                                <div style={{ fontSize: '13px', color: '#8aa0b5', marginTop: '3px' }}>{loc.city || '-'} · {loc.country || '-'}</div>
+                                                <div style={{ fontSize: '13px', color: '#6b8583' }}>{loc.city || '-'} · {loc.country || '-'}</div>
                                             </div>
                                         </div>
 
                                         {isOpen && (
-                                            <div style={{ border: '1px solid #d3dbe4', borderTop: 'none', borderRadius: '0 0 14px 14px', overflow: 'hidden', display: 'grid', gap: 0 }}>
+                                            <div style={{ border: 'none', borderTop: '1px solid #dfe8ee', borderRadius: 0, overflow: 'hidden', display: 'grid', gap: 0 }}>
                                                 {departmentBlocks.length === 0 ? (
                                                     <div style={{ padding: '20px', borderRadius: '12px', border: '1px solid #ddecea', color: '#6b8583', fontSize: '13px' }}>No departments match current filters.</div>
                                                 ) : (
                                                     departmentBlocks.map(({ dep, depName, depUsersAll, depUsersVisible }, depIndex) => {
                                                         const depKey = getDepartmentExpandKey(loc.id, dep.id);
-                                                        const depOpen = false;
+                                                        const depOpen = !!usersExpandedDeps[depKey];
                                                         const detailUsers = depUsersAll.filter(user => {
                                                             if (localRole !== 'All' && user.role !== localRole) return false;
                                                             const q = userSearch.trim().toLowerCase();
                                                             if (!q) return true;
-                                                            return (user.fullName || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                                                            return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
                                                         });
                                                         const depOwnerCount = depUsersAll.filter(u => u.role === 'Owner').length;
                                                         const depAssignedCount = depUsersAll.filter(u => u.role === 'Assigned').length;
@@ -1495,7 +1487,7 @@ const Administration: React.FC = () => {
                                                             <div key={dep.id} style={{ borderBottom: depIndex === departmentBlocks.length - 1 ? 'none' : '1px solid #ddecea', background: '#ffffff', overflow: 'hidden' }}>
                                                                 <div
                                                                     onClick={() => setSelectedUsersDepartment({ locationId: loc.id, departmentId: dep.id })}
-                                                                    style={{ padding: '12px 16px 12px 38px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                                                                    style={{ padding: '12px 16px 12px 80px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                                                                 >
                                                                     <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '11px', fontWeight: 500, background: '#e8f4f3', color: '#5ba8a0', padding: '3px 8px', borderRadius: '5px', flexShrink: 0, letterSpacing: '.05em' }}>
                                                                         {depName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
@@ -1503,16 +1495,22 @@ const Administration: React.FC = () => {
                                                                     <div style={{ flex: 1 }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                                                             <div style={{ fontSize: '15px', lineHeight: 1.2, fontWeight: 600, color: '#1a2e2d' }}>{depName}</div>
-                                                                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#3f9088', border: '1px solid #abd6d2', background: '#e9f8f6', borderRadius: '999px', padding: '3px 10px' }}>
-                                                                                {depUsersVisible.length} users
-                                                                            </span>
                                                                         </div>
                                                                         <div style={{ fontSize: '13px', color: '#8aa0b5', marginTop: '2px' }}>{getLocationShortName(loc.name)}</div>
                                                                     </div>
-                                                                    <div style={{ color: '#8aa0b5', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                            {depOpen ? <polyline points="6 9 12 15 18 9" /> : <polyline points="9 18 15 12 9 6" />}
-                                                                        </svg>
+                                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: '#6b8583', fontWeight: 400 }}>
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                                                                <circle cx="12" cy="8" r="4" />
+                                                                                <path d="M20 21a8 8 0 1 0-16 0" />
+                                                                            </svg>
+                                                                            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 400, fontSize: '14px', color: '#6b8583' }}>{depUsersVisible.length}</span> users
+                                                                        </span>
+                                                                        <div style={{ color: '#8aa0b5', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                {depOpen ? <polyline points="6 9 12 15 18 9" /> : <polyline points="9 18 15 12 9 6" />}
+                                                                            </svg>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                                 {depOpen && (
@@ -1528,7 +1526,7 @@ const Administration: React.FC = () => {
                                                                                 </button>
                                                                                 <span style={{ color: '#1a2e2d', fontWeight: 700 }}>{depName}</span>
                                                                             </div>
-                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id.startsWith('UNASSIGNED-') ? undefined : dep.id)} style={{ padding: '9px 16px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id)} style={{ padding: '9px 16px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                                                                                 Add User
                                                                             </button>
@@ -1576,7 +1574,7 @@ const Administration: React.FC = () => {
                                                                                 detailUsers.map(user => (
                                                                                     <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
                                                                                         <div>
-                                                                                            <div style={{ fontSize: '27px', fontWeight: 700, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.fullName, userSearch.trim()) }} />
+                                                                                            <div style={{ fontSize: '27px', fontWeight: 700, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.name, userSearch.trim()) }} />
                                                                                             <div style={{ fontSize: '13px', color: '#8aa0b5' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} />
                                                                                         </div>
                                                                                         <div><span style={{ fontSize: '13px', fontWeight: 600, padding: '4px 12px', borderRadius: '999px', ...roleBadgeStyle(user.role) }}>{user.role}</span></div>
@@ -1588,7 +1586,7 @@ const Administration: React.FC = () => {
                                                                                     </div>
                                                                                 ))
                                                                             )}
-                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id.startsWith('UNASSIGNED-') ? undefined : dep.id)} style={{ background: 'transparent', border: 'none', color: '#3f9088', fontWeight: 700, fontSize: '26px', cursor: 'pointer', padding: '14px 16px' }}>
+                                                                            <button onClick={() => openAddUserModal(loc.id, dep.id)} style={{ background: 'transparent', border: 'none', color: '#3f9088', fontWeight: 700, fontSize: '26px', cursor: 'pointer', padding: '14px 16px' }}>
                                                                                 + Add User
                                                                             </button>
                                                                         </div>
@@ -1614,37 +1612,38 @@ const Administration: React.FC = () => {
                             const depName = getTranslatedDepartmentName(dep.name);
                             const depUsersAll = users.filter(user => {
                                 if (user.locationId !== loc.id) return false;
-                                if (user.departmentId) return user.departmentId === dep.id;
-                                return user.departmentName === dep.name;
+                                return user.departmentId === dep.id;
                             });
                             const localRole = userLocalRoleFilters[loc.id] || 'All';
                             const q = userSearch.trim().toLowerCase();
                             const detailUsers = depUsersAll.filter(user => {
                                 if (localRole !== 'All' && user.role !== localRole) return false;
                                 if (!q) return true;
-                                return (user.fullName || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                                return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
                             });
                             const depOwnerCount = depUsersAll.filter(u => u.role === 'Owner').length;
                             const depAssignedCount = depUsersAll.filter(u => u.role === 'Assigned').length;
 
                             return (
-                                <div style={{ padding: '0 0 24px' }}>
+                                <div style={{ padding: '0 0 24px', marginTop: '-32px' }}>
                                     <div style={{ maxWidth: 'none', margin: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 12px', borderBottom: '1px solid #d6dde6', marginBottom: '0' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5ba8a0', fontWeight: 400, lineHeight: 1.3 }}>
-                                                <button
-                                                    onClick={() => setSelectedUsersDepartment(null)}
-                                                    style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: 400, lineHeight: 1.3 }}
-                                                >
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                                                    Users & Roles
-                                                </button>
-                                                <span style={{ color: '#9fb3c4', fontSize: '14px', lineHeight: 1.3 }}>/</span>
-                                                <span style={{ color: '#1a2e2d', fontWeight: 400, fontSize: '14px', lineHeight: 1.3 }}>{depName}</span>
+                                        <div style={{ margin: '0 -32px 0', background: '#ffffff' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 16px 32px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5ba8a0', fontWeight: 600, lineHeight: 1.3 }}>
+                                                    <button
+                                                        onClick={() => setSelectedUsersDepartment(null)}
+                                                        style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                                        Users & Roles
+                                                    </button>
+                                                    <span style={{ color: '#9fb3c4', fontSize: '13px', lineHeight: 1.3 }}>/</span>
+                                                    <span style={{ color: '#1e2b3a', fontWeight: 600, fontSize: '13px', lineHeight: 1.3 }}>{depName}</span>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div style={{ background: '#5ba8a0', borderRadius: '0', padding: '34px 20px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'center', margin: '0 -32px 18px' }}>
+                                        <div style={{ background: '#5ba8a0', borderRadius: '0', padding: '34px 20px 34px 32px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'center', margin: '0 -32px 18px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                 <span style={{ width: '50px', height: '50px', borderRadius: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.18)', color: '#ffffff', fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 700, letterSpacing: '.01em' }}>
                                                     {depName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
@@ -1697,10 +1696,10 @@ const Administration: React.FC = () => {
                                                     <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                             <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontFamily: 'DM Mono, monospace', fontSize: '13px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                {(user.fullName || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                                {(user.name || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
                                                             </span>
                                                             <div>
-                                                                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.fullName, userSearch.trim()) }} />
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.name, userSearch.trim()) }} />
                                                                 <div style={{ fontSize: '12px', color: '#8aa0b5' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} />
                                                             </div>
                                                         </div>
@@ -1815,7 +1814,7 @@ const Administration: React.FC = () => {
                                                             </td>
                                                             <td style={{ padding: '0.875rem 1rem', textAlign: 'right' }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                                                    <button onClick={() => { setEditingDep(dep); setDepModalOpen(true); }} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
+                                                                    <button onClick={() => onEditDepartment(dep)} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
                                                                     <button onClick={(e) => handleDeleteDepartment(dep, e)} className="btn btn-outline" style={{ padding: '4px 8px', color: '#dc2626', borderColor: '#fee2e2' }}><Trash2 size={13} /></button>
                                                                 </div>
                                                             </td>
@@ -1886,7 +1885,7 @@ const Administration: React.FC = () => {
                                                         filteredDrawerUsers.map(user => (
                                                             <tr key={user.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                                 <td style={{ padding: '0.875rem 1rem' }}>
-                                                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{user.fullName}</div>
+                                                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{user.name}</div>
                                                                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>{user.email}</div>
                                                                 </td>
                                                                 <td style={{ padding: '0.875rem 1rem' }}>
@@ -1896,10 +1895,10 @@ const Administration: React.FC = () => {
                                                                         color: user.role === 'Admin' ? '#7e22ce' : user.role === 'Owner' ? '#1e40af' : user.role === 'Assigned' ? '#15803d' : '#475569'
                                                                     }}>{getTranslatedRole(user.role)}</span>
                                                                 </td>
-                                                                <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>{user.departmentName ? getTranslatedDepartmentName(user.departmentName) : '-'}</td>
+                                                                <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>{getUserDepartmentName(user)}</td>
                                                                 <td style={{ padding: '0.875rem 1rem', textAlign: 'right' }}>
                                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                                                                        <button onClick={() => { setEditingUser(user); setUserModalOpen(true); }} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
+                                                                        <button onClick={() => openEditUserModal(user)} className="btn btn-outline" style={{ padding: '4px 8px' }}><Edit2 size={13} /></button>
                                                                         <button onClick={(e) => handleDeleteUser(user.id, e)} className="btn btn-outline" style={{ padding: '4px 8px', color: '#dc2626', borderColor: '#fee2e2' }}><Trash2 size={13} /></button>
                                                                     </div>
                                                                 </td>
@@ -1919,369 +1918,45 @@ const Administration: React.FC = () => {
 
             {/* --- MODALS --- */}
 
-            {/* Location Modal */}
-            {isLocationModalOpen && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(20,45,44,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(3px)' }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setLocModalOpen(false);
-                    }}
-                >
-                    <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '440px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                        <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingLoc.id ? 'Edit Location' : 'Add Location'}</div>
-                        <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingLoc.id ? 'Update location details' : 'Fill in the location details'}</div>
+            <LocationModal
+                isOpen={isLocationModalOpen}
+                editingLoc={editingLoc}
+                locationFormError={locationFormError}
+                onChange={setEditingLoc}
+                onClose={() => {
+                    setLocationFormError('');
+                    setLocModalOpen(false);
+                }}
+                onSave={handleSaveLocation}
+            />
 
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location Name</label>
-                            <input
-                                value={editingLoc.name || ''}
-                                onChange={e => setEditingLoc({ ...editingLoc, name: e.target.value })}
-                                placeholder="e.g. University Hospital Zurich (ZH)"
-                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', outline: 'none', color: '#1a2e2d', background: '#f2f9f8', transition: 'all .2s' }}
-                                onFocus={(e) => {
-                                    e.currentTarget.style.borderColor = '#5ba8a0';
-                                    e.currentTarget.style.background = '#ffffff';
-                                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,168,160,0.12)';
-                                }}
-                                onBlur={(e) => {
-                                    e.currentTarget.style.borderColor = '#ddecea';
-                                    e.currentTarget.style.background = '#f2f9f8';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
-                            />
-                        </div>
+            <DepartmentModal
+                isOpen={isDepModalOpen}
+                editingDepartmentId={editingDepartmentId}
+                editingDep={editingDep}
+                depFormCode={depFormCode}
+                locations={locations}
+                isLocationLocked={!!(selectedLocation || lockLocationId)}
+                departmentFormError={departmentFormError}
+                usersCountInDepartment={editingDepartmentId ? users.filter(u => u.departmentId === editingDepartmentId).length : 0}
+                getTranslatedLocationName={getTranslatedLocationName}
+                onChangeDep={setEditingDep}
+                onChangeDepCode={setDepFormCode}
+                onClose={() => {
+                    setDepModalOpen(false);
+                    setLockLocationId(null);
+                    setEditingDepartmentId(null);
+                    setDepartmentFormError('');
+                }}
+                onSave={handleSaveDepartment}
+            />
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>City</label>
-                                <input
-                                    value={editingLoc.city || ''}
-                                    onChange={e => setEditingLoc({ ...editingLoc, city: e.target.value })}
-                                    placeholder="e.g. Zurich"
-                                    style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', outline: 'none', color: '#1a2e2d', background: '#f2f9f8', transition: 'all .2s' }}
-                                    onFocus={(e) => {
-                                        e.currentTarget.style.borderColor = '#5ba8a0';
-                                        e.currentTarget.style.background = '#ffffff';
-                                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,168,160,0.12)';
-                                    }}
-                                    onBlur={(e) => {
-                                        e.currentTarget.style.borderColor = '#ddecea';
-                                        e.currentTarget.style.background = '#f2f9f8';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Code</label>
-                                <input
-                                    value={editingLoc.code || ''}
-                                    onChange={e => setEditingLoc({ ...editingLoc, code: e.target.value })}
-                                    placeholder="e.g. ZH"
-                                    style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', outline: 'none', color: '#1a2e2d', background: '#f2f9f8', transition: 'all .2s' }}
-                                    onFocus={(e) => {
-                                        e.currentTarget.style.borderColor = '#5ba8a0';
-                                        e.currentTarget.style.background = '#ffffff';
-                                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,168,160,0.12)';
-                                    }}
-                                    onBlur={(e) => {
-                                        e.currentTarget.style.borderColor = '#ddecea';
-                                        e.currentTarget.style.background = '#f2f9f8';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Country</label>
-                            <input
-                                value={editingLoc.country || ''}
-                                onChange={e => setEditingLoc({ ...editingLoc, country: e.target.value })}
-                                placeholder="e.g. Switzerland"
-                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', outline: 'none', color: '#1a2e2d', background: '#f2f9f8', transition: 'all .2s' }}
-                                onFocus={(e) => {
-                                    e.currentTarget.style.borderColor = '#5ba8a0';
-                                    e.currentTarget.style.background = '#ffffff';
-                                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(91,168,160,0.12)';
-                                }}
-                                onBlur={(e) => {
-                                    e.currentTarget.style.borderColor = '#ddecea';
-                                    e.currentTarget.style.background = '#f2f9f8';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                            <button
-                                onClick={() => setLocModalOpen(false)}
-                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', fontWeight: 500, padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', cursor: 'pointer' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveLocation}
-                                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', fontWeight: 600, padding: '9px 22px', background: '#5ba8a0', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = '#3d8880';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = '#5ba8a0';
-                                }}
-                            >
-                                Save Location
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Department Modal */}
-            {isDepModalOpen && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'rgba(20,45,44,.45)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 100,
-                        backdropFilter: 'blur(3px)'
-                    }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) {
-                            setDepModalOpen(false);
-                            setLockLocationId(null);
-                            setEditingDepartmentId(null);
-                        }
-                    }}
-                >
-                    <div
-                        style={{
-                            background: '#ffffff',
-                            borderRadius: '14px',
-                            padding: '28px 28px 24px',
-                            width: '440px',
-                            maxWidth: '95vw',
-                            boxShadow: '0 20px 60px rgba(0,0,0,.15)'
-                        }}
-                    >
-                        <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>
-                            {editingDepartmentId ? 'Edit Department' : 'Add Department'}
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>
-                            {editingDepartmentId ? 'Update department details' : 'Assign a new department to a location'}
-                        </div>
-
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                                Location
-                            </label>
-                            <select
-                                value={editingDep.locationId || ''}
-                                onChange={e => setEditingDep({ ...editingDep, locationId: e.target.value })}
-                                disabled={!!(selectedLocation || lockLocationId) && !editingDepartmentId}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    outline: 'none',
-                                    color: '#1a2e2d',
-                                    background: '#f2f9f8'
-                                }}
-                            >
-                                <option value="">{t('admin.selectLocation')}</option>
-                                {locations.map(loc => (
-                                    <option key={loc.id} value={loc.id}>
-                                        {loc.code ? `${loc.code} - ` : ''}{getTranslatedLocationName(loc.name)}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                                Department Name
-                            </label>
-                            <input
-                                value={editingDep.name || ''}
-                                onChange={e => setEditingDep({ ...editingDep, name: e.target.value })}
-                                placeholder="e.g. Cardiology"
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    outline: 'none',
-                                    color: '#1a2e2d',
-                                    background: '#f2f9f8'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                                Adresse
-                            </label>
-                            <input
-                                value={depFormCode}
-                                onChange={e => setDepFormCode(e.target.value)}
-                                placeholder="z.B. Restelbergstrasse 108, 8044 Zürich"
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    outline: 'none',
-                                    color: '#1a2e2d',
-                                    background: '#f2f9f8'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                                Number of Users
-                            </label>
-                            <input
-                                type="number"
-                                min={0}
-                                value={depFormUsers}
-                                onChange={e => setDepFormUsers(e.target.value)}
-                                placeholder="0"
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    width: '100%',
-                                    padding: '10px 12px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    outline: 'none',
-                                    color: '#1a2e2d',
-                                    background: '#f2f9f8'
-                                }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                            <button
-                                onClick={() => {
-                                    setDepModalOpen(false);
-                                    setLockLocationId(null);
-                                    setEditingDepartmentId(null);
-                                }}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    padding: '9px 18px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    background: '#ffffff',
-                                    color: '#6b8583',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveDepartment}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    padding: '9px 22px',
-                                    background: '#5ba8a0',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Save Department
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {departmentDeleteTarget && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'rgba(20,45,44,.45)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 110,
-                        backdropFilter: 'blur(3px)'
-                    }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setDepartmentDeleteTarget(null);
-                    }}
-                >
-                    <div
-                        style={{
-                            background: '#ffffff',
-                            borderRadius: '14px',
-                            padding: '24px',
-                            width: '430px',
-                            maxWidth: '95vw',
-                            boxShadow: '0 20px 60px rgba(0,0,0,.15)'
-                        }}
-                    >
-                        <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '6px', color: '#1a2e2d' }}>
-                            Delete Department?
-                        </div>
-                        <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '18px', lineHeight: 1.45 }}>
-                            Do you want to delete <strong style={{ color: '#1a2e2d' }}>{getTranslatedDepartmentName(departmentDeleteTarget.name)}</strong>?
-                            This action cannot be undone.
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setDepartmentDeleteTarget(null)}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    fontWeight: 500,
-                                    padding: '9px 18px',
-                                    border: '1.5px solid #ddecea',
-                                    borderRadius: '8px',
-                                    background: '#ffffff',
-                                    color: '#6b8583',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                No
-                            </button>
-                            <button
-                                onClick={confirmDeleteDepartment}
-                                style={{
-                                    fontFamily: 'DM Sans, sans-serif',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    padding: '9px 18px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    background: '#dc2626',
-                                    color: '#ffffff',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Yes
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DepartmentDeleteDialog
+                target={departmentDeleteTarget}
+                getTranslatedDepartmentName={getTranslatedDepartmentName}
+                onCancel={() => setDepartmentDeleteTarget(null)}
+                onConfirm={confirmDeleteDepartment}
+            />
 
             <div
                 style={{
@@ -2304,157 +1979,67 @@ const Administration: React.FC = () => {
             >
                 {toastMessage}
             </div>
-            {/* Add/Edit User Modal */}
-            {isAddEditUserModalOpen && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(20,45,44,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(3px)' }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setAddEditUserModalOpen(false);
-                    }}
-                >
-                    <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                        <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingUserId ? 'Edit User' : 'Add User'}</div>
-                        <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingUserId ? 'Update user details and role' : 'Assign a user to a location and role'}</div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Full Name</label>
-                            <input value={userForm.fullName} onChange={(e) => setUserForm(prev => ({ ...prev, fullName: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
-                        </div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Email</label>
-                            <input type="email" value={userForm.email} onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location</label>
-                                <select
-                                    value={userForm.locationId}
-                                    onChange={(e) => {
-                                        const nextLoc = e.target.value;
-                                        const nextDeps = departments.filter(dep => dep.locationId === nextLoc);
-                                        setUserForm(prev => ({ ...prev, locationId: nextLoc, departmentId: nextDeps[0]?.id || '' }));
-                                    }}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}
-                                >
-                                    <option value="">Select location</option>
-                                    {locations.map(l => <option key={l.id} value={l.id}>{l.code ? `${l.code} - ` : ''}{getTranslatedLocationName(l.name).replace(/ \([A-Z]+\)$/, '')}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Department</label>
-                                <select value={userForm.departmentId} onChange={(e) => setUserForm(prev => ({ ...prev, departmentId: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                                    {departments.filter(dep => dep.locationId === userForm.locationId).map(dep => <option key={dep.id} value={dep.id}>{getTranslatedDepartmentName(dep.name)}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Role</label>
-                            <select value={userForm.role} onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value as AppUser['role'] }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                                <option value="Admin">Admin</option>
-                                <option value="Owner">Owner</option>
-                                <option value="Assigned">Assigned</option>
-                                <option value="Viewer">Viewer</option>
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                            <button onClick={() => setAddEditUserModalOpen(false)} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>Cancel</button>
-                            <button onClick={saveAddEditUser} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>Save User</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Transfer Modal */}
-            {isTransferUserModalOpen && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(20,45,44,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(3px)' }}
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) setTransferUserModalOpen(false);
-                    }}
-                >
-                    <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                        <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>Transfer User</div>
-                        <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{transferUserId ? `Transferring: ${users.find(u => u.id === transferUserId)?.fullName || ''}` : 'Move to a different location'}</div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>New Location</label>
-                            <select value={transferForm.locationId} onChange={(e) => { const nextLoc = e.target.value; const nextDeps = departments.filter(dep => dep.locationId === nextLoc); setTransferForm(prev => ({ ...prev, locationId: nextLoc, departmentId: nextDeps[0]?.id || '' })); }} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                                {locations.map(l => <option key={l.id} value={l.id}>{l.code ? `${l.code} - ` : ''}{getTranslatedLocationName(l.name).replace(/ \([A-Z]+\)$/, '')}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>New Department</label>
-                            <select value={transferForm.departmentId} onChange={(e) => setTransferForm(prev => ({ ...prev, departmentId: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                                {departments.filter(dep => dep.locationId === transferForm.locationId).map(dep => <option key={dep.id} value={dep.id}>{getTranslatedDepartmentName(dep.name)}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Role</label>
-                            <select value={transferForm.role} onChange={(e) => setTransferForm(prev => ({ ...prev, role: e.target.value as AppUser['role'] }))} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                                <option value="Admin">Admin</option>
-                                <option value="Owner">Owner</option>
-                                <option value="Assigned">Assigned</option>
-                                <option value="Viewer">Viewer</option>
-                            </select>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                            <button onClick={() => setTransferUserModalOpen(false)} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>Cancel</button>
-                            <button onClick={saveTransferUser} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>Transfer</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <AddEditUserModal
+                isOpen={isAddEditUserModalOpen}
+                editingUserId={editingUserId}
+                userForm={userForm}
+                userFormError={userFormError}
+                locations={locations}
+                departments={departments}
+                getTranslatedLocationName={getTranslatedLocationName}
+                getTranslatedDepartmentName={getTranslatedDepartmentName}
+                onChangeUserForm={setUserForm}
+                onClose={() => {
+                    setUserFormError('');
+                    setAddEditUserModalOpen(false);
+                }}
+                onSave={saveAddEditUser}
+            />
 
-            {/* Profile Modal */}
-            {isProfileUserModalOpen && (() => {
-                const user = users.find(u => u.id === profileUserId);
-                if (!user) return null;
-                const loc = locations.find(l => l.id === user.locationId);
-                const initials = user.fullName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-                return (
-                    <div
-                        style={{ position: 'fixed', inset: 0, background: 'rgba(20,45,44,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, backdropFilter: 'blur(3px)' }}
-                        onClick={(e) => {
-                            if (e.target === e.currentTarget) setProfileUserModalOpen(false);
-                        }}
-                    >
-                        <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                            <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '16px' }}>User Profile</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials}</div>
-                                <div>
-                                    <div style={{ fontSize: '18px', fontWeight: 700 }}>{user.fullName}</div>
-                                    <div style={{ fontSize: '13px', color: '#6b8583', fontFamily: 'DM Mono, monospace' }}>{user.email}</div>
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Role</div><div style={{ fontSize: '14px', fontWeight: 500 }}><span style={{ fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', ...roleBadgeStyle(user.role) }}>{user.role}</span></div></div>
-                                <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Location</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{loc?.code || '-'}</div></div>
-                                <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Department</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{getUserDepartmentName(user)}</div></div>
-                                <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Hospital</div><div style={{ fontSize: '13px', fontWeight: 500 }}>{loc ? getTranslatedLocationName(loc.name).replace(/ \([A-Z]+\)$/, '') : '-'}</div></div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                                <button onClick={() => setProfileUserModalOpen(false)} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>Close</button>
-                                <button onClick={() => { setProfileUserModalOpen(false); openEditUserModal(user); }} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>Edit User</button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
+            <TransferUserModal
+                isOpen={isTransferUserModalOpen}
+                transferUserId={transferUserId}
+                transferForm={transferForm}
+                transferFormError={transferFormError}
+                users={users}
+                locations={locations}
+                departments={departments}
+                getTranslatedLocationName={getTranslatedLocationName}
+                getTranslatedDepartmentName={getTranslatedDepartmentName}
+                onChangeTransferForm={setTransferForm}
+                onClose={() => {
+                    setTransferFormError('');
+                    setTransferUserModalOpen(false);
+                }}
+                onSave={saveTransferUser}
+            />
+
+            <UserProfileModal
+                isOpen={isProfileUserModalOpen}
+                profileUserId={profileUserId}
+                users={users}
+                locations={locations}
+                roleBadgeStyle={roleBadgeStyle}
+                getUserDepartmentName={getUserDepartmentName}
+                getTranslatedLocationName={getTranslatedLocationName}
+                onClose={() => setProfileUserModalOpen(false)}
+                onEditUser={(user) => {
+                    setProfileUserModalOpen(false);
+                    openEditUserModal(user);
+                }}
+            />
 
         </div>
     );
 };
 
-// Styles for modals
-const modalOverlayStyle: React.CSSProperties = {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-};
-const modalHeaderStyle: React.CSSProperties = {
-    padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-};
-const closeBtnStyle: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' };
-const modalFooterStyle: React.CSSProperties = {
-    padding: '1.25rem 1.5rem', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'flex-end', gap: '1rem'
-};
-
 export default Administration;
+
+
+
+
+
+
+
+
