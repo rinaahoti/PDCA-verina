@@ -7,7 +7,7 @@
         "delete": "LÃ¶schen",
         "edit": "Bearbeiten",
         "view": "Ansehen",
-        "open": "Ã–ffnen",
+        "open": "Offnen",
         "close": "SchlieÃŸen",
         "actions": "Aktionen",
         "status": "Status",
@@ -56,7 +56,7 @@
         "lists": "Listen",
         "dashboard": "Dashboard",
         "administration": "Administration",
-        "activityLog": "AktivitÃ¤tsprotokoll",
+        "activityLog": "Aktivitätsprotokoll",
         "templates": "Vorlagen & Standards",
         "templatesStandards": "Vorlagen & Standards",
         "new": "Neu",
@@ -172,7 +172,7 @@
         "nursing": "Pflege"
     },
     "activityLog": {
-        "pageTitle": "AktivitÃ¤tsprotokoll",
+        "pageTitle": "Aktivitätsprotokoll",
         "subtitle": "Krankenhaus-Governance-Protokoll Â· Klinischer QM-Verlauf",
         "searchPlaceholder": "AktivitÃ¤t suchen...",
         "allEntities": "Alle EntitÃ¤ten",
@@ -281,7 +281,7 @@
         "lists": "Listen",
         "dashboard": "Dashboard",
         "administration": "Administration",
-        "activityLog": "AktivitÃ¤tsprotokoll",
+        "activityLog": "Aktivitätsprotokoll",
         "templates": "Vorlagen & Standards",
         "newTopic": "Neues Thema erstellen",
         "myTopics": "Meine Themen",
@@ -567,6 +567,7 @@
         "productName": "VIRENA â€“ KVP"
     }
 }
+
 
 
 

@@ -68,7 +68,7 @@ export const AppShell: React.FC<ShellProps> = ({ user, children }) => {
                     </NavLink>
                     <NavLink to="/app/activity-log" className={({ isActive }) => isActive ? 'active-nav' : ''}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <Activity size={20} /> {t('nav.activityLog')}
+                            <Activity size={20} /> {language === 'de' ? 'Aktivitätsprotokoll' : t('nav.activityLog')}
                         </div>
                         <ChevronRight size={14} className="nav-chevron" />
                     </NavLink>
