@@ -5,7 +5,7 @@ import { adminService } from '../services/adminService';
 import { notificationService } from '../services/notifications';
 import { Topic, ToDo, Step, EffectivenessStatus, KPIEvaluation, ActOutcome, StandardizationScope, AffectedArea, PhaseMeetingData, ExternalMeetingUser } from '../types';
 import { Location as AdminLocation, Department as AdminDepartment } from '../types/admin';
-import { Save, Printer, Mail, ArrowLeft, ChevronRight, ChevronDown, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp, MapPin, Building2, Users } from 'lucide-react';
+import { Save, Printer, Mail, ArrowLeft, ChevronRight, ChevronDown, Lock, CheckCircle2, X, AlertTriangle, PlayCircle, BarChart3, RotateCcw, FileText, Globe, GraduationCap, ShieldCheck, Settings, Target, Play, Calendar, TrendingUp, MapPin, Building2, Users, MessageSquare, Search } from 'lucide-react';
 import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel, normalizeStatus } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 import DateTimePicker from '../components/DateTimePicker';
@@ -64,6 +64,14 @@ const Cockpit: React.FC = () => {
     const [stepFilter, setStepFilter] = useState<Step[]>([]);
     const [isSaved, setIsSaved] = useState(false);
     const [emailStatus, setEmailStatus] = useState<{ show: boolean; success: boolean; message: string }>({ show: false, success: false, message: '' });
+    const [openActionCommentId, setOpenActionCommentId] = useState<string | null>(null);
+    const [actionCommentDraft, setActionCommentDraft] = useState('');
+    const [allActionsSearch, setAllActionsSearch] = useState('');
+    const [allActionsStatusFilter, setAllActionsStatusFilter] = useState('All Status');
+    const [allActionsStepFilter, setAllActionsStepFilter] = useState('All');
+    const [allTopicsSearch, setAllTopicsSearch] = useState('');
+    const [allTopicsStatusFilter, setAllTopicsStatusFilter] = useState('All Status');
+    const [allTopicsStepFilter, setAllTopicsStepFilter] = useState('All');
 
     // Location & Department state (PLAN page only)
     const [locationDeptTab, setLocationDeptTab] = useState<'locations' | 'departments'>('locations');
@@ -550,11 +558,37 @@ const Cockpit: React.FC = () => {
                 ...a,
                 topicId: t.id,
                 topicTitle: t.title,
+                topicStep: t.step,
                 myAssignment: a.assignments.find((assign: any) => assign.userId === user?.id)
             }))
     );
 
+    const getActionStatusValue = (dueDate?: string) => {
+        const statusClass = getStatusMeta('', dueDate).class;
+        if (statusClass === 'status-critical') return 'Critical';
+        if (statusClass === 'status-warning') return 'Warning';
+        if (statusClass === 'status-done') return 'Done';
+        return 'Monitoring';
+    };
 
+    const filteredAllActions = myActions.filter((action: any) => {
+        const searchText = `${action.topicTitle || ''} ${action.title || ''}`.toLowerCase();
+        const matchesSearch = searchText.includes(allActionsSearch.toLowerCase());
+        const matchesStatus = allActionsStatusFilter === 'All Status' || getActionStatusValue(action.dueDate) === allActionsStatusFilter;
+        const matchesStep = allActionsStepFilter === 'All' || action.topicStep === allActionsStepFilter;
+        return matchesSearch && matchesStatus && matchesStep;
+    });
+    const visibleMyActions = myActions.slice(0, 5);
+
+
+
+    const isPlaceholderTopic = (topic: Topic) => {
+        const title = (topic.title || '').trim();
+        const kpi = (topic.kpi || '').trim();
+        const objective = (topic.objective || '').trim();
+
+        return title.length <= 1 && kpi === '-' && objective === '-';
+    };
 
     const myTopics = topics.filter((t: Topic) => {
         const isOwner = t.ownerId === user?.id;
@@ -565,8 +599,19 @@ const Cockpit: React.FC = () => {
         const isNotDone = t.status !== 'Done';
         const isNotAct = t.step !== 'ACT';
 
-        return isOwner && matchesStatus && matchesStep && isNotDone && isNotAct;
+        return isOwner && matchesStatus && matchesStep && isNotDone && isNotAct && !isPlaceholderTopic(t);
     });
+
+    const ownedTopicsAll = topics.filter((t: Topic) => t.ownerId === user?.id && !isPlaceholderTopic(t));
+
+    const filteredAllTopics = ownedTopicsAll.filter((topic: Topic) => {
+        const searchText = `${topic.title || ''} ${topic.kpi || ''}`.toLowerCase();
+        const matchesSearch = searchText.includes(allTopicsSearch.toLowerCase());
+        const matchesStatus = allTopicsStatusFilter === 'All Status' || topic.status === allTopicsStatusFilter;
+        const matchesStep = allTopicsStepFilter === 'All' || topic.step === allTopicsStepFilter;
+        return matchesSearch && matchesStatus && matchesStep;
+    });
+    const visibleMyTopics = myTopics.slice(0, 5);
 
     const toggleStatus = (status: string) => {
         setStatusFilter(prev => prev.includes(status) ? [] : [status]);
@@ -574,6 +619,127 @@ const Cockpit: React.FC = () => {
 
     const toggleStep = (step: Step) => {
         setStepFilter(prev => prev.includes(step) ? [] : [step]);
+    };
+
+    const openActionCommentEditor = (action: any) => {
+        setOpenActionCommentId(action.id);
+        setActionCommentDraft(action.comment || '');
+    };
+
+    const closeActionCommentEditor = () => {
+        setOpenActionCommentId(null);
+        setActionCommentDraft('');
+    };
+
+    const getActionComments = (action: any) => {
+        if (action.comments && action.comments.length > 0) return action.comments;
+        if (action.comment) {
+            return [{
+                id: `legacy-${action.id}`,
+                userId: 'legacy',
+                userName: 'System',
+                text: action.comment,
+                createdAt: ''
+            }];
+        }
+        return [];
+    };
+
+    const renderActionComments = (action: any) => {
+        const comments = getActionComments(action);
+
+        if (comments.length === 0) return null;
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {comments.map((comment: any) => {
+                    const matchingAssignment = action.assignments?.find((assignment: any) => assignment.userId === comment.userId);
+                    const assignmentStatus = matchingAssignment ? (matchingAssignment.completed ? t('common.completed') : t('common.markComplete')) : null;
+
+                    return (
+                    <div
+                        key={comment.id}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.5rem',
+                            color: '#334155',
+                            fontSize: '13px',
+                            padding: '0.6rem 0.75rem',
+                            background: '#fff',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: '8px'
+                        }}
+                    >
+                        <MessageSquare size={16} style={{ marginTop: '1px', flexShrink: 0, color: '#8AA0BF' }} />
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: '0.2rem' }}>
+                                {comment.userName}
+                                {assignmentStatus ? `: ${assignmentStatus.toUpperCase()}` : ''}
+                            </div>
+                            {comment.createdAt && (
+                                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '0.25rem' }}>
+                                    {new Date(comment.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'de-DE')}
+                                </div>
+                            )}
+                            <div>{comment.text}</div>
+                        </div>
+                    </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    const saveActionComment = (action: any) => {
+        if (!actionCommentDraft.trim()) return;
+        const topic = topicsService.getById(action.topicId);
+        if (!topic) return;
+
+        const nextActions = (topic.do.actions || []).map(existingAction =>
+            existingAction.id === action.id
+                ? {
+                    ...existingAction,
+                    comments: [
+                        ...getActionComments(existingAction),
+                        {
+                            id: `comment-${Date.now()}`,
+                            userId: user?.id || 'unknown',
+                            userName: user?.name || 'Unknown',
+                            text: actionCommentDraft.trim(),
+                            createdAt: new Date().toISOString()
+                        }
+                    ],
+                    comment: actionCommentDraft.trim()
+                }
+                : existingAction
+        );
+
+        topicsService.update(action.topicId, {
+            do: {
+                ...topic.do,
+                actions: nextActions
+            }
+        });
+        loadData();
+        closeActionCommentEditor();
+    };
+
+    const toggleAssignedActionCompletion = (actionRef: any, checked: boolean) => {
+        const topic = topicsService.getById(actionRef.topicId);
+        if (!topic) return;
+
+        const action = topic.do.actions.find(act => act.id === actionRef.id);
+        if (!action) return;
+
+        const assign = action.assignments.find(p => p.userId === user?.id);
+        if (!assign) return;
+
+        assign.completed = checked;
+        assign.completedAt = checked ? new Date().toISOString() : undefined;
+
+        topicsService.update(actionRef.topicId, { do: topic.do });
+        loadData();
     };
 
     const handleSave = async () => {
@@ -1405,8 +1571,7 @@ const Cockpit: React.FC = () => {
                                                     ],
                                                     [
                                                         { value: 'GUEST_SATISFACTION', label: t('pdca.improvementPurposeGuestSatisfaction') },
-                                                        { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') },
-                                                        { value: 'QUALITY_VERBESSERN', label: t('pdca.improvementPurposeQualityVerbessern') }
+                                                        { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') }
                                                     ]
                                                 ].map((column, columnIndex) => (
                                                     <div key={`create-purpose-col-${columnIndex}`}>
@@ -2688,8 +2853,7 @@ const Cockpit: React.FC = () => {
                                                         ],
                                                         [
                                                             { value: 'GUEST_SATISFACTION', label: t('pdca.improvementPurposeGuestSatisfaction') },
-                                                            { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') },
-                                                            { value: 'QUALITY_VERBESSERN', label: t('pdca.improvementPurposeQualityVerbessern') }
+                                                            { value: 'MITARBERITERZUFRIEDENHEIT', label: t('pdca.improvementPurposeMitarberiterzufriedenheit') }
                                                         ]
                                                     ].map((column, columnIndex) => (
                                                         <div key={`edit-purpose-col-${columnIndex}`}>
@@ -3897,6 +4061,247 @@ const Cockpit: React.FC = () => {
         );
     }
 
+    if (mode === 'all-actions') {
+        return (
+            <div style={{ maxWidth: '1680px', margin: '0 auto', paddingTop: '0.5rem' }}>
+                <button
+                    type="button"
+                    onClick={() => setSearchParams({})}
+                    style={{ border: 'none', background: 'transparent', padding: 0, marginBottom: '1rem', color: '#7b8ca5', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                >
+                    <ArrowLeft size={14} /> Back to Cockpit
+                </button>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>All Actions</h1>
+                    <div style={{ marginTop: '0.4rem', fontSize: '13px', color: '#7b8ca5' }}>
+                        All assigned actions and their current completion status
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px', border: '1px solid #dbe1ea', boxShadow: '0 1px 2px rgba(15,23,42,.05)' }}>
+                    <div style={{ padding: '0.9rem 1.1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.75rem', alignItems: 'center', background: '#fff' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                                value={allActionsSearch}
+                                onChange={e => setAllActionsSearch(e.target.value)}
+                                placeholder="Search actions..."
+                                style={{ paddingLeft: '34px', height: '34px' }}
+                            />
+                        </div>
+                        <select
+                            value={allActionsStatusFilter}
+                            onChange={e => setAllActionsStatusFilter(e.target.value)}
+                            style={{ width: '120px', height: '34px', padding: '0 12px', borderRadius: '8px', border: '1px solid #dbe1ea', background: '#fff' }}
+                        >
+                            <option value="All Status">All Status</option>
+                            <option value="Monitoring">Monitoring</option>
+                            <option value="Warning">Warning</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                        <select
+                            value={allActionsStepFilter}
+                            onChange={e => setAllActionsStepFilter(e.target.value)}
+                            style={{ width: '120px', height: '34px', padding: '0 12px', borderRadius: '8px', border: '1px solid #dbe1ea', background: '#fff' }}
+                        >
+                            <option value="All">All</option>
+                            <option value="PLAN">PLAN</option>
+                            <option value="DO">DO</option>
+                            <option value="CHECK">CHECK</option>
+                            <option value="ACT">ACT</option>
+                        </select>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: '1100px' }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc' }}>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.status')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('pdca.topicTitle')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.title')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.dueDate')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.teamsMeeting')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'center' }}>{t('common.markComplete')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'center' }}>{t('common.comment')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredAllActions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                                            {t('common.noActionsAssigned')}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredAllActions.map((a: any) => {
+                                        const myAssign = a.assignments.find((p: any) => p.userId === user?.id);
+                                        const isCommentOpen = openActionCommentId === a.id;
+                                        const hasComment = (a.comments && a.comments.length > 0) || !!a.comment?.trim();
+
+                                        return (
+                                            <React.Fragment key={`all-${a.id}`}>
+                                                <tr style={{ borderTop: '1px solid #e5edf5' }}>
+                                                    <td style={{ padding: '0.75rem 1rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span className="status-dot" style={{ backgroundColor: getStatusColor('', a.dueDate), width: 8, height: 8 }}></span>
+                                                            <span style={{ fontSize: '12px', color: '#475569' }}>{getStatusMeta('', a.dueDate, undefined, t).label}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '12px', color: '#475569' }}>{getTranslatedTopicTitle(a.topicTitle)}</td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{a.title}</td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '12px', color: '#475569' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                                    <td style={{ padding: '0.75rem 1rem', fontSize: '12px', color: '#475569' }}>{a.teamsMeeting ? new Date(a.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', borderBottom: isCommentOpen ? 'none' : undefined }}>
+                                                        <input type="checkbox" checked={myAssign.completed} onChange={e => toggleAssignedActionCompletion(a, e.target.checked)} />
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', borderBottom: isCommentOpen ? 'none' : undefined }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => isCommentOpen ? closeActionCommentEditor() : openActionCommentEditor(a)}
+                                                            style={{ border: 'none', background: 'transparent', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                            aria-label={t('common.comment')}
+                                                        >
+                                                            <MessageSquare size={16} color={hasComment ? 'var(--color-status-green)' : '#8AA0BF'} strokeWidth={1.8} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {isCommentOpen && (
+                                                    <tr>
+                                                        <td colSpan={7} style={{ padding: '0.75rem 1rem 1rem', background: '#fff' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                                {renderActionComments(a)}
+                                                                <textarea
+                                                                    value={actionCommentDraft}
+                                                                    onChange={e => setActionCommentDraft(e.target.value)}
+                                                                    placeholder="Write a comment..."
+                                                                    rows={3}
+                                                                    style={{ width: '100%', resize: 'vertical', minHeight: '60px' }}
+                                                                />
+                                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                                                    <button type="button" className="btn btn-outline" onClick={closeActionCommentEditor}>
+                                                                        {t('common.cancel')}
+                                                                    </button>
+                                                                    <button type="button" className="btn btn-primary" onClick={() => saveActionComment(a)}>
+                                                                        {t('common.save')}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (mode === 'all-topics') {
+        return (
+            <div style={{ maxWidth: '1680px', margin: '0 auto', paddingTop: '0.5rem' }}>
+                <button
+                    type="button"
+                    onClick={() => setSearchParams({})}
+                    style={{ border: 'none', background: 'transparent', padding: 0, marginBottom: '1rem', color: '#7b8ca5', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                >
+                    <ArrowLeft size={14} /> Back to Cockpit
+                </button>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>All Topics</h1>
+                    <div style={{ marginTop: '0.4rem', fontSize: '13px', color: '#7b8ca5' }}>
+                        All initiatives you are responsible for
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px', border: '1px solid #dbe1ea', boxShadow: '0 1px 2px rgba(15,23,42,.05)' }}>
+                    <div style={{ padding: '0.9rem 1.1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.75rem', alignItems: 'center', background: '#fff' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input
+                                value={allTopicsSearch}
+                                onChange={e => setAllTopicsSearch(e.target.value)}
+                                placeholder="Search topics..."
+                                style={{ paddingLeft: '34px', height: '34px' }}
+                            />
+                        </div>
+                        <select
+                            value={allTopicsStatusFilter}
+                            onChange={e => setAllTopicsStatusFilter(e.target.value)}
+                            style={{ width: '120px', height: '34px', padding: '0 12px', borderRadius: '8px', border: '1px solid #dbe1ea', background: '#fff' }}
+                        >
+                            <option value="All Status">All Status</option>
+                            <option value="Monitoring">Monitoring</option>
+                            <option value="Warning">Warning</option>
+                            <option value="Critical">Critical</option>
+                            <option value="Done">Done</option>
+                        </select>
+                        <select
+                            value={allTopicsStepFilter}
+                            onChange={e => setAllTopicsStepFilter(e.target.value)}
+                            style={{ width: '120px', height: '34px', padding: '0 12px', borderRadius: '8px', border: '1px solid #dbe1ea', background: '#fff' }}
+                        >
+                            <option value="All">All</option>
+                            <option value="PLAN">PLAN</option>
+                            <option value="DO">DO</option>
+                            <option value="CHECK">CHECK</option>
+                            <option value="ACT">ACT</option>
+                        </select>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: '1000px' }}>
+                            <thead>
+                                <tr style={{ background: '#f8fafc' }}>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.status')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('pdca.pdcaTopic')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.step')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.dueDate')}</th>
+                                    <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.85rem 1rem', textAlign: 'left' }}>{t('common.responsible')}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredAllTopics.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                                            {t('common.noTopicsFound')}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredAllTopics.map((topic: Topic) => (
+                                        <tr key={`all-topic-${topic.id}`} style={{ cursor: 'pointer', borderTop: '1px solid #e5edf5' }} onClick={() => setSelectedTopic(topic)}>
+                                            <td style={{ padding: '0.75rem 1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span className={`status-dot ${getStatusClass(topic.status, topic.dueDate)}`}></span>
+                                                    <span style={{ fontSize: '12px', color: '#475569' }}>{getStatusMeta(topic.status, topic.dueDate, undefined, t).label}</span>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '0.75rem 1rem' }}>
+                                                <div style={{ fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(topic.title)}</div>
+                                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
+                                            </td>
+                                            <td style={{ padding: '0.75rem 1rem', fontSize: '12px' }}>
+                                                {t(`pdca.${topic.step.toLowerCase()}`)}
+                                            </td>
+                                            <td style={{ padding: '0.75rem 1rem', fontSize: '12px', color: '#475569' }}>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                            <td style={{ padding: '0.75rem 1rem', fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>{topic.ownerName || 'Elena Rossi'}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={{ maxWidth: '1680px', margin: '0 auto', paddingTop: '0.5rem' }}>
             <div style={{ marginBottom: '1.5rem' }}>
@@ -3910,12 +4315,8 @@ const Cockpit: React.FC = () => {
                 <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myActions')}</h3>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ecfeff', border: '1px solid #99f6e4', color: '#0f766e', borderRadius: '999px', padding: '3px 9px', fontSize: '12px', fontWeight: 600 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#14b8a6' }}></span>
-                            {myActions.length} Assignment
-                        </div>
                     </div>
-                    <button style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+                    <button onClick={() => setSearchParams({ mode: 'all-actions' })} style={{ border: 'none', background: 'transparent', color: '#0f172a', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
                         View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
                     </button>
                 </div>
@@ -3924,67 +4325,82 @@ const Cockpit: React.FC = () => {
                         <thead>
                             <tr style={{ background: '#f8fafc' }}>
                                 <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.status')}</th>
-                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('pdca.topicTitle')}</th>
                                 <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.title')}</th>
                                 <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.dueDate')}</th>
                                 <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.teamsMeeting')}</th>
-                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'left' }}>{t('common.markComplete')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'center', borderBottom: 'none' }}>{t('common.markComplete')}</th>
+                                <th style={{ fontSize: '12px', color: '#94a3b8', padding: '0.75rem 0.9rem', textAlign: 'center' }}>{t('common.comment')}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {myActions.length === 0 ? (
+                            {visibleMyActions.length === 0 ? (
                                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('common.noActionsAssigned')}</td></tr>
                             ) : (
-                                myActions.map((a: any) => {
+                                visibleMyActions.map((a: any) => {
                                     const myAssign = a.assignments.find((p: any) => p.userId === user?.id);
+                                    const isCommentOpen = openActionCommentId === a.id;
+                                    const hasComment = (a.comments && a.comments.length > 0) || !!a.comment?.trim();
                                     return (
-                                        <tr key={a.id} style={{ borderTop: '1px solid #eef2f7' }}>
-                                            <td style={{ padding: '0.75rem 0.9rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span className="status-dot" style={{ backgroundColor: getStatusColor('', a.dueDate), width: 10, height: 10 }}></span>
-                                                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f766e' }}>{getStatusMeta('', a.dueDate, undefined, t).label}</span>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '0.75rem 0.9rem', fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(a.topicTitle)}</td>
-                                            <td style={{ padding: '0.75rem 0.9rem', fontWeight: 600, color: '#0f766e', fontSize: '12px' }}>{a.title}</td>
-                                            <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', color: '#475569' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
-                                            <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
-                                                {a.teamsMeeting ? new Date(a.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}
-                                            </td>
-                                            <td style={{ padding: '0.75rem 0.9rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={myAssign.completed}
-                                                        onChange={(e) => {
-                                                            // Find the topic and update it
-                                                            const topic = topicsService.getById(a.topicId);
-                                                            if (topic) {
-                                                                const action = topic.do.actions.find(act => act.id === a.id);
-                                                                if (action) {
-                                                                    const assign = action.assignments.find(p => p.userId === user?.id);
-                                                                    if (assign) {
-                                                                        assign.completed = e.target.checked;
-                                                                        assign.completedAt = e.target.checked ? new Date().toISOString() : undefined;
-
-                                                                        topicsService.update(a.topicId, { do: topic.do });
-                                                                        loadData(); // Refresh UI
-                                                                    }
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
-                                                    <span style={{
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        color: myAssign.completed ? '#166534' : '#475569',
-                                                        textDecoration: myAssign.completed ? 'none' : 'none'
-                                                    }}>
-                                                        {myAssign.completed ? t('common.completed') : t('common.markComplete')}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <React.Fragment key={a.id}>
+                                            <tr style={{ borderTop: '1px solid #eef2f7' }}>
+                                                <td style={{ padding: '0.75rem 0.9rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span className="status-dot" style={{ backgroundColor: getStatusColor('', a.dueDate), width: 10, height: 10 }}></span>
+                                                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#0f172a' }}>{getStatusMeta('', a.dueDate, undefined, t).label}</span>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.75rem 0.9rem', fontWeight: 600, color: '#0f172a', fontSize: '12px' }}>{a.title}</td>
+                                                <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', color: '#475569' }}>{a.dueDate ? new Date(a.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
+                                                <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', fontWeight: 500, color: '#475569' }}>
+                                                    {a.teamsMeeting ? new Date(a.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 0.9rem', textAlign: 'center', borderBottom: isCommentOpen ? 'none' : 'none' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={myAssign.completed}
+                                                            onChange={(e) => toggleAssignedActionCompletion(a, e.target.checked)}
+                                                        />
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '0.75rem 0.9rem', textAlign: 'center', borderBottom: isCommentOpen ? 'none' : undefined }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => isCommentOpen ? closeActionCommentEditor() : openActionCommentEditor(a)}
+                                                            style={{ border: 'none', background: 'transparent', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                                            aria-label={t('common.comment')}
+                                                        >
+                                                            <MessageSquare size={16} color={hasComment ? 'var(--color-status-green)' : '#8AA0BF'} strokeWidth={1.8} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {isCommentOpen && (
+                                                <tr>
+                                                    <td colSpan={6} style={{ padding: '0.75rem 1rem 1rem', background: '#fff', borderBottom: '1px solid var(--color-bg)' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                            {renderActionComments(a)}
+                                                            <textarea
+                                                                value={actionCommentDraft}
+                                                                onChange={e => setActionCommentDraft(e.target.value)}
+                                                                placeholder="Write a comment..."
+                                                                rows={3}
+                                                                style={{ width: '100%', resize: 'vertical', minHeight: '60px' }}
+                                                            />
+                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                                                <button type="button" className="btn btn-outline" onClick={closeActionCommentEditor}>
+                                                                    {t('common.cancel')}
+                                                                </button>
+                                                                <button type="button" className="btn btn-primary" onClick={() => saveActionComment(a)}>
+                                                                    {t('common.save')}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
                                     );
                                 })
                             )}
@@ -3998,12 +4414,8 @@ const Cockpit: React.FC = () => {
                 <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myTopics')}</h3>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#0369a1', borderRadius: '999px', padding: '3px 9px', fontSize: '12px', fontWeight: 600 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0ea5e9' }}></span>
-                            Responsible for {myTopics.length} initiatives
-                        </div>
                     </div>
-                    <button style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
+                    <button onClick={() => setSearchParams({ mode: 'all-topics' })} style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
                         View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
                     </button>
                 </div>
@@ -4085,10 +4497,10 @@ const Cockpit: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {myTopics.length === 0 ? (
+                            {visibleMyTopics.length === 0 ? (
                                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>{t('common.noTopicsFound')}</td></tr>
                             ) : (
-                                myTopics.map((topic: Topic) => (
+                                visibleMyTopics.map((topic: Topic) => (
                                     <tr key={topic.id} style={{ cursor: 'pointer', borderTop: '1px solid #eef2f7' }} onClick={() => setSelectedTopic(topic)}>
                                         <td style={{ padding: '0.75rem 0.9rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4098,12 +4510,9 @@ const Cockpit: React.FC = () => {
                                         </td>
                                         <td style={{ padding: '0.75rem 0.9rem' }}>
                                             <div style={{ fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(topic.title)}</div>
-                                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>{t('common.kpi')}: {getTranslatedKPI(topic.kpi)}</div>
                                         </td>
-                                        <td style={{ padding: '0.75rem 0.9rem', fontSize: '11px' }}>
-                                            <span style={{ padding: '3px 9px', borderRadius: '8px', background: '#eef2ff', color: '#2563eb', fontWeight: 700 }}>
-                                                {t(`phases.${topic.step.toLowerCase()}`).toUpperCase()}
-                                            </span>
+                                        <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px' }}>
+                                            {t(`pdca.${topic.step.toLowerCase()}`)}
                                         </td>
                                         <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px' }}>{topic.do.checkDate ? new Date(topic.do.checkDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
                                         <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px', fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</td>

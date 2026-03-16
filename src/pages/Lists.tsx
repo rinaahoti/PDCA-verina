@@ -6,6 +6,45 @@ import { authService, topicsService } from '../services';
 import { getStatusColor, getStatusLabel } from '../utils/statusUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 
+const CircularProgress = ({ value }: { value: number }) => {
+    const [animated, setAnimated] = useState(false);
+    const size = 36;
+    const strokeWidth = 4;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const safeValue = Math.max(0, Math.min(100, value));
+    const strokeDashoffset = circumference - (safeValue / 100) * circumference;
+
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setAnimated(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
+    return (
+        <div style={{ width: size, height: size, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+                <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} />
+                <circle
+                    cx={size / 2}
+                    cy={size / 2}
+                    r={radius}
+                    fill="none"
+                    stroke={safeValue === 0 ? 'var(--color-border)' : 'var(--color-primary)'}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={animated ? strokeDashoffset : circumference}
+                    style={{ transition: 'stroke-dashoffset 700ms ease' }}
+                />
+            </svg>
+            <span style={{ position: 'absolute', fontSize: '10px', fontWeight: 600, lineHeight: 1, color: 'var(--color-text)' }}>
+                {safeValue}%
+            </span>
+        </div>
+    );
+};
+
 const Lists: React.FC = () => {
     const { t, language } = useLanguage();
     const navigate = useNavigate();
@@ -45,6 +84,25 @@ const Lists: React.FC = () => {
             'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls'
         };
         return titleMap[title] || title;
+    };
+
+    const getProgressPercentage = (topic: Topic) => {
+        if (topic.status === 'Done') {
+            return 100;
+        }
+
+        switch (topic.step) {
+            case 'PLAN':
+                return 25;
+            case 'DO':
+                return 50;
+            case 'CHECK':
+                return 75;
+            case 'ACT':
+                return 70;
+            default:
+                return 0;
+        }
     };
 
     return (
@@ -107,6 +165,7 @@ const Lists: React.FC = () => {
                         <th>{t('common.title')}</th>
                         <th>{t('common.step')}</th>
                         <th>{t('common.dueDate')}</th>
+                        <th>{t('pdca.progress')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,6 +181,7 @@ const Lists: React.FC = () => {
                             <td style={{ fontWeight: 500 }}>{getTranslatedTitle(topic.title)}</td>
                             <td>{t(`pdca.${topic.step.toLowerCase()}`)}</td>
                             <td>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
+                            <td><CircularProgress value={getProgressPercentage(topic)} /></td>
                         </tr>
                     ))}
                 </tbody>

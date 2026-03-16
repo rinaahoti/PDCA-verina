@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { topicsService } from '../services';
 import { Topic, Step } from '../types';
 import { adminService } from '../services/adminService';
-import { ChevronRight, ArrowLeft, CheckCircle2, Clock, AlertTriangle, FileText, Activity, BarChart3, Repeat, MapPin, Shield } from 'lucide-react';
+import { ChevronRight, ArrowLeft, CheckCircle2, Clock, AlertTriangle, FileText, Activity, BarChart3, MapPin, Shield, MessageSquare, Lock, CalendarDays, User } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const TopicWorkspace: React.FC = () => {
@@ -20,20 +20,20 @@ const TopicWorkspace: React.FC = () => {
             if (t) {
                 setTopic(t);
                 const tabParam = (searchParams.get('tab') || '').toUpperCase();
-                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK' || tabParam === 'ACT')
+                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK')
                     ? (tabParam as Step)
-                    : t.step;
+                    : (t.step === 'ACT' ? 'CHECK' : t.step);
 
                 const canOpenRequested =
                     (t.step === 'PLAN' && requestedTab === 'PLAN') ||
                     (t.step === 'DO' && (requestedTab === 'PLAN' || requestedTab === 'DO')) ||
                     (t.step === 'CHECK' && requestedTab !== 'ACT') ||
-                    (t.step === 'ACT');
+                    (t.step === 'ACT' && requestedTab !== 'ACT');
 
                 if (canOpenRequested) {
                     setActiveTab(requestedTab);
                 } else {
-                    setActiveTab(t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
+                    setActiveTab(t.step === 'ACT' ? 'CHECK' : t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
                 }
             }
         }
@@ -48,6 +48,9 @@ const TopicWorkspace: React.FC = () => {
                 ? (language === 'de' ? 'Check-Phase Aktivierung' : 'Check Phase Activation')
                 : (language === 'de' ? 'Durchführen-Phase Aktivierung' : 'DO Phase Activation');
 
+    const currentPhaseLabel = `${topic.step} ${language === 'de' ? 'Phase' : 'Phase'}`;
+    const workspaceAccent = '#46c0bc';
+
     const canOpenTab = (target: Step): boolean => {
         if (!topic) return false;
         const current = topic.step;
@@ -58,8 +61,8 @@ const TopicWorkspace: React.FC = () => {
         if (current === 'DO') return target === 'PLAN' || target === 'DO';
         // CHECK topics: PLAN, DO, CHECK are accessible; ACT is locked.
         if (current === 'CHECK') return target !== 'ACT';
-        // ACT topics: all tabs accessible.
-        return true;
+        // ACT topics: ACT view is hidden here, so fall back to PLAN/DO/CHECK only.
+        return target !== 'ACT';
     };
 
     const TabButton = ({ step, label, icon: Icon }: { step: Step, label: string, icon: any }) => (
@@ -74,13 +77,14 @@ const TopicWorkspace: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.75rem',
-                padding: '1rem',
+                padding: '1.1rem 1rem',
                 border: 'none',
-                background: activeTab === step ? 'white' : 'transparent',
+                borderRight: '1px solid var(--color-border)',
+                background: activeTab === step ? '#eef9f6' : 'transparent',
                 color: !canOpenTab(step)
-                    ? '#94a3b8'
-                    : (activeTab === step ? 'var(--color-primary)' : 'var(--color-text-muted)'),
-                borderBottom: activeTab === step ? '3px solid var(--color-primary)' : '3px solid transparent',
+                    ? '#c0cad7'
+                    : (activeTab === step ? workspaceAccent : 'var(--color-text-muted)'),
+                borderBottom: activeTab === step ? `3px solid ${workspaceAccent}` : '3px solid transparent',
                 fontWeight: 600,
                 cursor: canOpenTab(step) ? 'pointer' : 'not-allowed',
                 transition: 'all 0.2s',
@@ -88,7 +92,7 @@ const TopicWorkspace: React.FC = () => {
             }}
             disabled={!canOpenTab(step)}
         >
-            <Icon size={18} />
+            {canOpenTab(step) ? <Icon size={18} /> : <Lock size={16} />}
             {label}
         </button>
     );
@@ -175,64 +179,210 @@ const TopicWorkspace: React.FC = () => {
         fallbackDepartment?.name ||
         '';
 
+    const renderActionCards = (title?: string) => (
+        <div style={{ marginTop: title ? '2rem' : 0 }}>
+            {title && <h3 style={{ marginTop: 0 }}>{title}</h3>}
+            {topic.do.actions.length > 0 ? topic.do.actions.map(action => {
+                const actionComments = action.comments && action.comments.length > 0
+                    ? action.comments
+                    : (action.comment ? [{
+                        id: `legacy-${action.id}`,
+                        userId: 'legacy',
+                        userName: 'System',
+                        text: action.comment,
+                        createdAt: ''
+                    }] : []);
+
+                return (
+                    <div key={action.id} style={{ marginBottom: '1rem' }}>
+                        <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                <div style={{ fontWeight: 700, color: '#1e293b' }}>{getTranslatedText(action.title)}</div>
+                            </div>
+
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <strong>{t('pdca.implementationDetails')}:</strong>{' '}
+                                <span>{action.description === 'Validation audit' ? 'Validierungsaudit' : action.description || '-'}</span>
+                            </div>
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <strong>{t('pdca.meetingParticipants')}:</strong>{' '}
+                                <span>{action.assignments.map(a => a.userName).join(', ') || '-'}</span>
+                            </div>
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <strong>{t('common.dueDate')}:</strong>{' '}
+                                <span>{action.dueDate ? new Date(action.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
+                            </div>
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <strong>Meeting type:</strong>{' '}
+                                <span>{action.meetingType || '-'}</span>
+                            </div>
+                            <div style={{ marginBottom: '0.5rem' }}>
+                                <strong>Meeting Date & Time:</strong>{' '}
+                                <span>{action.teamsMeeting ? new Date(action.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
+                            </div>
+                            {(action.meetingType || '').toLowerCase() === 'online' ? (
+                                <div style={{ marginBottom: '0.5rem' }}>
+                                    <strong>Online Meeting Link:</strong>{' '}
+                                    {action.teamsMeetingLink ? (
+                                        <a href={action.teamsMeetingLink} target="_blank" rel="noreferrer">
+                                            {action.teamsMeetingLink}
+                                        </a>
+                                    ) : (
+                                        <span>-</span>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ marginBottom: '0.5rem' }}>
+                                    <strong>{t('common.location')}:</strong>{' '}
+                                    <span>{action.meetingLocation || '-'}</span>
+                                </div>
+                            )}
+                            <div style={{ marginBottom: 0 }}>
+                                <strong>{t('pdca.externalUsers')}:</strong>{' '}
+                                {(action.externalUsers && action.externalUsers.length > 0) ? (
+                                    <span>
+                                        {action.externalUsers.map((user, idx) => (
+                                            <span key={user.id}>
+                                                {idx > 0 ? '; ' : ''}
+                                                {user.fullName} ({user.email}){user.note ? ` - ${user.note}` : ''}
+                                            </span>
+                                        ))}
+                                    </span>
+                                ) : '-'}
+                            </div>
+                        </div>
+
+                        <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div>
+                                <strong style={{ display: 'block', marginBottom: '0.45rem' }}>{t('common.markComplete')}</strong>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                                    {action.assignments.map(assignment => (
+                                        <div key={`${action.id}-${assignment.userId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: assignment.completed ? '#16a34a' : '#64748b', fontSize: '13px', fontWeight: 600 }}>
+                                            <CheckCircle2 size={16} />
+                                            <span>{assignment.userName}: {assignment.completed ? t('common.completed') : t('common.markComplete')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <strong style={{ display: 'block', marginBottom: '0.45rem' }}>{t('common.comment')}</strong>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    {actionComments.length > 0 ? actionComments.map(comment => {
+                                        const matchingAssignment = action.assignments.find(assignment => assignment.userId === comment.userId);
+                                        const assignmentStatus = matchingAssignment ? (matchingAssignment.completed ? t('common.completed') : t('common.markComplete')) : null;
+
+                                        return (
+                                            <div key={comment.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', color: '#334155', fontSize: '13px', padding: '0.6rem 0.75rem', background: '#fff', border: '1px solid var(--color-border)', borderRadius: '8px' }}>
+                                                <MessageSquare size={16} style={{ marginTop: '1px', flexShrink: 0 }} />
+                                                <div>
+                                                    <div style={{ fontWeight: 600, marginBottom: '0.2rem' }}>
+                                                        {comment.userName}
+                                                        {assignmentStatus ? `: ${assignmentStatus.toUpperCase()}` : ''}
+                                                    </div>
+                                                    {comment.createdAt && (
+                                                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '0.25rem' }}>
+                                                            {new Date(comment.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'de-DE')}
+                                                        </div>
+                                                    )}
+                                                    <div>{comment.text}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }) : (
+                                        <div style={{ color: '#94a3b8', fontSize: '13px' }}>-</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }) : (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>{t('pdca.noActions')}</div>
+            )}
+        </div>
+    );
+
     return (
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
             <button
                 onClick={() => navigate(-1)}
                 className="btn"
-                style={{ marginBottom: '1.5rem', border: 'none', padding: 0, background: 'transparent', color: '#424b55' }}
+                style={{ marginBottom: '1rem', border: 'none', padding: 0, background: 'transparent', color: '#7b8ca5', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-                <ArrowLeft size={18} /> {t('pdca.backToOverview')}
+                <ArrowLeft size={14} /> {t('pdca.backToOverview')}
             </button>
 
-            <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem', background: 'linear-gradient(to right, var(--color-primary), var(--color-primary-dark))', color: 'white' }}>
-                <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: 600, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{topic.id}</span>
-                    <span>|</span>
-                    <span>{getTranslatedCategory(topic.category)}</span>
-                    {isAudit && (
-                        <>
-                            <span>|</span>
-                            <span style={{
-                                background: 'rgba(255,255,255,0.2)',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                display: 'flex', alignItems: 'center', gap: '4px'
-                            }}>
-                                <Shield size={10} /> {topic.rating}
-                            </span>
-                        </>
-                    )}
+            <div
+                className="card"
+                style={{
+                    position: 'relative',
+                    overflow: 'hidden',
+                    padding: '1.9rem 2rem',
+                    marginBottom: '1.6rem',
+                    borderRadius: '18px',
+                    background: 'linear-gradient(135deg, #45c3bc 0%, #37b8ad 100%)',
+                    color: 'white'
+                }}
+            >
+                <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    <div style={{ position: 'absolute', right: '-30px', top: '-42px', width: '210px', height: '210px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
+                    <div style={{ position: 'absolute', right: '66px', top: '46px', width: '140px', height: '140px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
                 </div>
-                <h1 style={{ margin: '0.5rem 0', fontSize: '1.75rem' }}>{getTranslatedText(topic.title)}</h1>
-                <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', fontSize: '14px', flexWrap: 'wrap' }}>
-                    <div><span style={{ opacity: 0.7 }}>{t('common.owner')}:</span> <span style={{ fontWeight: 600 }}>{topic.ownerName || 'Elena Rossi'}</span></div>
-                    {activeTab !== 'ACT' && (
-                        <div>
-                            <span style={{ opacity: 0.7 }}>
-                                {activationLabel}:
-                            </span>{' '}
-                            <span style={{ fontWeight: 600 }}>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={{ fontSize: '13px', opacity: 0.95, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.9rem', flexWrap: 'wrap' }}>
+                        <span>{topic.id}</span>
+                        <span style={{ opacity: 0.45 }}>|</span>
+                        <span style={{ background: 'rgba(255,255,255,0.16)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px' }}>{getTranslatedCategory(topic.category)}</span>
+                        {isAudit && (
+                            <>
+                                <span style={{ opacity: 0.45 }}>|</span>
+                                <span style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    display: 'flex', alignItems: 'center', gap: '4px'
+                                }}>
+                                    <Shield size={10} /> {topic.rating}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                    <h1 style={{ margin: 0, fontSize: '2rem', lineHeight: 1.2 }}>{getTranslatedText(topic.title)}</h1>
+                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1.2rem', fontSize: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <User size={14} />
+                            <span style={{ opacity: 0.85 }}>{t('common.owner')}:</span>
+                            <span style={{ fontWeight: 700 }}>{topic.ownerName || 'Elena Rossi'}</span>
                         </div>
-                    )}
-                    {isAudit && topic.location && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <MapPin size={14} style={{ opacity: 0.7 }} />
-                            <span style={{ fontWeight: 600 }}>{topic.location}</span>
+                        {activeTab !== 'ACT' && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                                <CalendarDays size={14} />
+                                <span style={{ opacity: 0.85 }}>{activationLabel}:</span>
+                                <span style={{ fontWeight: 700 }}>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
+                            </div>
+                        )}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.9rem', borderRadius: '10px', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.24)', fontWeight: 700 }}>
+                            <Activity size={14} />
+                            <span>{language === 'de' ? 'Aktiv:' : 'Active:'} {currentPhaseLabel}</span>
                         </div>
-                    )}
-                    {isAudit && topic.auditReference && (
-                        <div><span style={{ opacity: 0.7 }}>{t('templatesStandards.columns.source')}:</span> <span style={{ fontWeight: 600 }}>{topic.auditReference}</span></div>
-                    )}
+                        {isAudit && topic.location && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <MapPin size={14} />
+                                <span style={{ fontWeight: 600 }}>{topic.location}</span>
+                            </div>
+                        )}
+                        {isAudit && topic.auditReference && (
+                            <div><span style={{ opacity: 0.85 }}>{t('templatesStandards.columns.source')}:</span> <span style={{ fontWeight: 700 }}>{topic.auditReference}</span></div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: '16px', border: '1px solid var(--color-border)', boxShadow: '0 1px 2px rgba(15,23,42,.04)' }}>
+                <div style={{ display: 'flex', background: '#fff', borderBottom: '1px solid var(--color-border)' }}>
                     <TabButton step="PLAN" label={t('pdca.plan')} icon={FileText} />
                     <TabButton step="DO" label={t('pdca.do')} icon={Activity} />
                     <TabButton step="CHECK" label={t('pdca.check')} icon={BarChart3} />
-                    <TabButton step="ACT" label={t('pdca.act')} icon={Repeat} />
                 </div>
 
                 <div style={{ padding: '2rem' }}>
@@ -259,7 +409,7 @@ const TopicWorkspace: React.FC = () => {
                             </div>
                             <div style={{ marginBottom: '2rem' }}>
                                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>{t('pdca.rootCauseAnalysis')}</label>
-                                <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px', borderLeft: '4px solid var(--color-primary)' }}>
+                                <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px', borderLeft: `4px solid ${workspaceAccent}` }}>
                                     {getTranslatedText(topic.plan.rootCause) || t('pdca.rootCausePlaceholder')}
                                 </div>
                             </div>
@@ -296,72 +446,14 @@ const TopicWorkspace: React.FC = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {renderActionCards(t('pdca.executionActions'))}
                         </div>
                     )}
 
                     {activeTab === 'DO' && (
                         <div>
-                            <h3 style={{ marginTop: 0 }}>{t('pdca.executionActions')}</h3>
-                            {topic.do.actions.length > 0 ? topic.do.actions.map(action => (
-                                <div key={action.id} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{getTranslatedText(action.title)}</div>
-                                    </div>
-
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <strong>{t('pdca.implementationDetails')}:</strong>{' '}
-                                        <span>{action.description === 'Validation audit' ? 'Validierungsaudit' : action.description || '-'}</span>
-                                    </div>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <strong>{t('pdca.meetingParticipants')}:</strong>{' '}
-                                        <span>{action.assignments.map(a => a.userName).join(', ') || '-'}</span>
-                                    </div>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <strong>{t('common.dueDate')}:</strong>{' '}
-                                        <span>{action.dueDate ? new Date(action.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
-                                    </div>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <strong>Meeting type:</strong>{' '}
-                                        <span>{action.meetingType || '-'}</span>
-                                    </div>
-                                    <div style={{ marginBottom: '0.5rem' }}>
-                                        <strong>Meeting Date & Time:</strong>{' '}
-                                        <span>{action.teamsMeeting ? new Date(action.teamsMeeting).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</span>
-                                    </div>
-                                    {(action.meetingType || '').toLowerCase() === 'online' ? (
-                                        <div style={{ marginBottom: '0.5rem' }}>
-                                            <strong>Online Meeting Link:</strong>{' '}
-                                            {action.teamsMeetingLink ? (
-                                                <a href={action.teamsMeetingLink} target="_blank" rel="noreferrer">
-                                                    {action.teamsMeetingLink}
-                                                </a>
-                                            ) : (
-                                                <span>-</span>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div style={{ marginBottom: '0.5rem' }}>
-                                            <strong>{t('common.location')}:</strong>{' '}
-                                            <span>{action.meetingLocation || '-'}</span>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <strong>{t('pdca.externalUsers')}:</strong>{' '}
-                                        {(action.externalUsers && action.externalUsers.length > 0) ? (
-                                            <span>
-                                                {action.externalUsers.map((user, idx) => (
-                                                    <span key={user.id}>
-                                                        {idx > 0 ? '; ' : ''}
-                                                        {user.fullName} ({user.email}){user.note ? ` - ${user.note}` : ''}
-                                                    </span>
-                                                ))}
-                                            </span>
-                                        ) : '-'}
-                                    </div>
-                                </div>
-                            )) : (
-                                <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>{t('pdca.noActions')}</div>
-                            )}
+                            {renderActionCards(t('pdca.executionActions'))}
                         </div>
                     )}
 
@@ -436,24 +528,11 @@ const TopicWorkspace: React.FC = () => {
                                 </div>
                             )}
 
+                            {renderActionCards(t('pdca.completedActions'))}
+
                         </div>
                     )}
 
-                    {activeTab === 'ACT' && (
-                        <div>
-                            <h3 style={{ marginTop: 0 }}>{t('pdca.standardizationDesc')} & {t('pdca.lessonsLearned')}</h3>
-                            <div style={{ marginBottom: '2rem' }}>
-                                <label style={{ fontWeight: 700 }}>{t('pdca.standardizationScope')}</label>
-                                <p style={{ color: '#4a5568' }}>{topic.act.standardizationDescription || topic.act.standardization || t('pdca.noToBe')}</p>
-                            </div>
-                            <div>
-                                <label style={{ fontWeight: 700 }}>{t('pdca.lessonsLearned')}</label>
-                                <div style={{ background: '#fffbeb', padding: '1rem', borderRadius: '6px', borderLeft: '4px solid var(--color-status-yellow)' }}>
-                                    {topic.act.lessonsLearned || t('pdca.lessonsLearnedPlaceholder')}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

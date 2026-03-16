@@ -118,6 +118,14 @@ export interface ExternalMeetingUser {
     note?: string;
 }
 
+export interface ActionComment {
+    id: string;
+    userId: string;
+    userName: string;
+    text: string;
+    createdAt: string;
+}
+
 export interface PhaseMeetingData {
     title: string;
     responsiblePersons: string[];
@@ -170,6 +178,8 @@ export interface Topic {
             id: string;
             title: string;
             description: string;
+            comment?: string;
+            comments?: ActionComment[];
             assignments: { userId: string; userName: string; completed: boolean; completedAt?: string }[];
             dueDate: string;
             teamsMeeting?: string;

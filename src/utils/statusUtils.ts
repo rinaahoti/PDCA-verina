@@ -142,9 +142,10 @@ export const getStatusMeta = (status: Status | Step | string, deadline?: string,
     const normalized = normalizeStatus(status as string);
 
     let label = normalized;
-    if (t) {
+    if (t && normalized) {
         const key = normalized.toLowerCase();
-        label = t(`status.${key}`);
+        const translated = t(`status.${key}`);
+        label = translated !== `status.${key}` ? translated : normalized;
     }
 
     // Fallback label logic for deadline if status isn't clear
@@ -158,6 +159,10 @@ export const getStatusMeta = (status: Status | Step | string, deadline?: string,
             else if (days <= 7) label = t ? t('status.warning') : 'Warning';
             else label = t ? t('status.monitoring') : 'Monitoring';
         }
+    }
+
+    if (!label) {
+        label = t ? t('status.monitoring') : 'Monitoring';
     }
 
     // Class mapping - restricted to the 4 core classes

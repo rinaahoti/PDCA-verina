@@ -24,8 +24,7 @@ import {
     MapPin,
     Building2,
     TrendingUp,
-    Eye,
-    CheckCircle
+    Eye
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -143,7 +142,7 @@ export default function Dashboard() {
     // Filters State - Synced with URL Params
     const auditIdParam = searchParams.get('auditId') || 'All';
     const departmentParam = searchParams.get('department') || 'All';
-    const locationParam = searchParams.get('location') || 'Bern';
+    const locationParam = searchParams.get('location') || 'All';
     const statusParam = searchParams.get('status') || 'All';
 
     // Helper to update URL params
@@ -562,7 +561,7 @@ export default function Dashboard() {
 
 
             {/* KPI CARDS ROW */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(100,116,139,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <FileText size={20} color="#64748B" strokeWidth={1.5} />
@@ -603,15 +602,6 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <CheckCircle size={20} color="#3B82F6" strokeWidth={1.5} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', fontFamily: 'Inter, sans-serif' }}>{t('status.done')}</div>
-                        <div style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: 800, color: '#3B82F6' }}>{statsByStatusMetric['status-done']}</div>
-                    </div>
-                </div>
             </div>
 
             {/* TOP ACTIONS BAR */}
@@ -648,8 +638,7 @@ export default function Dashboard() {
                                 { label: t('status.all'), value: 'ALL' },
                                 { label: t('status.monitoring'), value: 'Monitoring' },
                                 { label: t('status.warning'), value: 'Warning' },
-                                { label: t('status.critical'), value: 'Critical' },
-                                { label: t('status.done'), value: 'Done' }
+                                { label: t('status.critical'), value: 'Critical' }
                             ]}
                             onChange={(v: string) => updateFilter('status', v)}
                             placeholder={null}

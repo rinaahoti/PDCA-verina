@@ -74,6 +74,7 @@ const Administration: React.FC = () => {
     const [userGlobalRole, setUserGlobalRole] = useState<'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>('All');
     const [usersExpandedLocs, setUsersExpandedLocs] = useState<Record<string, boolean>>({});
     const [usersExpandedDeps, setUsersExpandedDeps] = useState<Record<string, boolean>>({});
+    const [selectedUsersLocationId, setSelectedUsersLocationId] = useState<string | null>(null);
     const [selectedUsersDepartment, setSelectedUsersDepartment] = useState<{ locationId: string; departmentId: string } | null>(null);
     const [userLocalRoleFilters, setUserLocalRoleFilters] = useState<Record<string, 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>>({});
     const [usersAllExpanded, setUsersAllExpanded] = useState(false);
@@ -87,6 +88,7 @@ const Administration: React.FC = () => {
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
     const [transferUserId, setTransferUserId] = useState<string | null>(null);
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
+    const [addUserAcrossLocationDepartments, setAddUserAcrossLocationDepartments] = useState(false);
     const [userForm, setUserForm] = useState({
         name: '',
         email: '',
@@ -345,6 +347,14 @@ const Administration: React.FC = () => {
     }, [userGlobalRole, locations, departments]);
 
     useEffect(() => {
+        if (!selectedUsersLocationId) return;
+        const hasLocation = locations.some(loc => loc.id === selectedUsersLocationId);
+        if (!hasLocation) {
+            setSelectedUsersLocationId(null);
+        }
+    }, [selectedUsersLocationId, locations]);
+
+    useEffect(() => {
         if (!selectedUsersDepartment) return;
         const hasLocation = locations.some(loc => loc.id === selectedUsersDepartment.locationId);
         const hasDepartment = departments.some(
@@ -569,10 +579,11 @@ const Administration: React.FC = () => {
         return { background: '#f3f0ff', color: '#7c5cbf' };
     };
 
-    const openAddUserModal = (locationId?: string, departmentId?: string) => {
+    const openAddUserModal = (locationId?: string, departmentId?: string, acrossLocationDepartments = false) => {
         const preLocId = locationId || '';
         const localDepartments = departments.filter(dep => dep.locationId === preLocId);
         setEditingUserId(null);
+        setAddUserAcrossLocationDepartments(acrossLocationDepartments);
         setUserFormError('');
         setUserForm({
             name: '',
@@ -586,6 +597,7 @@ const Administration: React.FC = () => {
 
     const openEditUserModal = (user: AppUser) => {
         setEditingUserId(user.id);
+        setAddUserAcrossLocationDepartments(false);
         setUserFormError('');
         const localDepartments = departments.filter(dep => dep.locationId === user.locationId);
         const departmentId = user.departmentId || localDepartments[0]?.id || '';
@@ -602,30 +614,60 @@ const Administration: React.FC = () => {
     const saveAddEditUser = () => {
         const name = userForm.name.trim();
         const email = userForm.email.trim();
-        if (!name || !email || !userForm.locationId || !userForm.departmentId) {
+        const locationDepartments = departments.filter(dep => dep.locationId === userForm.locationId);
+        const shouldDuplicateAcrossDepartments = !editingUserId && addUserAcrossLocationDepartments && locationDepartments.length > 1;
+
+        if (!name || !email || !userForm.locationId || (!shouldDuplicateAcrossDepartments && !userForm.departmentId)) {
             setUserFormError('Name, email, location and department are required.');
             return;
         }
         const selectedDep = departments.find(dep => dep.id === userForm.departmentId);
-        if (!selectedDep || selectedDep.locationId !== userForm.locationId) {
+        if (!shouldDuplicateAcrossDepartments && (!selectedDep || selectedDep.locationId !== userForm.locationId)) {
             setUserFormError('Selected department does not belong to selected location.');
             return;
         }
         setUserFormError('');
-        const payload: AppUser = {
-            id: editingUserId || `USR-${Date.now()}`,
-            name,
-            email,
-            locationId: userForm.locationId,
-            departmentId: userForm.departmentId,
-            role: userForm.role
-        };
-        saveUser(payload);
-        setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
-        if (payload.departmentId) {
-            setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
+
+        if (shouldDuplicateAcrossDepartments) {
+            const baseId = `USR-${Date.now()}`;
+            locationDepartments.forEach((dep, index) => {
+                saveUser({
+                    id: `${baseId}-${index + 1}`,
+                    name,
+                    email,
+                    locationId: userForm.locationId,
+                    departmentId: dep.id,
+                    role: userForm.role
+                });
+            });
+            setUsersExpandedLocs(prev => ({ ...prev, [userForm.locationId]: true }));
+            setUsersExpandedDeps(prev => {
+                const next = { ...prev };
+                locationDepartments.forEach(dep => {
+                    delete next[`${userForm.locationId}::${dep.id}`];
+                });
+                return next;
+            });
+            setSelectedUsersDepartment(null);
+            setSelectedUsersLocationId(null);
+        } else {
+            const payload: AppUser = {
+                id: editingUserId || `USR-${Date.now()}`,
+                name,
+                email,
+                locationId: userForm.locationId,
+                departmentId: userForm.departmentId,
+                role: userForm.role
+            };
+            saveUser(payload);
+            setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
+            if (payload.departmentId) {
+                setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
+            }
         }
         setAddEditUserModalOpen(false);
+        setAddUserAcrossLocationDepartments(false);
+        setUserSearch('');
         showToast(editingUserId ? 'User updated' : 'User added');
     };
 
@@ -689,17 +731,11 @@ const Administration: React.FC = () => {
         setUsersAllExpanded(next);
         if (next) {
             const map: Record<string, boolean> = {};
-            const depMap: Record<string, boolean> = {};
             locations.forEach(loc => {
                 map[loc.id] = true;
-                departments
-                    .filter(dep => dep.locationId === loc.id)
-                    .forEach(dep => {
-                        depMap[`${loc.id}::${dep.id}`] = true;
-                    });
             });
             setUsersExpandedLocs(map);
-            setUsersExpandedDeps(depMap);
+            setUsersExpandedDeps({});
             return;
         }
         setUsersExpandedLocs({});
@@ -707,9 +743,9 @@ const Administration: React.FC = () => {
     };
 
     return (
-        <div style={{ maxWidth: selectedUsersDepartment ? 'none' : '1600px', margin: selectedUsersDepartment ? '0' : '0 auto', paddingBottom: '4rem', position: 'relative' }}>
+        <div style={{ maxWidth: selectedUsersDepartment || selectedUsersLocationId ? 'none' : '1600px', margin: selectedUsersDepartment || selectedUsersLocationId ? '0' : '0 auto', paddingBottom: '4rem', position: 'relative' }}>
             <style>{`@keyframes urSlideUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
-            {!selectedUsersDepartment && (
+            {!selectedUsersDepartment && !selectedUsersLocationId && (
                 <>
                     <div style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
@@ -1369,7 +1405,7 @@ const Administration: React.FC = () => {
                 {/* --- USERS TAB --- */}
                 {activeTab === 'users' && (
                     <div style={{ padding: '0 0 1rem 0' }}>
-                        <div style={{ display: selectedUsersDepartment ? 'none' : 'block', background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
+                        <div style={{ display: selectedUsersDepartment || selectedUsersLocationId ? 'none' : 'block', background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', background: 'transparent', border: 'none', borderRadius: 0, padding: '12px 18px', borderBottom: 'none' }}>
                             <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>Users & Roles</span>
 
@@ -1460,6 +1496,19 @@ const Administration: React.FC = () => {
                                                 <div style={{ fontSize: '15px', lineHeight: 1.2, fontWeight: 600, color: '#1a2e2d' }}>{getLocationShortName(loc.name)}</div>
                                                 <div style={{ fontSize: '13px', color: '#6b8583' }}>{loc.city || '-'} · {loc.country || '-'}</div>
                                             </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedUsersDepartment(null);
+                                                    setSelectedUsersLocationId(loc.id);
+                                                }}
+                                                style={{ color: '#8aa0b5', width: '22px', height: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+                                                title="Open users"
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="9 18 15 12 9 6" />
+                                                </svg>
+                                            </button>
                                         </div>
 
                                         {isOpen && (
@@ -1598,6 +1647,121 @@ const Administration: React.FC = () => {
                             })}
                         </div>
                         </div>
+
+                        {selectedUsersLocationId && (() => {
+                            const loc = locations.find(l => l.id === selectedUsersLocationId);
+                            if (!loc) return null;
+
+                            const locationUsersAll = users.filter(user => user.locationId === loc.id);
+                            const localRole = userLocalRoleFilters[loc.id] || 'All';
+                            const q = userSearch.trim().toLowerCase();
+                            const detailUsers = locationUsersAll.filter(user => {
+                                if (localRole !== 'All' && user.role !== localRole) return false;
+                                if (userDepartmentFilter && getUserDepartmentName(user) !== userDepartmentFilter) return false;
+                                if (!q) return true;
+                                return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                            });
+                            return (
+                                <div style={{ padding: '0 0 24px', marginTop: '-32px' }}>
+                                    <div style={{ maxWidth: 'none', margin: 0 }}>
+                                        <div style={{ margin: '0 -32px 0', background: '#ffffff' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 16px 32px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5ba8a0', fontWeight: 600, lineHeight: 1.3 }}>
+                                                    <button
+                                                        onClick={() => setSelectedUsersLocationId(null)}
+                                                        style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                                                        Users & Roles
+                                                    </button>
+                                                    <span style={{ color: '#9fb3c4', fontSize: '13px', lineHeight: 1.3 }}>/</span>
+                                                    <span style={{ color: '#1e2b3a', fontWeight: 600, fontSize: '13px', lineHeight: 1.3 }}>{getLocationShortName(loc.name)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: '#5ba8a0', borderRadius: '0', padding: '34px 20px 34px 32px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '16px', alignItems: 'center', margin: '0 -32px 18px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <span style={{ width: '50px', height: '50px', borderRadius: '13px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.18)', color: '#ffffff', fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 700, letterSpacing: '.01em' }}>
+                                                    {(loc.code || getLocationShortName(loc.name).slice(0, 2)).toUpperCase()}
+                                                </span>
+                                                <div>
+                                                    <div style={{ fontSize: '30px', lineHeight: 1.08, fontWeight: 400, color: '#ffffff' }}>{getLocationShortName(loc.name)}</div>
+                                                    <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.9)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" />
+                                                            <circle cx="12" cy="10" r="3" />
+                                                        </svg>
+                                                        <span>{loc.city || '-'} · {loc.country || '-'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '0' }}>
+                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{locationUsersAll.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
+                                            <div style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '340px 110px 1fr', gap: '10px', alignItems: 'center' }}>
+                                                <div style={{ position: 'relative' }}>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '10px', color: '#8aa0b5' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name or email..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
+                                                </div>
+                                                <select value={localRole} onChange={(e) => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: e.target.value as 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer' }))} style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#315a69', outline: 'none' }}>
+                                                    <option value="All">All Roles</option>
+                                                    <option value="Admin">Admin</option>
+                                                    <option value="Owner">Owner</option>
+                                                    <option value="Assigned">Assigned</option>
+                                                    <option value="Viewer">Viewer</option>
+                                                </select>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <button onClick={() => openAddUserModal(loc.id, undefined, true)} style={{ padding: '8px 14px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                                        Add User
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                            </div>
+                                            {detailUsers.length === 0 ? (
+                                                <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this location.</div>
+                                            ) : (
+                                                detailUsers.map(user => (
+                                                    <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontFamily: 'DM Mono, monospace', fontSize: '13px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                {(user.name || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                                                            </span>
+                                                            <div>
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.2, color: '#0f2530' }} dangerouslySetInnerHTML={{ __html: highlight(user.name, userSearch.trim()) }} />
+                                                                <div style={{ fontSize: '12px', color: '#8aa0b5' }} dangerouslySetInnerHTML={{ __html: highlight(user.email, userSearch.trim()) }} />
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <span style={user.role === 'Owner'
+                                                                ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#5ba8a0', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '5px' }
+                                                                : user.role === 'Assigned'
+                                                                    ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#e8f4f3', color: '#3f9088', border: '1px solid #b7deda', display: 'inline-flex', alignItems: 'center', gap: '5px' }
+                                                                    : { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', ...roleBadgeStyle(user.role), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                                <span style={{ fontSize: '10px' }}>•</span>{user.role}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                            <button title="View Profile" onClick={() => openProfileModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#6b8583' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></button>
+                                                            <button title="Edit" onClick={() => openEditUserModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg></button>
+                                                            <button title="Remove" onClick={(e) => handleDeleteUser(user.id, e)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #f5d5d5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {selectedUsersDepartment && (() => {
                             const loc = locations.find(l => l.id === selectedUsersDepartment.locationId);
@@ -1978,6 +2142,7 @@ const Administration: React.FC = () => {
             <AddEditUserModal
                 isOpen={isAddEditUserModalOpen}
                 editingUserId={editingUserId}
+                hideDepartmentField={addUserAcrossLocationDepartments && !editingUserId}
                 userForm={userForm}
                 userFormError={userFormError}
                 locations={locations}

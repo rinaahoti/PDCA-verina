@@ -18,6 +18,7 @@ interface TransferFormState {
 interface AddEditUserModalProps {
     isOpen: boolean;
     editingUserId: string | null;
+    hideDepartmentField?: boolean;
     userForm: UserFormState;
     userFormError: string;
     locations: Location[];
@@ -32,6 +33,7 @@ interface AddEditUserModalProps {
 export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
     isOpen,
     editingUserId,
+    hideDepartmentField = false,
     userForm,
     userFormError,
     locations,
@@ -64,7 +66,7 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                     <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Email</label>
                     <input type="email" value={userForm.email} onChange={(e) => onChangeUserForm({ ...userForm, email: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: hideDepartmentField ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location</label>
                         <select
@@ -80,6 +82,7 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                             {locations.map(l => <option key={l.id} value={l.id}>{l.code ? `${l.code} - ` : ''}{getTranslatedLocationName(l.name).replace(/ \([A-Z]+\)$/, '')}</option>)}
                         </select>
                     </div>
+                    {!hideDepartmentField && (
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Department</label>
                         <select value={userForm.departmentId} onChange={(e) => onChangeUserForm({ ...userForm, departmentId: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
@@ -87,6 +90,7 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                             {departments.filter(dep => dep.locationId === userForm.locationId).map(dep => <option key={dep.id} value={dep.id}>{getTranslatedDepartmentName(dep.name)}</option>)}
                         </select>
                     </div>
+                    )}
                 </div>
                 {userFormError && (
                     <div style={{ marginBottom: '12px', fontSize: '12px', color: '#dc2626' }}>{userFormError}</div>

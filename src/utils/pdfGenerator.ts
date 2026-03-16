@@ -92,7 +92,7 @@ const translatePdfText = (input: string): string => {
         ['Safety-critical', 'Sicherheitskritisch'],
         ['Save time', 'Zeit sparen'],
         ['Reduce costs', 'Kosten senken'],
-        ['Increase quality', 'QualitÃ¤t steigern'],
+        ['Increase quality', 'Qualität verbessern'],
         ['Gästezufriedenheit', 'Gästezufriedenheit'],
         ['Mitarberiterzufriedenheit', 'Mitarberiterzufriedenheit'],
         ['Qualität verbessern', 'Qualität verbessern'],

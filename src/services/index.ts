@@ -212,9 +212,35 @@ export const topicsService = {
         if (!localStorage.getItem(KEYS.TOPICS)) {
             localStorage.setItem(KEYS.TOPICS, JSON.stringify(initialData.topics));
             localStorage.setItem(KEYS.TODOS, JSON.stringify(initialData.todos));
+            return;
+        }
+
+        const rawTopics = localStorage.getItem(KEYS.TOPICS);
+        const topics: Topic[] = rawTopics ? JSON.parse(rawTopics) : [];
+        const sampleTopics = initialData.topics.filter(topic => ['T-001', 'T-910', 'T-911', 'T-912'].includes(topic.id)) as Topic[];
+        let changed = false;
+
+        sampleTopics.forEach(sampleTopic => {
+            const existingIndex = topics.findIndex(existingTopic => existingTopic.id === sampleTopic.id);
+            if (existingIndex === -1) {
+                topics.push(sampleTopic);
+                changed = true;
+                return;
+            }
+
+            topics[existingIndex] = {
+                ...topics[existingIndex],
+                ...sampleTopic
+            };
+            changed = true;
+        });
+
+        if (changed) {
+            localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics));
         }
     },
     getAll: (): Topic[] => {
+        topicsService.init();
         const topics: Topic[] = JSON.parse(localStorage.getItem(KEYS.TOPICS) || '[]');
         const now = new Date();
         const governance = organizationService.getGovernance();
