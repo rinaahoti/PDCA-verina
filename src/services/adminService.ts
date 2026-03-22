@@ -32,6 +32,29 @@ const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
 
 const trimValue = (value: unknown): string => String(value ?? '').trim();
 
+const deriveLocationCode = (name: unknown): string => {
+    const normalizedName = trimValue(name);
+    if (!normalizedName) return '';
+
+    const parentheticalCode = normalizedName.match(/\(([A-Za-z0-9]{2,4})\)\s*$/)?.[1];
+    if (parentheticalCode) return parentheticalCode.toUpperCase();
+
+    const compactName = normalizedName.replace(/[^A-Za-z0-9 ]/g, ' ').trim();
+    if (!compactName) return '';
+
+    const condensed = compactName.replace(/\s+/g, '');
+    if (/^[A-Za-z0-9]{2,4}$/.test(condensed)) {
+        return condensed.toUpperCase();
+    }
+
+    const words = compactName.split(/\s+/).filter(Boolean);
+    if (words.length === 1) {
+        return words[0].slice(0, 2).toUpperCase();
+    }
+
+    return words.slice(0, 3).map(word => word[0]).join('').toUpperCase();
+};
+
 const createUserName = (raw: any): string => {
     const name = trimValue(raw?.name);
     if (name) return name;
@@ -51,7 +74,7 @@ const normalize = (raw: Partial<AdminData> | null | undefined): AdminData => {
                 let name = trimValue(loc?.name);
                 let city = trimValue(loc?.city);
                 const country = trimValue(loc?.country);
-                const code = trimValue(loc?.code);
+                const code = trimValue(loc?.code) || deriveLocationCode(loc?.name);
 
                 // Migrate legacy names to the current short display names used in Administration.
                 if (name === 'University Hospital Zurich (ZH)') {
@@ -91,14 +114,18 @@ const normalize = (raw: Partial<AdminData> | null | undefined): AdminData => {
 
     const users = Array.isArray(raw?.users)
         ? raw.users
-            .map((user: any) => ({
-                id: trimValue(user?.id),
-                name: createUserName(user),
-                email: trimValue(user?.email),
-                role: user?.role as AppUser['role'],
-                locationId: trimValue(user?.locationId),
-                departmentId: trimValue(user?.departmentId)
-            }))
+            .map((user: any) => {
+                const password = trimValue(user?.password);
+                return {
+                    id: trimValue(user?.id),
+                    name: createUserName(user),
+                    email: trimValue(user?.email),
+                    ...(password ? { password } : {}),
+                    role: user?.role as AppUser['role'],
+                    locationId: trimValue(user?.locationId),
+                    departmentId: trimValue(user?.departmentId)
+                };
+            })
             .filter(
                 (user): user is AppUser =>
                     !!user.id &&
@@ -185,6 +212,7 @@ const toStoredUser = (user: AppUser): AppUser => ({
     name: trimValue(user.name || user.fullName),
     fullName: trimValue(user.name || user.fullName),
     email: trimValue(user.email),
+    password: trimValue(user.password) || undefined,
     role: user.role,
     locationId: trimValue(user.locationId),
     departmentId: trimValue(user.departmentId)
@@ -207,12 +235,17 @@ export const adminService = {
         const normalizedCity = trimValue(loc.name) === 'Bern'
             ? 'Bern'
             : trimValue(loc.city);
+        const existingLocation = data.locations.find(item => item.id === trimValue(loc.id));
+        const existingDerivedCode = existingLocation ? deriveLocationCode(existingLocation.name) : '';
+        const shouldRefreshCodeFromName =
+            !trimValue(loc.code) ||
+            (!!existingLocation && trimValue(existingLocation.code) === existingDerivedCode);
         const nextLocation: Location = {
             id: trimValue(loc.id),
             name: normalizedName,
             city: normalizedCity,
             country: trimValue(loc.country),
-            code: trimValue(loc.code)
+            code: shouldRefreshCodeFromName ? deriveLocationCode(normalizedName) : trimValue(loc.code)
         };
 
         if (!nextLocation.id || !nextLocation.name) {

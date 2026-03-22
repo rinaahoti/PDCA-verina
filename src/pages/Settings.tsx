@@ -50,6 +50,7 @@ const Settings: React.FC = () => {
     const [newUser, setNewUser] = useState<Omit<User, 'id' | 'avatar' | 'status'>>({
         name: '',
         email: '',
+        password: '',
         role: 'ASSIGNED',
         organizationId: 'org1',
         departmentId: ''
@@ -123,7 +124,7 @@ const Settings: React.FC = () => {
         authService.addUser(newUser);
         setUsers(authService.getAllUsers());
         setShowUserModal(false);
-        setNewUser({ name: '', email: '', role: 'ASSIGNED', organizationId: 'org1', departmentId: '' });
+        setNewUser({ name: '', email: '', password: '', role: 'ASSIGNED', organizationId: 'org1', departmentId: '' });
         showSuccess('User added successfully');
     };
 
@@ -385,6 +386,17 @@ const Settings: React.FC = () => {
                                         required
                                     />
                                 </div>
+                                {!editingUser && (
+                                    <div>
+                                        <label>Password</label>
+                                        <input
+                                            type="password"
+                                            value={newUser.password || ''}
+                                            onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                )}
                                 <div>
                                     <label>Role</label>
                                     <select

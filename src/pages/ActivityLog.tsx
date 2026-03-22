@@ -1,50 +1,17 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/activity-log-exact.css';
 import { useLanguage } from '../contexts/LanguageContext';
+import { activityService } from '../services/activityService';
+import {
+    ActivityDetailRow,
+    ActivityEntityFilter,
+    ActivityIconKey,
+    ActivityLogViewEntry,
+    ActivityTimelineRow,
+    mapActivityEntriesToLogEntries
+} from '../utils/activityLogUtils';
 
-type IconKey =
-    | 'hash' | 'user' | 'clock' | 'layers' | 'pin' | 'tag' | 'brief'
-    | 'wave' | 'person' | 'doc' | 'monitor' | 'mappin';
-
-type EntityFilter = 'All Entities' | 'Topics' | 'Users' | 'Locations' | 'Departments';
-
-interface MetaItem {
-    l?: string;
-    v: string;
-    lnk?: boolean;
-    sys?: boolean;
-    ico?: boolean;
-}
-
-interface DetailRow {
-    i: IconKey;
-    l: string;
-    v: string;
-    lnk?: boolean;
-}
-
-interface TimelineRow {
-    e: string;
-    t: string;
-    a: boolean;
-}
-
-interface LogEntry {
-    id: number;
-    entity: Exclude<EntityFilter, 'All Entities'>;
-    ic: 'icon-orange' | 'icon-blue' | 'icon-green' | 'icon-purple' | 'icon-teal' | 'icon-amber';
-    icon: IconKey;
-    title: string;
-    meta: MetaItem[];
-    time: string;
-    d: {
-        st: { label: string; cls: 'chip-green' | 'chip-orange' | 'chip-blue' };
-        rows: DetailRow[];
-        tl: TimelineRow[];
-    };
-}
-
-const SVG_ICONS: Record<IconKey, string> = {
+const SVG_ICONS: Record<ActivityIconKey, string> = {
     hash: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>`,
     user: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
     clock: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
@@ -59,39 +26,41 @@ const SVG_ICONS: Record<IconKey, string> = {
     mappin: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`
 };
 
-const logs: LogEntry[] = [
-    { id: 0, entity: 'Topics', ic: 'icon-green', icon: 'doc', title: 'ACT Phase completed - moved to Templates & Standards', meta: [{ l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: 'just now', d: { st: { label: 'Standardisiert', cls: 'chip-green' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-655' }, { i: 'tag', l: 'Titel', v: 'Reduktion postoperativer Infektionsraten', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }, { i: 'layers', l: 'Phase', v: 'ACT -> Templates & Standards' }, { i: 'doc', l: 'Standard Ref', v: 'STD-2026-011', lnk: true }, { i: 'user', l: 'Von', v: 'Dr. Elena Rossi', lnk: true }], tl: [{ e: 'PLAN Phase gestartet', t: '12.03.2026', a: true }, { e: 'DO Phase gestartet', t: '12.03.2026', a: true }, { e: 'CHECK Phase gestartet', t: '12.03.2026', a: true }, { e: 'ACT Phase gestartet', t: '12.03.2026', a: true }, { e: 'An Templates & Standards übergeben', t: '12.03.2026', a: true }] } },
-    { id: 1, entity: 'Topics', ic: 'icon-orange', icon: 'wave', title: 'Topic T-655 moved to ACT phase', meta: [{ l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '1h ago', d: { st: { label: 'ACT Phase', cls: 'chip-orange' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-655' }, { i: 'user', l: 'Von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }, { i: 'layers', l: 'Phase', v: 'CHECK -> ACT' }, { i: 'pin', l: 'Standort', v: 'Basel' }, { i: 'brief', l: 'Betriebe', v: 'Surgery Department' }], tl: [{ e: 'PLAN Phase gestartet', t: '12.03.2026', a: false }, { e: 'DO Phase gestartet', t: '12.03.2026', a: false }, { e: 'CHECK Phase gestartet', t: '12.03.2026', a: false }, { e: 'ACT Phase gestartet', t: '12.03.2026', a: true }] } },
-    { id: 2, entity: 'Topics', ic: 'icon-orange', icon: 'wave', title: 'Topic T-655 moved to CHECK phase', meta: [{ l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '1h ago', d: { st: { label: 'CHECK Phase', cls: 'chip-blue' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-655' }, { i: 'user', l: 'Von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }, { i: 'layers', l: 'Phase', v: 'DO -> CHECK' }, { i: 'pin', l: 'Standort', v: 'Basel' }], tl: [{ e: 'PLAN Phase gestartet', t: '12.03.2026', a: false }, { e: 'DO Phase gestartet', t: '12.03.2026', a: false }, { e: 'CHECK Phase gestartet', t: '12.03.2026', a: true }] } },
-    { id: 3, entity: 'Topics', ic: 'icon-orange', icon: 'wave', title: 'Topic T-655 moved to DO phase', meta: [{ l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '1h ago', d: { st: { label: 'DO Phase', cls: 'chip-blue' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-655' }, { i: 'user', l: 'Von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }, { i: 'layers', l: 'Phase', v: 'PLAN -> DO' }], tl: [{ e: 'PLAN Phase gestartet', t: '12.03.2026', a: false }, { e: 'DO Phase gestartet', t: '12.03.2026', a: true }] } },
-    { id: 4, entity: 'Topics', ic: 'icon-orange', icon: 'wave', title: 'New PDCA Topic T-655 created', meta: [{ l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '1h ago', d: { st: { label: 'Neu erstellt', cls: 'chip-green' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-655' }, { i: 'user', l: 'Erstellt von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }, { i: 'tag', l: 'Typ', v: 'PDCA Zyklus' }, { i: 'pin', l: 'Standort', v: 'Basel' }], tl: [{ e: 'PLAN Phase gestartet', t: '12.03.2026', a: true }] } },
-    { id: 5, entity: 'Users', ic: 'icon-blue', icon: 'person', title: 'Neues klinisches Personal registriert', meta: [{ l: 'User', v: 'Dr. Julia Chen' }, { l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '3h ago', d: { st: { label: 'Registriert', cls: 'chip-green' }, rows: [{ i: 'user', l: 'Name', v: 'Dr. Julia Chen' }, { i: 'brief', l: 'Fachbereich', v: 'Infectious Diseases' }, { i: 'pin', l: 'Standort', v: 'Zürich' }, { i: 'user', l: 'Registriert von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '12.03.2026' }], tl: [{ e: 'Account aktiviert', t: '12.03.2026', a: true }, { e: 'Profil erstellt', t: '12.03.2026', a: false }] } },
-    { id: 7, entity: 'Topics', ic: 'icon-orange', icon: 'wave', title: 'Topic moved to CHECK phase - Basel', meta: [{ l: 'By', v: 'Dr. Marcus Weber', lnk: true }], time: '09/03/2026', d: { st: { label: 'CHECK Phase', cls: 'chip-blue' }, rows: [{ i: 'hash', l: 'Topic ID', v: 'T-001' }, { i: 'tag', l: 'Titel', v: 'Reduktion postoperativer Infektionsraten', lnk: true }, { i: 'layers', l: 'Phase', v: 'DO -> CHECK' }, { i: 'user', l: 'Von', v: 'Dr. Marcus Weber', lnk: true }, { i: 'pin', l: 'Standort', v: 'Basel' }, { i: 'brief', l: 'Betriebe', v: 'Surgery Department' }, { i: 'clock', l: 'Datum', v: '09.03.2026' }], tl: [{ e: 'PLAN Phase gestartet', t: '01.03.2026', a: false }, { e: 'DO Phase gestartet', t: '05.03.2026', a: false }, { e: 'CHECK Phase gestartet', t: '09.03.2026', a: true }] } },
-    { id: 9, entity: 'Locations', ic: 'icon-amber', icon: 'mappin', title: 'Standort hinzugefügt: Lausanne', meta: [{ l: 'Location', v: 'Lausanne' }, { l: 'By', v: 'Dr. Elena Rossi', lnk: true }], time: '08/03/2026', d: { st: { label: 'Hinzugefügt', cls: 'chip-green' }, rows: [{ i: 'hash', l: 'Location ID', v: 'LOC-VD' }, { i: 'tag', l: 'Name', v: 'CHUV Lausanne', lnk: true }, { i: 'pin', l: 'Stadt', v: 'Lausanne' }, { i: 'brief', l: 'Bereich', v: 'Quality & Patient Safety' }, { i: 'user', l: 'Von', v: 'Dr. Elena Rossi', lnk: true }, { i: 'clock', l: 'Datum', v: '08.03.2026' }], tl: [{ e: 'Standort aktiviert', t: '08.03.2026', a: true }, { e: 'Validierung abgeschlossen', t: '08.03.2026', a: false }] } }
-];
-
-const RenderIcon: React.FC<{ name: IconKey }> = ({ name }) => (
+const RenderIcon: React.FC<{ name: ActivityIconKey }> = ({ name }) => (
     <span className="al-svg" dangerouslySetInnerHTML={{ __html: SVG_ICONS[name] }} />
 );
 
 const ActivityLog: React.FC = () => {
     const { language } = useLanguage();
-    const [query, setQuery] = useState('');
-    const [filter, setFilter] = useState<EntityFilter>('All Entities');
-    const [activeLog, setActiveLog] = useState<LogEntry | null>(null);
-    const [entryOpen, setEntryOpen] = useState(false);
     const isGerman = language === 'de';
+    const [activities, setActivities] = useState(() => activityService.getActivities());
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState<ActivityEntityFilter>('All Entities');
+    const [activeLog, setActiveLog] = useState<ActivityLogViewEntry | null>(null);
+    const [entryOpen, setEntryOpen] = useState(false);
+
+    useEffect(() => {
+        const load = () => setActivities(activityService.getActivities());
+        load();
+        window.addEventListener('storage-activity', load);
+        return () => window.removeEventListener('storage-activity', load);
+    }, []);
+
+    const logs = useMemo(() => mapActivityEntriesToLogEntries(activities, language), [activities, language]);
 
     const filteredLogs = useMemo(() => {
         return logs.filter((log) => {
             const q = query.trim().toLowerCase();
-            const queryMatch = !q || log.title.toLowerCase().includes(q);
+            const queryMatch =
+                !q ||
+                log.title.toLowerCase().includes(q) ||
+                log.meta.some((item) => item.v.toLowerCase().includes(q));
             const filterMatch = filter === 'All Entities' || log.entity === filter;
             return queryMatch && filterMatch;
         });
-    }, [query, filter]);
+    }, [filter, logs, query]);
 
-    const openPanel = (log: LogEntry) => {
+    const openPanel = (log: ActivityLogViewEntry) => {
         setActiveLog(log);
         setEntryOpen(false);
     };
@@ -115,20 +84,22 @@ const ActivityLog: React.FC = () => {
         const locRow = activeLog.d.rows.find((r) => r.i === 'pin');
         const depRow = activeLog.d.rows.find((r) => r.i === 'brief');
         const userRow = activeLog.d.rows.find((r) => r.i === 'user');
+
         if (activeLog.entity === 'Topics') {
-            return [timeRow, userRow].filter(Boolean) as DetailRow[];
+            return [timeRow, userRow].filter(Boolean) as ActivityDetailRow[];
         }
-        return [timeRow, locRow, depRow, userRow].filter(Boolean) as DetailRow[];
+
+        return [timeRow, locRow, depRow, userRow].filter(Boolean) as ActivityDetailRow[];
     }, [activeLog]);
 
-    const getTopicPlanTitle = (log: LogEntry): string => {
-        const topicId = log.d.rows.find((r) => r.l === 'Topic ID')?.v;
+    const getTopicPlanTitle = (log: ActivityLogViewEntry): string => {
+        const topicId = log.source.entityId || log.d.rows.find((r) => r.i === 'hash')?.v;
         if (!topicId) return '';
 
         const relatedTopicLogs = logs.filter(
             (item) =>
                 item.entity === 'Topics' &&
-                item.d.rows.some((r) => r.l === 'Topic ID' && r.v === topicId)
+                (item.source.entityId || item.d.rows.find((r) => r.i === 'hash')?.v) === topicId
         );
 
         const explicitTitle = relatedTopicLogs
@@ -137,23 +108,22 @@ const ActivityLog: React.FC = () => {
             ?.v;
 
         if (explicitTitle) return explicitTitle;
-        if (topicId === 'T-655') return 'Reduktion postoperativer Infektionsraten';
         return `Topic ${topicId}`;
     };
 
-    const getScopeRowValue = (log: LogEntry, icon: DetailRow['i']): string => {
+    const getScopeRowValue = (log: ActivityLogViewEntry, icon: ActivityDetailRow['i']): string => {
         const direct = log.d.rows.find((r) => r.i === icon)?.v;
         if (direct) return direct;
 
         if (log.entity !== 'Topics') return '-';
-        const topicId = log.d.rows.find((r) => r.l === 'Topic ID')?.v;
+        const topicId = log.source.entityId || log.d.rows.find((r) => r.i === 'hash')?.v;
         if (!topicId) return '-';
 
         const relatedValue = logs
             .filter(
                 (item) =>
                     item.entity === 'Topics' &&
-                    item.d.rows.some((r) => r.l === 'Topic ID' && r.v === topicId)
+                    (item.source.entityId || item.d.rows.find((r) => r.i === 'hash')?.v) === topicId
             )
             .flatMap((item) => item.d.rows)
             .find((r) => r.i === icon)
@@ -161,7 +131,6 @@ const ActivityLog: React.FC = () => {
 
         if (relatedValue) return relatedValue;
 
-        // Last fallback for topic scope cards so Abteilungen is never empty in this demo data set.
         if (icon === 'brief') {
             const anyTopicDepartment = logs
                 .filter((item) => item.entity === 'Topics')
@@ -174,21 +143,21 @@ const ActivityLog: React.FC = () => {
         return '-';
     };
 
-    const getRowsWithTopicTitle = (log: LogEntry): DetailRow[] => {
+    const getRowsWithTopicTitle = (log: ActivityLogViewEntry): ActivityDetailRow[] => {
         const rows = [...log.d.rows];
         if (log.entity !== 'Topics') return rows;
 
         const hasTitle = rows.some((r) => r.l === 'Titel' || r.l === 'Title' || r.l === 'Topic Title');
         if (hasTitle) return rows;
 
-        const titleRow: DetailRow = {
+        const titleRow: ActivityDetailRow = {
             i: 'tag',
-            l: 'Titel',
+            l: isGerman ? 'Titel' : 'Title',
             v: getTopicPlanTitle(log),
             lnk: true
         };
 
-        const topicIdIndex = rows.findIndex((r) => r.l === 'Topic ID');
+        const topicIdIndex = rows.findIndex((r) => r.i === 'hash');
         if (topicIdIndex >= 0) {
             rows.splice(topicIdIndex + 1, 0, titleRow);
         } else {
@@ -200,7 +169,7 @@ const ActivityLog: React.FC = () => {
 
     const phaseOrder = ['PLAN', 'DO', 'CHECK', 'ACT'] as const;
 
-    const getCurrentTopicPhaseIndex = (log: LogEntry): number => {
+    const getCurrentTopicPhaseIndex = (log: ActivityLogViewEntry): number => {
         if (log.entity !== 'Topics') return -1;
         const label = log.d.st.label.toUpperCase();
         return phaseOrder.findIndex((phase) => label.includes(phase));
@@ -211,7 +180,7 @@ const ActivityLog: React.FC = () => {
         return phaseOrder.findIndex((phase) => upper.includes(`${phase} PHASE`));
     };
 
-    const isTimelineEventActive = (log: LogEntry, row: TimelineRow): boolean => {
+    const isTimelineEventActive = (log: ActivityLogViewEntry, row: ActivityTimelineRow): boolean => {
         const eventPhaseIndex = getTimelinePhaseIndex(row.e);
         const currentPhaseIndex = getCurrentTopicPhaseIndex(log);
 
@@ -223,8 +192,8 @@ const ActivityLog: React.FC = () => {
         <div className="activity-log-exact">
             <main className="al-page">
                 <div className="al-page-header">
-                    <h1>{language === 'de' ? 'Aktivitätsprotokoll' : 'Activity Log'}</h1>
-                    <p>System Governance Log Â· Clinical Audit Trail</p>
+                    <h1>{isGerman ? 'Aktivitätsprotokoll' : 'Activity Log'}</h1>
+                    <p>{isGerman ? 'System-Governance-Log · Klinischer Verlauf' : 'System Governance Log · Clinical Audit Trail'}</p>
                 </div>
 
                 <div className="al-toolbar">
@@ -232,16 +201,18 @@ const ActivityLog: React.FC = () => {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                         <input
                             className="al-search-input"
-                            placeholder="Search activity..."
+                            placeholder={isGerman ? 'Aktivität suchen...' : 'Search activity...'}
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                         />
                     </div>
                     <div className="al-select-wrap">
-                        <select value={filter} onChange={(e) => setFilter(e.target.value as EntityFilter)}>
+                        <select value={filter} onChange={(e) => setFilter(e.target.value as ActivityEntityFilter)}>
                             <option value="All Entities">{isGerman ? 'Alle Einheiten' : 'All Entities'}</option>
                             <option value="Topics">{isGerman ? 'Themen' : 'Topics'}</option>
                             <option value="Users">{isGerman ? 'Benutzer' : 'Users'}</option>
+                            <option value="Audits">{isGerman ? 'QM' : 'Audits'}</option>
+                            <option value="Findings">{isGerman ? 'Feststellungen' : 'Findings'}</option>
                             <option value="Locations">{isGerman ? 'Standorte' : 'Locations'}</option>
                             <option value="Departments">{isGerman ? 'Betriebe' : 'Departments'}</option>
                         </select>
@@ -296,7 +267,7 @@ const ActivityLog: React.FC = () => {
                             </div>
                         </div>
                     )) : (
-                        <div className="al-empty">Keine EintrÃ¤ge gefunden</div>
+                        <div className="al-empty">{isGerman ? 'Keine Einträge gefunden' : 'No activity found'}</div>
                     )}
                 </div>
             </main>
@@ -323,26 +294,26 @@ const ActivityLog: React.FC = () => {
 
                         <div className="al-dp-body">
                             <div className="al-dp-section">
-                                <div className="al-dp-section-title">Status</div>
+                                <div className="al-dp-section-title">{isGerman ? 'Status' : 'Status'}</div>
                                 <span className={`al-status-chip ${activeLog.d.st.cls}`}>{activeLog.d.st.label}</span>
                             </div>
 
                             <div className="al-dp-section">
-                                <div className="al-dp-section-title">Details</div>
+                                <div className="al-dp-section-title">{isGerman ? 'Details' : 'Details'}</div>
                                 {getRowsWithTopicTitle(activeLog)
-                                    .filter((row) => !(activeLog.entity === 'Topics' && (row.l === 'Standort' || row.l === 'Betriebe' || row.l === 'Standard Ref')))
+                                    .filter((row) => !(activeLog.entity === 'Topics' && (row.i === 'pin' || row.i === 'brief')))
                                     .map((row, idx) => (
-                                    <div className="al-dp-row" key={`${activeLog.id}-row-${idx}`}>
-                                        <div className="al-dp-row-icon"><RenderIcon name={row.i} /></div>
-                                        <div className="al-dp-row-label">{row.l}</div>
-                                        <div className={`al-dp-row-value ${row.lnk ? 'link' : ''}`}>{row.v}</div>
-                                    </div>
+                                        <div className="al-dp-row" key={`${activeLog.id}-row-${idx}`}>
+                                            <div className="al-dp-row-icon"><RenderIcon name={row.i} /></div>
+                                            <div className="al-dp-row-label">{row.l}</div>
+                                            <div className={`al-dp-row-value ${row.lnk ? 'link' : ''}`}>{row.v}</div>
+                                        </div>
                                     ))}
                             </div>
 
                             {activeLog.entity === 'Topics' && (
                                 <div className="al-dp-section">
-                                    <div className="al-dp-section-title">Verlauf</div>
+                                    <div className="al-dp-section-title">{isGerman ? 'Verlauf' : 'Timeline'}</div>
                                     <div className="al-timeline">
                                         {activeLog.d.tl.map((row, idx) => (
                                             <div className="al-tl-item" key={`${activeLog.id}-tl-${idx}`}>
@@ -362,8 +333,8 @@ const ActivityLog: React.FC = () => {
                         </div>
 
                         <div className="al-dp-footer">
-                            <button className="al-btn-secondary" onClick={closePanel}>SchlieÃŸen</button>
-                            <button className="al-btn-primary" onClick={openEntryPage}>Zum Eintrag â†’</button>
+                            <button className="al-btn-secondary" onClick={closePanel}>{isGerman ? 'Schließen' : 'Close'}</button>
+                            <button className="al-btn-primary" onClick={openEntryPage}>{isGerman ? 'Zum Eintrag →' : 'Open Entry →'}</button>
                         </div>
                     </>
                 )}
@@ -375,7 +346,7 @@ const ActivityLog: React.FC = () => {
                         <div className="al-ep-topbar">
                             <button className="al-ep-back" onClick={closeEntryPage}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                                Zurück
+                                {isGerman ? 'Zurück' : 'Back'}
                             </button>
                             <div className="al-ep-breadcrumb">
                                 <span>Activity Log</span>
@@ -399,7 +370,7 @@ const ActivityLog: React.FC = () => {
                                             <div className="al-ep-banner-id">
                                                 {(() => {
                                                     if (activeLog.entity === 'Topics') {
-                                                        return `Topic Title: ${getTopicPlanTitle(activeLog)}`;
+                                                        return `${isGerman ? 'Titel' : 'Topic Title'}: ${getTopicPlanTitle(activeLog)}`;
                                                     }
                                                     const idRow = activeLog.d.rows.find((r) => r.i === 'hash');
                                                     return idRow ? `${idRow.l}: ${idRow.v}` : '';
@@ -426,16 +397,16 @@ const ActivityLog: React.FC = () => {
                         <div className={`al-ep-body ${activeLog.entity === 'Topics' ? '' : 'no-side'}`}>
                             <div className="al-ep-main">
                                 <div className="al-ep-card">
-                                    <div className="al-ep-card-head"><div className="al-ep-card-title">Alle Details</div></div>
+                                    <div className="al-ep-card-head"><div className="al-ep-card-title">{isGerman ? 'Alle Details' : 'All Details'}</div></div>
                                     <div className="al-ep-card-body">
                                         {getRowsWithTopicTitle(activeLog)
-                                            .filter((row) => row.l !== 'Standort' && row.l !== 'Betriebe')
+                                            .filter((row) => row.i !== 'pin' && row.i !== 'brief')
                                             .map((row, idx) => (
-                                            <div className="al-ep-row" key={`${activeLog.id}-detail-${idx}`}>
-                                                <div className="al-ep-row-icon"><RenderIcon name={row.i} /></div>
-                                                <div className="al-ep-row-label">{row.l}</div>
-                                                <div className={`al-ep-row-value ${row.lnk ? 'link' : ''}`}>{row.v}</div>
-                                            </div>
+                                                <div className="al-ep-row" key={`${activeLog.id}-detail-${idx}`}>
+                                                    <div className="al-ep-row-icon"><RenderIcon name={row.i} /></div>
+                                                    <div className="al-ep-row-label">{row.l}</div>
+                                                    <div className={`al-ep-row-value ${row.lnk ? 'link' : ''}`}>{row.v}</div>
+                                                </div>
                                             ))}
                                     </div>
                                 </div>
@@ -444,7 +415,7 @@ const ActivityLog: React.FC = () => {
                                     <div className="al-ep-scope-section">
                                         <div className="al-ep-scope-head">
                                             <span className="al-ep-scope-icon"><RenderIcon name="pin" /></span>
-                                            <span className="al-ep-scope-label">Standorte</span>
+                                            <span className="al-ep-scope-label">{isGerman ? 'Standorte' : 'Locations'}</span>
                                             <span className="al-ep-scope-count">{getScopeRowValue(activeLog, 'pin') === '-' ? '0' : '1'}</span>
                                         </div>
                                         <div className="al-ep-scope-value">
@@ -457,7 +428,7 @@ const ActivityLog: React.FC = () => {
                                     <div className="al-ep-scope-section">
                                         <div className="al-ep-scope-head">
                                             <span className="al-ep-scope-icon"><RenderIcon name="brief" /></span>
-                                            <span className="al-ep-scope-label">Abteilungen</span>
+                                            <span className="al-ep-scope-label">{isGerman ? 'Betriebe' : 'Departments'}</span>
                                             <span className="al-ep-scope-count">{getScopeRowValue(activeLog, 'brief') === '-' ? '0' : '1'}</span>
                                         </div>
                                         <div className="al-ep-scope-value">
@@ -470,7 +441,7 @@ const ActivityLog: React.FC = () => {
                             {activeLog.entity === 'Topics' && (
                                 <div className="al-ep-side">
                                     <div className="al-ep-card">
-                                        <div className="al-ep-card-head"><div className="al-ep-card-title">Verlauf</div></div>
+                                        <div className="al-ep-card-head"><div className="al-ep-card-title">{isGerman ? 'Verlauf' : 'Timeline'}</div></div>
                                         <div className="al-ep-tl">
                                             {activeLog.d.tl.map((row, idx) => (
                                                 <div className="al-ep-tl-item" key={`${activeLog.id}-entry-tl-${idx}`}>
@@ -497,17 +468,3 @@ const ActivityLog: React.FC = () => {
 };
 
 export default ActivityLog;
-
-
-
-
-
-
-
-
-
-
-
-
-
-

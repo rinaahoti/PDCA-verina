@@ -20,20 +20,20 @@ const TopicWorkspace: React.FC = () => {
             if (t) {
                 setTopic(t);
                 const tabParam = (searchParams.get('tab') || '').toUpperCase();
-                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK')
+                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK' || tabParam === 'ACT')
                     ? (tabParam as Step)
-                    : (t.step === 'ACT' ? 'CHECK' : t.step);
+                    : t.step;
 
                 const canOpenRequested =
                     (t.step === 'PLAN' && requestedTab === 'PLAN') ||
                     (t.step === 'DO' && (requestedTab === 'PLAN' || requestedTab === 'DO')) ||
                     (t.step === 'CHECK' && requestedTab !== 'ACT') ||
-                    (t.step === 'ACT' && requestedTab !== 'ACT');
+                    t.step === 'ACT';
 
                 if (canOpenRequested) {
                     setActiveTab(requestedTab);
                 } else {
-                    setActiveTab(t.step === 'ACT' ? 'CHECK' : t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
+                    setActiveTab(t.step === 'ACT' ? 'ACT' : t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
                 }
             }
         }
@@ -61,8 +61,8 @@ const TopicWorkspace: React.FC = () => {
         if (current === 'DO') return target === 'PLAN' || target === 'DO';
         // CHECK topics: PLAN, DO, CHECK are accessible; ACT is locked.
         if (current === 'CHECK') return target !== 'ACT';
-        // ACT topics: ACT view is hidden here, so fall back to PLAN/DO/CHECK only.
-        return target !== 'ACT';
+        // ACT topics: all tabs are accessible, including ACT.
+        return true;
     };
 
     const TabButton = ({ step, label, icon: Icon }: { step: Step, label: string, icon: any }) => (
@@ -154,6 +154,14 @@ const TopicWorkspace: React.FC = () => {
             'Audit Finding': 'Audit-Feststellung'
         };
         return map[cat] || cat;
+    };
+
+    const getTranslatedActOutcome = (outcome?: string) => {
+        if (!outcome) return '-';
+        if (outcome === 'Standardize') return t('pdca.standardize');
+        if (outcome === 'Improve & Re-run PDCA') return t('pdca.improveRerun');
+        if (outcome === 'Close without Standardization') return t('pdca.closeWithoutStandardization');
+        return outcome;
     };
 
     const isAudit = topic.type === 'Audit Finding' || topic.type === 'Audit-Feststellung';
@@ -383,6 +391,7 @@ const TopicWorkspace: React.FC = () => {
                     <TabButton step="PLAN" label={t('pdca.plan')} icon={FileText} />
                     <TabButton step="DO" label={t('pdca.do')} icon={Activity} />
                     <TabButton step="CHECK" label={t('pdca.check')} icon={BarChart3} />
+                    <TabButton step="ACT" label={t('pdca.act')} icon={CheckCircle2} />
                 </div>
 
                 <div style={{ padding: '2rem' }}>
@@ -530,6 +539,78 @@ const TopicWorkspace: React.FC = () => {
 
                             {renderActionCards(t('pdca.completedActions'))}
 
+                        </div>
+                    )}
+
+                    {activeTab === 'ACT' && (
+                        <div>
+                            <h3 style={{ marginTop: 0 }}>{t('pdca.actOutcome')}</h3>
+                            <div style={{ marginBottom: '1rem', background: 'var(--color-bg)', padding: '1rem', borderRadius: '8px' }}>
+                                <div style={{ marginBottom: '0.45rem' }}><strong>{t('common.location')}:</strong> {planLocation || '-'}</div>
+                                <div><strong>{t('admin.department')}:</strong> {planDepartment || '-'}</div>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>{t('pdca.actOutcomeDecision')}:</strong>{' '}
+                                <span>{getTranslatedActOutcome(topic.act.actOutcome)}</span>
+                            </div>
+
+                            {topic.act.standardizationScope && topic.act.standardizationScope.length > 0 && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <strong>{t('pdca.standardizationScope')}:</strong>
+                                    <ul style={{ paddingLeft: '1.25rem', marginTop: '0.5rem' }}>
+                                        {topic.act.standardizationScope.map(scope => (
+                                            <li key={scope} style={{ marginBottom: '0.35rem', color: '#4a5568' }}>
+                                                {t(`pdca.scopes.${scope}`)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {topic.act.affectedAreas && topic.act.affectedAreas.length > 0 && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <strong>{t('pdca.affectedAreas')}:</strong>
+                                    <ul style={{ paddingLeft: '1.25rem', marginTop: '0.5rem' }}>
+                                        {topic.act.affectedAreas.map(area => (
+                                            <li key={area} style={{ marginBottom: '0.35rem', color: '#4a5568' }}>
+                                                {t(`pdca.areas.${area}`)}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>{t('pdca.standardizationDesc')}:</strong>{' '}
+                                <span>{topic.act.standardizationDescription || topic.act.standardization || '-'}</span>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <strong>{t('pdca.lessonsLearned')}:</strong>{' '}
+                                <span>{topic.act.lessonsLearned || '-'}</span>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem', background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>{t('pdca.actConfirmation')}</div>
+                                <div style={{ marginBottom: '0.4rem' }}>
+                                    <strong>{t('pdca.confirmStandardized')}:</strong> {topic.act.actConfirmation?.standardized ? 'Yes' : 'No'}
+                                </div>
+                                <div style={{ marginBottom: '0.4rem' }}>
+                                    <strong>{t('pdca.confirmRerunPDCA')}:</strong> {topic.act.actConfirmation?.noActionsPending ? 'Yes' : 'No'}
+                                </div>
+                                <div>
+                                    <strong>{t('pdca.confirmReadyClose')}:</strong> {topic.act.actConfirmation?.readyToClose ? 'Yes' : 'No'}
+                                </div>
+                            </div>
+
+                            {topic.act.audit && (
+                                <div style={{ background: 'var(--color-bg)', padding: '1rem', borderRadius: '6px' }}>
+                                    <div style={{ marginBottom: '0.5rem' }}><strong>{t('pdca.closedBy')}:</strong> {topic.act.audit.closedBy || '-'}</div>
+                                    <div style={{ marginBottom: '0.5rem' }}><strong>{t('pdca.date')}:</strong> {topic.act.audit.closedOn ? new Date(topic.act.audit.closedOn).toLocaleString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</div>
+                                    <div><strong>{t('pdca.finalOutcome')}:</strong> {getTranslatedActOutcome(topic.act.audit.finalOutcome)}</div>
+                                </div>
+                            )}
                         </div>
                     )}
 

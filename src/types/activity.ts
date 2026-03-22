@@ -5,7 +5,8 @@ export type ActivityType =
     | 'AUDIT_CREATED' | 'AUDIT_STATUS_CHANGED'
     | 'FINDING_ADDED'
     | 'PDCA_PHASE_UPDATED'
-    | 'TOPIC_CREATED';
+    | 'TOPIC_CREATED'
+    | 'TOPIC_RERUN_OPENED';
 
 export interface ActivityEntry {
     id: string;

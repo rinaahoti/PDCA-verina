@@ -3,13 +3,27 @@ import { useAdminDataStore } from '../hooks/useAdminDataStore';
 import { Location, Department, AppUser } from '../types/admin';
 import {
     Plus, Edit2, Trash2, MapPin, Building2, Users,
-    Search, AlertCircle, Save, X, RefreshCw,
-    ChevronDown, ChevronRight
+    X, RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LocationModal } from './administration/components/LocationModal';
 import { DepartmentModal, DepartmentDeleteDialog } from './administration/components/DepartmentModals';
 import { AddEditUserModal, TransferUserModal, UserProfileModal } from './administration/components/UserModals';
+
+type UserFormState = {
+    name: string;
+    email: string;
+    password: string;
+    locationId: string;
+    departmentId: string;
+    role: AppUser['role'];
+};
+
+type TransferFormState = {
+    locationId: string;
+    departmentId: string;
+    role: AppUser['role'];
+};
 
 const Administration: React.FC = () => {
     const { t } = useLanguage();
@@ -71,7 +85,7 @@ const Administration: React.FC = () => {
     const [userSearch, setUserSearch] = useState('');
     const [userCityFilter, setUserCityFilter] = useState('');
     const [userDepartmentFilter, setUserDepartmentFilter] = useState('');
-    const [userGlobalRole, setUserGlobalRole] = useState<'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>('All');
+    const [userGlobalRole] = useState<'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer'>('All');
     const [usersExpandedLocs, setUsersExpandedLocs] = useState<Record<string, boolean>>({});
     const [usersExpandedDeps, setUsersExpandedDeps] = useState<Record<string, boolean>>({});
     const [selectedUsersLocationId, setSelectedUsersLocationId] = useState<string | null>(null);
@@ -86,17 +100,18 @@ const Administration: React.FC = () => {
     const [userFormError, setUserFormError] = useState('');
     const [transferFormError, setTransferFormError] = useState('');
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
-    const [transferUserId, setTransferUserId] = useState<string | null>(null);
+    const [transferUserId] = useState<string | null>(null);
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
     const [addUserAcrossLocationDepartments, setAddUserAcrossLocationDepartments] = useState(false);
-    const [userForm, setUserForm] = useState({
+    const [userForm, setUserForm] = useState<UserFormState>({
         name: '',
         email: '',
+        password: '',
         locationId: '',
         departmentId: '',
         role: 'Assigned' as AppUser['role']
     });
-    const [transferForm, setTransferForm] = useState({
+    const [transferForm, setTransferForm] = useState<TransferFormState>({
         locationId: '',
         departmentId: '',
         role: 'Assigned' as AppUser['role']
@@ -190,8 +205,6 @@ const Administration: React.FC = () => {
         return { locationsShown, departmentsTotal, usersAssigned };
     }, [visibleDepartmentGroups]);
 
-    const roleOrder: Array<'Admin' | 'Owner' | 'Assigned' | 'Viewer'> = ['Admin', 'Owner', 'Assigned', 'Viewer'];
-
     const userCities = useMemo(
         () => Array.from(new Set(locations.map(loc => loc.city || '').filter(Boolean))).sort((a, b) => a.localeCompare(b)),
         [locations]
@@ -212,6 +225,32 @@ const Administration: React.FC = () => {
     const getUserDepartmentName = (user: AppUser) => {
         const dep = departments.find(d => d.id === user.departmentId);
         return dep ? getTranslatedDepartmentName(dep.name) : '-';
+    };
+
+    const getLocationUserGroupKey = (user: AppUser) => {
+        const emailKey = (user.email || '').trim().toLowerCase();
+        if (emailKey) return `${user.locationId}::${emailKey}`;
+        return `${user.locationId}::${(user.name || '').trim().toLowerCase()}::${user.role}`;
+    };
+
+    const groupLocationUsers = (locationUsers: AppUser[]) => {
+        const grouped = new Map<string, { representative: AppUser; members: AppUser[] }>();
+
+        locationUsers.forEach(user => {
+            const key = getLocationUserGroupKey(user);
+            const existing = grouped.get(key);
+            if (existing) {
+                existing.members.push(user);
+                return;
+            }
+
+            grouped.set(key, {
+                representative: user,
+                members: [user]
+            });
+        });
+
+        return Array.from(grouped.values());
     };
 
     const usersViewData = useMemo(() => {
@@ -259,13 +298,14 @@ const Administration: React.FC = () => {
                 }
                 return true;
             });
+            const uniqueVisibleUsers = groupLocationUsers(visibleUsers);
 
-            if ((q || userGlobalRole !== 'All' || localRole !== 'All' || userDepartmentFilter) && visibleUsers.length === 0) {
+            if ((q || userGlobalRole !== 'All' || localRole !== 'All' || userDepartmentFilter) && uniqueVisibleUsers.length === 0) {
                 return acc;
             }
 
             totalLocations += 1;
-            totalUsersShown += visibleUsers.length;
+            totalUsersShown += uniqueVisibleUsers.length;
             totalRoleCounts.Admin += roleCounts.Admin;
             totalRoleCounts.Owner += roleCounts.Owner;
             totalRoleCounts.Assigned += roleCounts.Assigned;
@@ -369,7 +409,7 @@ const Administration: React.FC = () => {
         if (!userForm.locationId || !userForm.departmentId) return;
         const valid = departments.some(dep => dep.id === userForm.departmentId && dep.locationId === userForm.locationId);
         if (!valid) {
-            setUserForm(prev => ({ ...prev, departmentId: '' }));
+            setUserForm((prev: UserFormState) => ({ ...prev, departmentId: '' }));
         }
     }, [departments, userForm.locationId, userForm.departmentId]);
 
@@ -377,7 +417,7 @@ const Administration: React.FC = () => {
         if (!transferForm.locationId || !transferForm.departmentId) return;
         const valid = departments.some(dep => dep.id === transferForm.departmentId && dep.locationId === transferForm.locationId);
         if (!valid) {
-            setTransferForm(prev => ({ ...prev, departmentId: '' }));
+            setTransferForm((prev: TransferFormState) => ({ ...prev, departmentId: '' }));
         }
     }, [departments, transferForm.locationId, transferForm.departmentId]);
 
@@ -385,14 +425,7 @@ const Administration: React.FC = () => {
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
     const [drawerUserRoleFilter, setDrawerUserRoleFilter] = useState<string>('All');
 
-    // --- GROUPED TABS STATE ---
-    const [expandedLocs, setExpandedLocs] = useState<Record<string, boolean>>({});
-    const [tabRoleFilters, setTabRoleFilters] = useState<Record<string, string>>({});
     const [lockLocationId, setLockLocationId] = useState<string | null>(null); // For locking modals
-
-    const toggleLoc = (id: string) => {
-        setExpandedLocs(prev => ({ ...prev, [id]: !prev[id] }));
-    };
 
     const toggleDepartmentLoc = (id: string) => {
         setDepartmentExpandedLocs(prev => ({ ...prev, [id]: !(prev[id] ?? false) }));
@@ -513,11 +546,14 @@ const Administration: React.FC = () => {
         }
     };
 
-    const handleDeleteUser = (id: string, e?: React.MouseEvent) => {
+    const handleDeleteUser = (id: string | string[], e?: React.MouseEvent) => {
         e?.stopPropagation();
+        const userIds = Array.isArray(id) ? id : [id];
         if (confirm(t('admin.confirm.deleteUser'))) {
             try {
-                deleteUser(id);
+                userIds.forEach(userId => {
+                    deleteUser(userId);
+                });
                 showToast('User removed');
             } catch (err: any) {
                 alert(err.message);
@@ -588,6 +624,7 @@ const Administration: React.FC = () => {
         setUserForm({
             name: '',
             email: '',
+            password: '',
             locationId: preLocId,
             departmentId: departmentId || localDepartments[0]?.id || '',
             role: 'Assigned'
@@ -604,6 +641,7 @@ const Administration: React.FC = () => {
         setUserForm({
             name: user.name,
             email: user.email,
+            password: user.password || '',
             locationId: user.locationId,
             departmentId,
             role: user.role
@@ -614,11 +652,12 @@ const Administration: React.FC = () => {
     const saveAddEditUser = () => {
         const name = userForm.name.trim();
         const email = userForm.email.trim();
+        const password = userForm.password.trim();
         const locationDepartments = departments.filter(dep => dep.locationId === userForm.locationId);
         const shouldDuplicateAcrossDepartments = !editingUserId && addUserAcrossLocationDepartments && locationDepartments.length > 1;
 
-        if (!name || !email || !userForm.locationId || (!shouldDuplicateAcrossDepartments && !userForm.departmentId)) {
-            setUserFormError('Name, email, location and department are required.');
+        if (!name || !email || (!editingUserId && !password) || !userForm.locationId || (!shouldDuplicateAcrossDepartments && !userForm.departmentId)) {
+            setUserFormError(editingUserId ? 'Name, email, location and department are required.' : 'Name, email, password, location and department are required.');
             return;
         }
         const selectedDep = departments.find(dep => dep.id === userForm.departmentId);
@@ -635,6 +674,7 @@ const Administration: React.FC = () => {
                     id: `${baseId}-${index + 1}`,
                     name,
                     email,
+                    password,
                     locationId: userForm.locationId,
                     departmentId: dep.id,
                     role: userForm.role
@@ -648,40 +688,24 @@ const Administration: React.FC = () => {
                 });
                 return next;
             });
-            setSelectedUsersDepartment(null);
-            setSelectedUsersLocationId(null);
         } else {
             const payload: AppUser = {
                 id: editingUserId || `USR-${Date.now()}`,
                 name,
                 email,
+                password: editingUserId ? (password || users.find(user => user.id === editingUserId)?.password) : password,
                 locationId: userForm.locationId,
                 departmentId: userForm.departmentId,
                 role: userForm.role
             };
             saveUser(payload);
             setUsersExpandedLocs(prev => ({ ...prev, [payload.locationId]: true }));
-            if (payload.departmentId) {
-                setUsersExpandedDeps(prev => ({ ...prev, [`${payload.locationId}::${payload.departmentId}`]: true }));
-            }
         }
+        setUsersExpandedDeps({});
         setAddEditUserModalOpen(false);
         setAddUserAcrossLocationDepartments(false);
         setUserSearch('');
         showToast(editingUserId ? 'User updated' : 'User added');
-    };
-
-    const openTransferModal = (user: AppUser) => {
-        setTransferUserId(user.id);
-        setTransferFormError('');
-        const localDepartments = departments.filter(dep => dep.locationId === user.locationId);
-        const departmentId = user.departmentId || localDepartments[0]?.id || '';
-        setTransferForm({
-            locationId: user.locationId,
-            departmentId,
-            role: user.role
-        });
-        setTransferUserModalOpen(true);
     };
 
     const saveTransferUser = () => {
@@ -1174,7 +1198,7 @@ const Administration: React.FC = () => {
                                 </div>
                             )}
 
-                            {visibleDepartmentGroups.map(({ loc, depts, totalUsers }, idx) => {
+                            {visibleDepartmentGroups.map(({ loc, depts, totalUsers }) => {
                                 const isExpanded = departmentExpandedLocs[loc.id] ?? false;
                                 const q = departmentSearch.trim();
                                 return (
@@ -1653,13 +1677,14 @@ const Administration: React.FC = () => {
                             if (!loc) return null;
 
                             const locationUsersAll = users.filter(user => user.locationId === loc.id);
+                            const locationUserGroups = groupLocationUsers(locationUsersAll);
                             const localRole = userLocalRoleFilters[loc.id] || 'All';
                             const q = userSearch.trim().toLowerCase();
-                            const detailUsers = locationUsersAll.filter(user => {
-                                if (localRole !== 'All' && user.role !== localRole) return false;
-                                if (userDepartmentFilter && getUserDepartmentName(user) !== userDepartmentFilter) return false;
+                            const detailUserGroups = locationUserGroups.filter(({ representative, members }) => {
+                                if (localRole !== 'All' && !members.some(user => user.role === localRole)) return false;
+                                if (userDepartmentFilter && !members.some(user => getUserDepartmentName(user) === userDepartmentFilter)) return false;
                                 if (!q) return true;
-                                return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+                                return (representative.name || '').toLowerCase().includes(q) || (representative.email || '').toLowerCase().includes(q);
                             });
                             return (
                                 <div style={{ padding: '0 0 24px', marginTop: '-32px' }}>
@@ -1697,7 +1722,7 @@ const Administration: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '0' }}>
-                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{locationUsersAll.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{locationUserGroups.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
                                             </div>
                                         </div>
 
@@ -1726,11 +1751,15 @@ const Administration: React.FC = () => {
                                                 <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
                                                 <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
                                             </div>
-                                            {detailUsers.length === 0 ? (
+                                            {detailUserGroups.length === 0 ? (
                                                 <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this location.</div>
                                             ) : (
-                                                detailUsers.map(user => (
-                                                    <div key={user.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
+                                                detailUserGroups.map(({ representative, members }) => {
+                                                    const user = representative;
+                                                    const relatedUserIds = members.map(member => member.id);
+
+                                                    return (
+                                                    <div key={getLocationUserGroupKey(user)} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '12px 16px', borderBottom: '1px solid #f0f8f7', alignItems: 'center' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                             <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontFamily: 'DM Mono, monospace', fontSize: '13px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                 {(user.name || '').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
@@ -1752,10 +1781,11 @@ const Administration: React.FC = () => {
                                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                                                             <button title="View Profile" onClick={() => openProfileModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#6b8583' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg></button>
                                                             <button title="Edit" onClick={() => openEditUserModal(user)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #ddecea', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#5ba8a0' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg></button>
-                                                            <button title="Remove" onClick={(e) => handleDeleteUser(user.id, e)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #f5d5d5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
+                                                            <button title="Remove" onClick={(e) => handleDeleteUser(relatedUserIds, e)} style={{ width: '30px', height: '30px', borderRadius: '8px', border: '1.5px solid #f5d5d5', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', cursor: 'pointer', color: '#e05a5a' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg></button>
                                                         </div>
                                                     </div>
-                                                ))
+                                                );
+                                                })
                                             )}
                                         </div>
                                     </div>
@@ -1780,9 +1810,6 @@ const Administration: React.FC = () => {
                                 if (!q) return true;
                                 return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
                             });
-                            const depOwnerCount = depUsersAll.filter(u => u.role === 'Owner').length;
-                            const depAssignedCount = depUsersAll.filter(u => u.role === 'Assigned').length;
-
                             return (
                                 <div style={{ padding: '0 0 24px', marginTop: '-32px' }}>
                                     <div style={{ maxWidth: 'none', margin: 0 }}>
@@ -2180,7 +2207,6 @@ const Administration: React.FC = () => {
                 profileUserId={profileUserId}
                 users={users}
                 locations={locations}
-                roleBadgeStyle={roleBadgeStyle}
                 getUserDepartmentName={getUserDepartmentName}
                 getTranslatedLocationName={getTranslatedLocationName}
                 onClose={() => setProfileUserModalOpen(false)}

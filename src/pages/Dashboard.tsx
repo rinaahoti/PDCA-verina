@@ -1,28 +1,25 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { auditService } from '../services/auditService';
+import { topicsService } from '../services';
 import { adminService } from '../services/adminService';
 import { activityService } from '../services/activityService';
-import { AuditFinding } from '../types';
+import { Topic } from '../types';
 import { Location, AppUser, Department } from '../types/admin';
 import { ActivityEntry } from '../types/activity';
 import { getStatusMeta, getStatusBadgeStyle, getStatusColor, getStatusLabel } from '../utils/statusUtils';
+import { mapActivityEntriesToLogEntries } from '../utils/activityLogUtils';
+import { getTopicDisplayStep, getVisibleTopicStatus, isTopicVisibleInWorkflow } from '../utils/topicWorkflowUtils';
 import {
     AlertTriangle,
     CheckCircle2,
-    Clock,
     BarChart3,
     Filter,
     ChevronDown,
     Search,
     FileText,
-    Activity,
     Repeat,
     ArrowRight,
-    User,
     Calendar,
-    MapPin,
-    Building2,
     TrendingUp,
     Eye
 } from 'lucide-react';
@@ -140,7 +137,6 @@ export default function Dashboard() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     // Filters State - Synced with URL Params
-    const auditIdParam = searchParams.get('auditId') || 'All';
     const departmentParam = searchParams.get('department') || 'All';
     const locationParam = searchParams.get('location') || 'All';
     const statusParam = searchParams.get('status') || 'All';
@@ -158,7 +154,7 @@ export default function Dashboard() {
         setSearchParams({});
     };
 
-    const [findings, setFindings] = useState<AuditFinding[]>([]);
+    const [topics, setTopics] = useState<Topic[]>([]);
     const [locations, setLocations] = useState<Location[]>([]);
 
     const [departments, setDepartments] = useState<Department[]>([]);
@@ -167,20 +163,17 @@ export default function Dashboard() {
     const [timeRange, setTimeRange] = useState('lastMonth');
     const [hoveredPhase, setHoveredPhase] = useState<string | null>(null);
 
-    const adminLocationNameSet = useMemo(
-        () => new Set(locations.map(l => (l.name || '').trim()).filter(Boolean)),
-        [locations]
-    );
     const selectedLocation = useMemo(() => {
         if (locationParam === 'All') return null;
         const normalized = (locationParam || '').trim();
         return (
+            locations.find(loc => loc.id === normalized) ||
             locations.find(loc => (loc.name || '').trim() === normalized) ||
             locations.find(loc => (loc.city || '').trim() === normalized) ||
             null
         );
     }, [locationParam, locations, t]);
-    const effectiveLocationParam = locationParam === 'All' || selectedLocation ? locationParam : 'All';
+    const effectiveLocationParam = selectedLocation?.id || 'All';
     const effectiveLocationName = selectedLocation?.name || 'All';
 
     useEffect(() => {
@@ -190,8 +183,14 @@ export default function Dashboard() {
     }, [locationParam, selectedLocation]);
 
     useEffect(() => {
+        if (locationParam !== 'All' && selectedLocation && locationParam !== selectedLocation.id) {
+            updateFilter('location', selectedLocation.id);
+        }
+    }, [locationParam, selectedLocation]);
+
+    useEffect(() => {
         const load = () => {
-            setFindings(auditService.getAllFindings());
+            setTopics(topicsService.getAll());
             setLocations(adminService.getLocations());
             setDepartments(adminService.getDepartments());
             setUsers(adminService.getUsers());
@@ -208,15 +207,25 @@ export default function Dashboard() {
         };
     }, []);
 
-    // Helper to derive department from finding
-    const getDepartment = (f: AuditFinding): string => {
-        const text = (f.title + f.auditName + f.responsible + f.location).toLowerCase();
-        if (text.includes('pharmacy')) return 'Main Pharmacy';
-        if (text.includes('surgery') || text.includes('surgical') || text.includes('or ')) return 'Surgery Department';
-        if (text.includes('infection') || text.includes('isolation')) return 'Infectious Diseases';
-        if (text.includes('emergency')) return 'Emergency Medicine';
-        return 'Quality & Patient Safety'; // Default
-    };
+    const normalizeLookup = (value?: string) =>
+        (value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+
+    const splitStoredValues = (value?: string) =>
+        (value || '')
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean);
+
+    const getTopicTimelineDate = (topic: Topic) =>
+        topic.updatedAt ||
+        topic.act.audit?.closedOn ||
+        topic.check.audit?.checkedOn ||
+        topic.history[0]?.date ||
+        topic.dueDate;
 
     // Helper to get translated location name
     const getTranslatedLocationName = (name: string) => {
@@ -240,11 +249,28 @@ export default function Dashboard() {
             locations
                 .map(loc => ({
                     label: (loc.city || '').trim() || getTranslatedLocationName(loc.name).replace(/ \([A-Z]+\)$/, ''),
-                    value: loc.name
+                    value: loc.id
                 }))
                 .sort((a, b) => a.label.localeCompare(b.label)),
         [locations, t]
     );
+
+    const selectedDepartment = useMemo(() => {
+        if (departmentParam === 'All') return null;
+        const normalized = (departmentParam || '').trim();
+        const scopedDepartments =
+            effectiveLocationName === 'All'
+                ? departments
+                : departments.filter(dep => dep.locationId === selectedLocation?.id);
+
+        return (
+            scopedDepartments.find(dep => dep.id === normalized) ||
+            scopedDepartments.find(dep => (dep.name || '').trim() === normalized) ||
+            null
+        );
+    }, [departmentParam, departments, effectiveLocationName, selectedLocation]);
+
+    const effectiveDepartmentParam = selectedDepartment?.id || 'All';
 
     const departmentOptions = useMemo(() => {
         const scopedDepartments =
@@ -254,201 +280,240 @@ export default function Dashboard() {
 
         return scopedDepartments.map(dep => ({
             label: getTranslatedDepartmentName(dep.name),
-            value: dep.name
+            value: dep.id
         }));
     }, [departments, effectiveLocationName, selectedLocation, t]);
 
     useEffect(() => {
-        if (departmentParam === 'All') return;
-        const isValidForSelection = departmentOptions.some(dep => dep.value === departmentParam);
-        if (!isValidForSelection) {
+        if (departmentParam !== 'All' && !selectedDepartment) {
             updateFilter('department', 'All');
         }
-    }, [departmentParam, departmentOptions]);
-    // Helper to translate activity messages
-    const translateActivityMessage = (message: string) => {
-        // Topic Created
-        const topicCreatedMatch = message.match(/^New PDCA Topic (.*?) created$/);
-        if (topicCreatedMatch) return t('activityLog.messages.topicCreated', { id: topicCreatedMatch[1] });
+    }, [departmentParam, selectedDepartment]);
 
-        // Topic Moved
-        const topicMovedMatch = message.match(/^Topic (.*?) moved to (.*?) phase$/);
-        if (topicMovedMatch) {
-            const phaseKey = topicMovedMatch[2].toLowerCase();
-            const translatedPhase = t(`pdca.${phaseKey}`);
-            return t('activityLog.messages.topicMovedToPhase', { id: topicMovedMatch[1], phase: translatedPhase });
+    useEffect(() => {
+        if (departmentParam !== 'All' && selectedDepartment && departmentParam !== selectedDepartment.id) {
+            updateFilter('department', selectedDepartment.id);
+        }
+    }, [departmentParam, selectedDepartment]);
+    const topicMatchesLocation = (topic: Topic, location: Location) => {
+        const tokens = [
+            ...splitStoredValues(topic.location),
+            ...splitStoredValues(topic.locationId)
+        ];
+        if (tokens.length === 0) return false;
+
+        const normalizedName = normalizeLookup(location.name);
+        const normalizedCity = normalizeLookup(location.city || '');
+        const normalizedCode = normalizeLookup(location.code || '');
+        const aliases = new Set(
+            [
+                location.id,
+                location.name,
+                location.city,
+                location.code,
+                `${location.code || ''} - ${location.name || ''}`,
+                `${location.code || ''} - ${location.city || ''}`
+            ]
+                .map(value => normalizeLookup(value))
+                .filter(Boolean)
+        );
+
+        return tokens.some(token => {
+            const normalizedToken = normalizeLookup(token);
+            if (!normalizedToken) return false;
+            if (aliases.has(normalizedToken)) return true;
+            if (normalizedCode && (normalizedToken.includes(`(${normalizedCode})`) || normalizedToken.endsWith(` ${normalizedCode}`))) {
+                return true;
+            }
+            if (normalizedName && normalizedToken.includes(normalizedName)) return true;
+            if (normalizedCity && normalizedToken.includes(normalizedCity)) return true;
+            return false;
+        });
+    };
+
+    const getTopicMatchedLocations = (topic: Topic) => {
+        return locations.filter(location => topicMatchesLocation(topic, location));
+    };
+
+    const getTopicDepartmentMatches = (topic: Topic) => {
+        const matchedDepartments = new Map<string, Department>();
+
+        splitStoredValues(topic.departmentId).forEach(token => {
+            const normalizedToken = normalizeLookup(token);
+            if (!normalizedToken) return;
+
+            const matchedDepartment = departments.find(dep => normalizeLookup(dep.id) === normalizedToken);
+            if (matchedDepartment) {
+                matchedDepartments.set(matchedDepartment.id, matchedDepartment);
+                return;
+            }
+
+            const matchedByName = departments.find(dep => normalizeLookup(dep.name) === normalizedToken);
+            if (matchedByName) {
+                matchedDepartments.set(matchedByName.id, matchedByName);
+            }
+        });
+
+        return Array.from(matchedDepartments.values());
+    };
+
+    const topicMatchesDepartment = (topic: Topic, departmentId: string) => {
+        if (!departmentId || departmentId === 'All') return true;
+        return getTopicDepartmentMatches(topic).some(dep => dep.id === departmentId);
+    };
+
+    const matchesTimeRange = (topic: Topic) => {
+        if (timeRange === 'custom') return true;
+
+        const referenceDate = new Date(getTopicTimelineDate(topic));
+        if (Number.isNaN(referenceDate.getTime())) return true;
+
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (timeRange === 'today' && referenceDate < startOfDay) return false;
+        if (timeRange === 'lastWeek') {
+            const limit = new Date(now);
+            limit.setDate(now.getDate() - 7);
+            if (referenceDate < limit) return false;
+        }
+        if (timeRange === 'lastMonth') {
+            const limit = new Date(now);
+            limit.setMonth(now.getMonth() - 1);
+            if (referenceDate < limit) return false;
+        }
+        if (timeRange === 'last6Months') {
+            const limit = new Date(now);
+            limit.setMonth(now.getMonth() - 6);
+            if (referenceDate < limit) return false;
+        }
+        if (timeRange === 'lastYear') {
+            const limit = new Date(now);
+            limit.setFullYear(now.getFullYear() - 1);
+            if (referenceDate < limit) return false;
         }
 
-        // Location Created
-        const locCreatedMatch = message.match(/^Location (.*?) created$/);
-        if (locCreatedMatch) return t('activityLog.messages.locationCreated', { name: getTranslatedLocationName(locCreatedMatch[1]) });
-
-        // Location Updated
-        const locUpdatedMatch = message.match(/^Location (.*?) updated$/);
-        if (locUpdatedMatch) return t('activityLog.messages.locationUpdated', { name: getTranslatedLocationName(locUpdatedMatch[1]) });
-
-        // Location Deleted
-        const locDeletedMatch = message.match(/^Location (.*?) deleted$/);
-        if (locDeletedMatch) return t('activityLog.messages.locationDeleted', { name: getTranslatedLocationName(locDeletedMatch[1]) });
-
-        // Department Created
-        const depCreatedMatch = message.match(/^Department (.*?) created$/);
-        if (depCreatedMatch) return t('activityLog.messages.departmentCreated', { name: getTranslatedDepartmentName(depCreatedMatch[1]) });
-
-        // Department Updated
-        const depUpdatedMatch = message.match(/^Department (.*?) updated$/);
-        if (depUpdatedMatch) return t('activityLog.messages.departmentUpdated', { name: getTranslatedDepartmentName(depUpdatedMatch[1]) });
-
-        // Department Deleted
-        const depDeletedMatch = message.match(/^Department (.*?) deleted$/);
-        if (depDeletedMatch) return t('activityLog.messages.departmentDeleted', { name: getTranslatedDepartmentName(depDeletedMatch[1]) });
-
-        // User Added
-        const userAddedMatch = message.match(/^User (.*?) registered$/);
-        if (userAddedMatch) return t('activityLog.messages.userAdded', { name: userAddedMatch[1] });
-
-        // User Updated
-        const userUpdatedMatch = message.match(/^User (.*?) updated$/);
-        if (userUpdatedMatch) return t('activityLog.messages.userEdited', { name: userUpdatedMatch[1] });
-
-        // New Clinical Staff
-        if (message.includes('New clinical staff registered')) return t('activityLog.messages.newClinicalStaff');
-
-        // Site Visit Scheduled
-        if (message.includes('Patient Safety Site Visit scheduled')) return t('activityLog.messages.siteVisitScheduled');
-
-        // Topic Moved Check
-        const topicCheck = message.match(/Topic (.*?) moved to CHECK phase [-â€“] (.*)/);
-        if (topicCheck) return t('activityLog.messages.topicMovedCheck', { location: getTranslatedLocationName(topicCheck[2]) });
-
-        // Department Created with Name
-        const deptCreatedNamed = message.match(/^Department created: (.*)$/);
-        if (deptCreatedNamed) return t('activityLog.messages.deptCreated', { name: getTranslatedDepartmentName(deptCreatedNamed[1]) });
-
-        // User Deleted
-        const userDeletedMatch = message.match(/^User (.*?) deleted$/);
-        if (userDeletedMatch) return t('activityLog.messages.userDeleted', { name: userDeletedMatch[1] });
-
-        return message;
+        return true;
     };
 
-    const getTranslatedEntityType = (type: string) => {
-        const map: Record<string, string> = {
-            'User': 'common.user',
-            'Department': 'common.department',
-            'Location': 'common.location',
-            'Topic': 'activityLog.topic',
-            'Audit': 'activityLog.audit'
-        };
-        return map[type] ? t(map[type]) : type;
-    };
-    // Derived Data for Content (Charts, Lists) - Respects ALL filters
-    const filteredFindings = useMemo(() => {
-        return findings.filter(f => {
-            if (!adminLocationNameSet.has((f.location || '').trim())) return false;
-            if (auditIdParam !== 'All' && f.auditId !== auditIdParam) return false;
+    const scopedTopics = useMemo(
+        () =>
+            topics.filter(topic => {
+                if (!isTopicVisibleInWorkflow(topic)) return false;
+                if (locations.length === 0) return true;
+                return locations.some(location => topicMatchesLocation(topic, location));
+            }),
+        [topics, locations]
+    );
 
-            if (departmentParam !== 'All') {
-                const dep = getDepartment(f);
-                if (dep !== departmentParam) return false;
-            }
-
-            if (effectiveLocationName !== 'All' && f.location !== effectiveLocationName) return false;
+    const filteredTopics = useMemo(() => {
+        return scopedTopics.filter(topic => {
+            if (effectiveLocationName !== 'All' && selectedLocation && !topicMatchesLocation(topic, selectedLocation)) return false;
+            if (effectiveDepartmentParam !== 'All' && !topicMatchesDepartment(topic, effectiveDepartmentParam)) return false;
+            if (!matchesTimeRange(topic)) return false;
 
             if (statusParam !== 'All' && statusParam !== 'ALL') {
-                const label = getStatusLabel(t, f.status, f.deadline);
-
-                // Exact match with allowed restricted statuses
-                if (label === statusParam) return true;
-
-                // Backward compatibility mapping for legacy filters if any
-                if (statusParam === 'Critical' && label === t('status.critical')) return true;
-                if (statusParam === 'Warning' && label === t('status.warning')) return true;
-                if (statusParam === 'Monitoring' && label === t('status.monitoring')) return true;
-                if (statusParam === 'Done' && label === t('status.done')) return true;
-
-                return false;
-            }
-
-            // Time Range Logic
-            const created = new Date(f.createdAt);
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-            if (timeRange === 'today' && created < startOfDay) return false;
-            if (timeRange === 'lastWeek') {
-                const limit = new Date(now);
-                limit.setDate(now.getDate() - 7);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'lastMonth') {
-                const limit = new Date(now);
-                limit.setMonth(now.getMonth() - 1);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'last6Months') {
-                const limit = new Date(now);
-                limit.setMonth(now.getMonth() - 6);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'lastYear') {
-                const limit = new Date(now);
-                limit.setFullYear(now.getFullYear() - 1);
-                if (created < limit) return false;
+                const normalizedStatus = normalizeLookup(getStatusLabel(t, getVisibleTopicStatus(topic), topic.dueDate));
+                const normalizedSelectedStatus = normalizeLookup(statusParam);
+                if (normalizedStatus !== normalizedSelectedStatus) return false;
             }
 
             return true;
         });
-    }, [auditIdParam, departmentParam, effectiveLocationName, statusParam, findings, timeRange, adminLocationNameSet]);
+    }, [scopedTopics, effectiveLocationName, selectedLocation, effectiveDepartmentParam, statusParam, timeRange, t]);
 
-    // Derived Data for KPIs - Respects Location/Dept/Time, IGNORES Status filter
-    const kpiFindings = useMemo(() => {
-        return findings.filter(f => {
-            if (!adminLocationNameSet.has((f.location || '').trim())) return false;
-            if (auditIdParam !== 'All' && f.auditId !== auditIdParam) return false;
+    const kpiTopics = useMemo(() => {
+        return scopedTopics.filter(topic => {
+            if (effectiveLocationName !== 'All' && selectedLocation && !topicMatchesLocation(topic, selectedLocation)) return false;
+            if (effectiveDepartmentParam !== 'All' && !topicMatchesDepartment(topic, effectiveDepartmentParam)) return false;
+            return matchesTimeRange(topic);
+        });
+    }, [scopedTopics, effectiveLocationName, selectedLocation, effectiveDepartmentParam, timeRange]);
 
-            if (departmentParam !== 'All') {
-                const dep = getDepartment(f);
-                if (dep !== departmentParam) return false;
-            }
+    const filteredTopicUnits = useMemo(
+        () =>
+            filteredTopics.flatMap(topic => {
+                const matchedLocations =
+                    effectiveLocationName !== 'All' && selectedLocation
+                        ? (topicMatchesLocation(topic, selectedLocation) ? [selectedLocation] : [])
+                        : getTopicMatchedLocations(topic);
 
-            if (effectiveLocationName !== 'All' && f.location !== effectiveLocationName) return false;
+                return matchedLocations.map(location => ({ topic, location }));
+            }),
+        [filteredTopics, effectiveLocationName, selectedLocation, locations]
+    );
 
-            // STATUS FILTER IS IGNORED HERE
+    const kpiTopicUnits = useMemo(
+        () =>
+            kpiTopics.flatMap(topic => {
+                const matchedLocations =
+                    effectiveLocationName !== 'All' && selectedLocation
+                        ? (topicMatchesLocation(topic, selectedLocation) ? [selectedLocation] : [])
+                        : getTopicMatchedLocations(topic);
 
-            // Time Range Logic
-            const created = new Date(f.createdAt);
-            const now = new Date();
-            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                return matchedLocations.map(location => ({ topic, location }));
+            }),
+        [kpiTopics, effectiveLocationName, selectedLocation, locations]
+    );
 
-            if (timeRange === 'today' && created < startOfDay) return false;
-            if (timeRange === 'lastWeek') {
-                const limit = new Date(now);
-                limit.setDate(now.getDate() - 7);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'lastMonth') {
-                const limit = new Date(now);
-                limit.setMonth(now.getMonth() - 1);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'last6Months') {
-                const limit = new Date(now);
-                limit.setMonth(now.getMonth() - 6);
-                if (created < limit) return false;
-            }
-            if (timeRange === 'lastYear') {
-                const limit = new Date(now);
-                limit.setFullYear(now.getFullYear() - 1);
-                if (created < limit) return false;
+    const recentActivityEntries = useMemo(
+        () => mapActivityEntriesToLogEntries(activities, language).slice(0, 5),
+        [activities, language]
+    );
+
+    const cycleTopics = useMemo(() => {
+        return topics.filter(topic => {
+            if (!isTopicVisibleInWorkflow(topic)) return false;
+            if (selectedLocation && !topicMatchesLocation(topic, selectedLocation)) return false;
+            if (effectiveDepartmentParam !== 'All' && !topicMatchesDepartment(topic, effectiveDepartmentParam)) return false;
+            if (!matchesTimeRange(topic)) return false;
+
+            if (statusParam !== 'All' && statusParam !== 'ALL') {
+                const normalizedStatus = normalizeLookup(getStatusLabel(t, getVisibleTopicStatus(topic), topic.dueDate));
+                const normalizedSelectedStatus = normalizeLookup(statusParam);
+                if (normalizedStatus !== normalizedSelectedStatus) return false;
             }
 
             return true;
         });
-    }, [auditIdParam, departmentParam, effectiveLocationName, findings, timeRange, adminLocationNameSet]);
+    }, [topics, selectedLocation, effectiveDepartmentParam, timeRange, statusParam, t]);
+
+    const cycleStatsByStatus = useMemo(() => {
+        const counts = {
+            'status-critical': 0,
+            'status-warning': 0,
+            'status-ontrack': 0,
+            'status-done': 0
+        };
+        cycleTopics.forEach(topic => {
+            const meta = getStatusMeta(getVisibleTopicStatus(topic), topic.dueDate);
+            counts[meta.class as keyof typeof counts]++;
+        });
+        return counts;
+    }, [cycleTopics]);
+
+    const cycleByStep = {
+        PLAN: cycleTopics.filter(topic => getTopicDisplayStep(topic) === 'PLAN').length,
+        DO: cycleTopics.filter(topic => getTopicDisplayStep(topic) === 'DO').length,
+        CHECK: cycleTopics.filter(topic => getTopicDisplayStep(topic) === 'CHECK').length,
+    };
+
+    const cycleTotalActive = cycleTopics.length;
+
+    const navigateToListsForStep = (step: 'PLAN' | 'DO' | 'CHECK') => {
+        const params = new URLSearchParams();
+        params.set('step', step);
+
+        if (effectiveLocationParam !== 'All') params.set('location', effectiveLocationParam);
+        if (effectiveDepartmentParam !== 'All') params.set('department', effectiveDepartmentParam);
+        if (statusParam !== 'All' && statusParam !== 'ALL') params.set('status', statusParam);
+        if (timeRange !== 'lastMonth') params.set('timeRange', timeRange);
+
+        navigate(`/app/lists?${params.toString()}`);
+    };
 
     // KPI Metrics
-    const totalFindingsMetric = kpiFindings.length;
+    const totalFindingsMetric = kpiTopicUnits.length;
     const statsByStatusMetric = useMemo(() => {
         const counts = {
             'status-critical': 0,
@@ -456,15 +521,15 @@ export default function Dashboard() {
             'status-ontrack': 0,
             'status-done': 0
         };
-        kpiFindings.forEach(f => {
-            const meta = getStatusMeta(f.status, f.deadline, f.status === 'ACT');
+        kpiTopicUnits.forEach(({ topic }) => {
+            const meta = getStatusMeta(getVisibleTopicStatus(topic), topic.dueDate);
             counts[meta.class as keyof typeof counts]++;
         });
         return counts;
-    }, [kpiFindings]);
+    }, [kpiTopicUnits]);
 
     // Metrics based on filtered data
-    const totalFindings = filteredFindings.length;
+    const totalFindings = filteredTopicUnits.length;
 
     const statsByStatus = useMemo(() => {
         const counts = {
@@ -473,40 +538,21 @@ export default function Dashboard() {
             'status-ontrack': 0,
             'status-done': 0
         };
-        filteredFindings.forEach(f => {
-            const meta = getStatusMeta(f.status, f.deadline, f.status === 'ACT');
+        filteredTopicUnits.forEach(({ topic }) => {
+            const meta = getStatusMeta(getVisibleTopicStatus(topic), topic.dueDate);
             counts[meta.class as keyof typeof counts]++;
         });
         return counts;
-    }, [filteredFindings]);
+    }, [filteredTopicUnits]);
 
     const openFindings = statsByStatus['status-critical'] + statsByStatus['status-warning'] + statsByStatus['status-ontrack'];
-    const closedFindings = statsByStatus['status-done'];
-
-    const byRatingMetric = {
-        major: kpiFindings.filter(f => f.rating === 'Major').length,
-        minor: kpiFindings.filter(f => f.rating === 'Minor').length,
-        ofi: kpiFindings.filter(f => f.rating === 'OFI').length,
-    };
 
     const byLocation = locations
         .filter(l => effectiveLocationName === 'All' || l.name.trim() === effectiveLocationName.trim())
         .map(l => ({
-            label: (l.city || '').trim() || getTranslatedLocationName(l.name), // Prefer city label from admin data
-            value: filteredFindings.filter(f => f.location === l.name).length
+            label: (l.city || '').trim() || getTranslatedLocationName(l.name),
+            value: filteredTopicUnits.filter(unit => unit.location.id === l.id).length
         }));
-
-    const byCause = Object.entries(filteredFindings.reduce((acc, f) => {
-        acc[f.cause] = (acc[f.cause] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>)).map(([label, value]) => ({ label, value }));
-
-    const byStep = {
-        PLAN: filteredFindings.filter(f => f.status === 'PLAN').length,
-        DO: filteredFindings.filter(f => f.status === 'DO').length,
-        CHECK: filteredFindings.filter(f => f.status === 'CHECK').length,
-        ACT: filteredFindings.filter(f => f.status === 'ACT').length,
-    };
 
     // --- Render Helpers ---
 
@@ -624,7 +670,7 @@ export default function Dashboard() {
                     <div style={{ flex: 1 }}>
                         <FilterDropdown
                             label={t('dashboard.department')}
-                            value={departmentParam}
+                            value={effectiveDepartmentParam}
                             options={departmentOptions}
                             onChange={(v: string) => updateFilter('department', v)}
                             placeholder={t('dashboard.allDepartments')}
@@ -830,76 +876,49 @@ export default function Dashboard() {
                         </button>
                     </div>
                     <div style={{ flex: 1, overflow: 'auto', maxHeight: '320px', padding: '0 1.25rem' }}>
-                        {activities.slice(0, 5).map((activity, i) => {
-                            const getActivityIcon = () => {
-                                if (activity.type.includes('USER')) return <User size={8} color="var(--color-primary)" />;
-                                if (activity.type.includes('DEPARTMENT')) return <Building2 size={8} color="#8b5cf6" />;
-                                if (activity.type.includes('LOCATION')) return <MapPin size={8} color="var(--color-status-yellow)" />;
-                                if (activity.type.includes('PDCA') || activity.type.includes('TOPIC')) return <Activity size={8} color="var(--color-primary)" />;
-                                return <Clock size={8} color="var(--color-text-muted)" />;
-                            };
-
-                            const getPhaseBadge = () => {
-                                // Extract phase from message if it's a PDCA phase update
-                                if (activity.type === 'PDCA_PHASE_UPDATED') {
-                                    const phases = ['PLAN', 'DO', 'CHECK', 'ACT'];
-                                    for (const phase of phases) {
-                                        if (activity.message.includes(phase)) {
-                                            return <span style={{ background: 'var(--color-bg)', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>{t(`pdca.${phase.toLowerCase()}`)}</span>;
-                                        }
-                                    }
-                                }
-                                return null;
-                            };
-
-                            return (
-                                <div
-                                    key={activity.id}
-                                    style={{
-                                        display: 'flex',
-                                        gap: '1rem',
-                                        padding: '1rem 0',
-                                        borderBottom: i === Math.min(activities.length, 5) - 1 ? 'none' : '1px solid var(--color-bg)',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => {
-                                        // Navigate based on entity type
-                                        if (activity.entityType === 'Topic' && activity.entityId) {
-                                            navigate(`/app/topic/${activity.entityId}`);
-                                        } else if (activity.entityType === 'User') {
-                                            navigate('/app/users');
-                                        } else if (activity.entityType === 'Department' || activity.entityType === 'Location') {
-                                            navigate('/app/admin');
-                                        }
-                                    }}
-                                >
-                                    <div style={{ paddingTop: '2px' }}>
-                                        <div style={{
-                                            width: '8px', height: '8px', borderRadius: '50%',
-                                            background: activity.type.includes('CREATED') || activity.type.includes('ADDED') ? 'var(--color-primary)' :
-                                                activity.type.includes('DELETED') ? '#EF4444' :
-                                                    'var(--color-status-green)'
-                                        }} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#3e4c5a' }}>{translateActivityMessage(activity.message)}</div>
-                                        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '2px 0' }}>
-                                            {getTranslatedEntityType(activity.entityType)}: {activity.entityType === 'Location' ? getTranslatedLocationName(activity.entityName) :
-                                                activity.entityType === 'Department' ? getTranslatedDepartmentName(activity.entityName) :
-                                                    activity.entityName}
-                                            {activity.location && ` â€“ ${getTranslatedLocationName(activity.location)}`}
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                            <span>{activity.performedBy}</span>
-                                            <span>â€¢</span>
-                                            <span>{new Date(activity.timestamp).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
-                                            {getPhaseBadge()}
-                                        </div>
-                                    </div>
-                                    <TrendingUp size={14} color="var(--color-text-muted)" style={{ marginTop: '4px' }} />
+                        {recentActivityEntries.length ? recentActivityEntries.map((activity, i) => (
+                            <div
+                                key={activity.id}
+                                style={{
+                                    display: 'flex',
+                                    gap: '1rem',
+                                    padding: '1rem 0',
+                                    borderBottom: i === recentActivityEntries.length - 1 ? 'none' : '1px solid var(--color-bg)'
+                                }}
+                            >
+                                <div style={{ paddingTop: '2px' }}>
+                                    <div style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: activity.d.st.cls === 'chip-orange'
+                                            ? '#F59E0B'
+                                            : activity.d.st.cls === 'chip-blue'
+                                                ? '#3B82F6'
+                                                : 'var(--color-primary)'
+                                    }} />
                                 </div>
-                            );
-                        })}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#3e4c5a' }}>{activity.title}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', margin: '4px 0', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {activity.meta.map((item, metaIndex) => (
+                                            <span key={`${activity.id}-meta-${metaIndex}`}>
+                                                {metaIndex > 0 ? '• ' : ''}{item.l ? `${item.l}: ` : ''}{item.v}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                        <span>{activity.time}</span>
+                                        <span>•</span>
+                                        <span style={{ fontWeight: 600 }}>{activity.d.st.label}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )) : (
+                            <div style={{ padding: '1rem 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>
+                                {language === 'de' ? 'Keine Aktivität vorhanden.' : 'No activity yet.'}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -910,15 +929,15 @@ export default function Dashboard() {
                     </div>
                     <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '3rem', fontFamily: 'Inter, sans-serif' }}>{t('dashboard.pdcaWorkflowDescription')}</p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', position: 'relative', padding: '0 1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', position: 'relative', padding: '0 1rem' }}>
                         {/* Connecting Line */}
                         <div style={{
                             position: 'absolute',
                             top: '40px',
-                            left: '12.5%',
-                            right: '12.5%',
+                            left: '16.67%',
+                            right: '16.67%',
                             height: '4px',
-                            background: 'linear-gradient(90deg, #3B82F6 0%, #F97316 33%, #F59E0B 66%, #2DD4BF 100%)',
+                            background: 'linear-gradient(90deg, #3B82F6 0%, #F97316 50%, #F59E0B 100%)',
                             zIndex: 0,
                             borderRadius: '2px',
                             opacity: 0.2
@@ -927,8 +946,7 @@ export default function Dashboard() {
                         {[
                             { key: 'PLAN', label: t('pdca.plan'), phase: t('dashboard.phase1'), color: '#3B82F6', hoverLabel: t('phases.planningStrategy') },
                             { key: 'DO', label: t('pdca.do'), phase: t('dashboard.phase2'), color: '#F97316', hoverLabel: t('phases.executionImplementation') },
-                            { key: 'CHECK', label: t('pdca.check'), phase: t('dashboard.phase3'), color: '#F59E0B', hoverLabel: t('phases.reviewVerification') },
-                            { key: 'ACT', label: t('pdca.act'), phase: t('dashboard.phase4'), color: '#2DD4BF', hoverLabel: t('phases.actionStandardization') }
+                            { key: 'CHECK', label: t('pdca.check'), phase: t('dashboard.phase3'), color: '#F59E0B', hoverLabel: t('phases.reviewVerification') }
                         ].map((s) => {
                             const isHovered = hoveredPhase === s.key;
                             return (
@@ -969,7 +987,7 @@ export default function Dashboard() {
                                     </div>
 
                                     <div
-                                        onClick={() => navigate(`/app/lists?step=${s.key}`)}
+                                        onClick={() => navigateToListsForStep(s.key as 'PLAN' | 'DO' | 'CHECK')}
                                         style={{
                                             width: '80px', height: '80px', borderRadius: '50%',
                                             background: s.color,
@@ -983,13 +1001,13 @@ export default function Dashboard() {
                                             transition: 'transform 0.2s ease',
                                             transform: isHovered ? 'scale(1.05)' : 'scale(1)'
                                         }}>
-                                        {byStep[s.key as PDCA_Step]}
+                                        {cycleByStep[s.key as keyof typeof cycleByStep]}
                                     </div>
                                     <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                         <div style={{ fontWeight: 800, color: '#3e4c5a', fontSize: '14px', marginBottom: '2px' }}>{s.label}</div>
                                         <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{s.phase}</div>
                                         <div
-                                            onClick={() => navigate(`/app/lists?step=${s.key}`)}
+                                            onClick={() => navigateToListsForStep(s.key as 'PLAN' | 'DO' | 'CHECK')}
                                             style={{
                                                 fontSize: '11px',
                                                 color: isHovered ? s.color : 'var(--color-text-muted)',
@@ -1001,7 +1019,7 @@ export default function Dashboard() {
                                                 transition: 'all 0.2s ease',
                                                 cursor: 'pointer'
                                             }}>
-                                            {byStep[s.key as PDCA_Step]} {t('common.findings')}
+                                            {cycleByStep[s.key as keyof typeof cycleByStep]} {t('common.findings')}
                                         </div>
                                     </div>
                                 </div>
@@ -1011,23 +1029,23 @@ export default function Dashboard() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '3rem', borderTop: '1px solid var(--color-bg)', paddingTop: '2rem' }}>
                         <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>{openFindings}</div>
+                            <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>{cycleTotalActive}</div>
                             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('dashboard.totalActive')}</div>
                         </div>
                         <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>
-                                {openFindings > 0 ? Math.round((byStep.PLAN / openFindings) * 100) : 0}%
+                                {cycleTotalActive > 0 ? Math.round((cycleByStep.PLAN / cycleTotalActive) * 100) : 0}%
                             </div>
                             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('dashboard.inPlanning')}</div>
                         </div>
                         <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>
-                                {openFindings > 0 ? Math.round((byStep.DO / openFindings) * 100) : 0}%
+                                {cycleTotalActive > 0 ? Math.round((cycleByStep.DO / cycleTotalActive) * 100) : 0}%
                             </div>
                             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('dashboard.inProgress')}</div>
                         </div>
                         <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>{statsByStatus['status-critical']}</div>
+                            <div style={{ fontSize: '24px', fontWeight: 800, color: '#3e4c5a' }}>{cycleByStep.CHECK}</div>
                             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginTop: '4px' }}>{t('dashboard.criticalIssues')}</div>
                         </div>
                     </div>

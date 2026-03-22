@@ -1,15 +1,16 @@
 ﻿import React from 'react';
 import { AppUser, Department, Location } from '../../../types/admin';
 
-interface UserFormState {
+export interface UserFormState {
     name: string;
     email: string;
+    password: string;
     locationId: string;
     departmentId: string;
     role: AppUser['role'];
 }
 
-interface TransferFormState {
+export interface TransferFormState {
     locationId: string;
     departmentId: string;
     role: AppUser['role'];
@@ -66,6 +67,12 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                     <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Email</label>
                     <input type="email" value={userForm.email} onChange={(e) => onChangeUserForm({ ...userForm, email: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
                 </div>
+                {!editingUserId && (
+                    <div style={{ marginBottom: '14px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Password</label>
+                        <input type="password" value={userForm.password} onChange={(e) => onChangeUserForm({ ...userForm, password: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
+                    </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: hideDepartmentField ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                     <div>
                         <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location</label>
@@ -74,7 +81,11 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                             onChange={(e) => {
                                 const nextLoc = e.target.value;
                                 const nextDeps = departments.filter(dep => dep.locationId === nextLoc);
-                                onChangeUserForm({ ...userForm, locationId: nextLoc, departmentId: nextDeps[0]?.id || '' });
+                                onChangeUserForm({ 
+                                    ...userForm, 
+                                    locationId: nextLoc, 
+                                    departmentId: nextDeps[0]?.id || '' 
+                                });
                             }}
                             style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}
                         >
@@ -195,9 +206,9 @@ interface UserProfileModalProps {
     profileUserId: string | null;
     users: AppUser[];
     locations: Location[];
-    roleBadgeStyle: (role: AppUser['role']) => React.CSSProperties;
     getUserDepartmentName: (user: AppUser) => string;
     getTranslatedLocationName: (name: string) => string;
+    roleBadgeStyle?: (role: AppUser['role']) => React.CSSProperties;
     onClose: () => void;
     onEditUser: (user: AppUser) => void;
 }
@@ -207,7 +218,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     profileUserId,
     users,
     locations,
-    roleBadgeStyle,
     getUserDepartmentName,
     getTranslatedLocationName,
     onClose,
@@ -238,7 +248,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Role</div><div style={{ fontSize: '14px', fontWeight: 500 }}><span style={{ fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', ...roleBadgeStyle(user.role) }}>{user.role}</span></div></div>
+                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Role</div><div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{user.role}</div></div>
                     <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Location</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{loc?.code || '-'}</div></div>
                     <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Department</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{getUserDepartmentName(user)}</div></div>
                     <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Hospital</div><div style={{ fontSize: '13px', fontWeight: 500 }}>{loc ? getTranslatedLocationName(loc.name).replace(/ \([A-Z]+\)$/, '') : '-'}</div></div>

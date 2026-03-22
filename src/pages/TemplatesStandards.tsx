@@ -4,8 +4,12 @@ import {
     X, Save, CheckCircle2, Tag, MapPin, Building2, Calendar
 } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { adminService } from '../services/adminService';
+import { topicsService } from '../services';
+import { activityService } from '../services/activityService';
+import { generatePlanDoCheckCombinedPdf } from '../utils/pdfGenerator';
 
 // --- TYPES --- 
 
@@ -40,6 +44,7 @@ interface PDCAOutcome {
         readyClose: boolean;
     };
     standardId?: string;
+    rerunTopicId?: string;
     createdAt: string;
 }
 
@@ -206,6 +211,7 @@ const templatesService = {
 
 const TemplatesStandards: React.FC = () => {
     const { t, language } = useLanguage();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'standardizations' | 'templates'>('standardizations');
     const [outcomes, setOutcomes] = useState<PDCAOutcome[]>([]);
     const [templates, setTemplates] = useState<Template[]>([]);
@@ -259,14 +265,24 @@ const TemplatesStandards: React.FC = () => {
     // KPI Calculations
     const totalOutcomes = outcomes.length;
     const standardized = outcomes.filter(o => o.decision === 'Standardize').length;
-    const notStandardized = outcomes.filter(o => o.decision !== 'Standardize').length;
+    const improveRerun = outcomes.filter(o => o.decision === 'Improve & Re-run').length;
+    const notStandardized = outcomes.filter(o => o.decision === 'Close').length;
+
+    const getOutcomeLocations = (location?: string) =>
+        `${location || ''}`
+            .split(',')
+            .map(value => value.trim())
+            .filter(Boolean);
 
     // Filtered outcomes
     const filteredOutcomes = useMemo(() => {
         return outcomes.filter(o => {
             const matchesSearch = o.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 o.ref.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesLocation = locationFilter === 'All Locations' || o.location === locationFilter;
+            const outcomeLocations = getOutcomeLocations(o.location);
+            const matchesLocation =
+                locationFilter === 'All Locations'
+                || outcomeLocations.includes(locationFilter);
             const matchesDepartment = departmentFilter === 'All Departments' || o.department === departmentFilter;
             const matchesDecision = decisionFilter === 'All Decisions' || o.decision === decisionFilter;
             return matchesSearch && matchesLocation && matchesDepartment && matchesDecision;
@@ -278,7 +294,7 @@ const TemplatesStandards: React.FC = () => {
         if (adminLocations.length > 0) {
             return Array.from(new Set(adminLocations.map(loc => loc.name).filter(Boolean)));
         }
-        return Array.from(new Set(outcomes.map(o => o.location).filter(Boolean)));
+        return Array.from(new Set(outcomes.flatMap(o => getOutcomeLocations(o.location))));
     }, [adminLocations, outcomes]);
 
     const departments = useMemo(() => {
@@ -299,7 +315,7 @@ const TemplatesStandards: React.FC = () => {
         }
 
         const fallback = outcomes
-            .filter(o => locationFilter === 'All Locations' || o.location === locationFilter)
+            .filter(o => locationFilter === 'All Locations' || getOutcomeLocations(o.location).includes(locationFilter))
             .map(o => o.department)
             .filter(Boolean) as string[];
         return Array.from(new Set(fallback));
@@ -426,6 +442,13 @@ const TemplatesStandards: React.FC = () => {
     const filteredTemplates = useMemo(() => {
         return templates.filter(template => {
             const linkedOutcome = getOutcomeFromSource(template.source);
+            const isStandardizedProcess =
+                template.kind === 'standard' && (!linkedOutcome || linkedOutcome.decision === 'Standardize');
+
+            if (!isStandardizedProcess) {
+                return false;
+            }
+
             const matchesSearch =
                 template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 template.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -434,7 +457,8 @@ const TemplatesStandards: React.FC = () => {
                 (linkedOutcome?.ref || '').toLowerCase().includes(searchTerm.toLowerCase());
 
             const matchesLocation =
-                locationFilter === 'All Locations' || (linkedOutcome?.location || '') === locationFilter;
+                locationFilter === 'All Locations'
+                || getOutcomeLocations(linkedOutcome?.location).includes(locationFilter);
             const matchesDepartment =
                 departmentFilter === 'All Departments' || (linkedOutcome?.department || '') === departmentFilter;
             return matchesSearch && matchesLocation && matchesDepartment;
@@ -574,6 +598,173 @@ const TemplatesStandards: React.FC = () => {
         alert(t('templatesStandards.messages.standardGenerated', { id: standard.id }));
     };
 
+    const handleDownloadOutcomePdf = (outcome: PDCAOutcome) => {
+        const topic = topicsService.getById(outcome.ref);
+        if (!topic) {
+            alert(`No linked PDCA process was found for ${outcome.ref}.`);
+            return;
+        }
+
+        generatePlanDoCheckCombinedPdf(topic);
+    };
+
+    const buildCopiedPlanMeeting = (sourceTopic: ReturnType<typeof topicsService.getById>) => {
+        const sourceMeeting = sourceTopic?.plan.meeting;
+        const copiedResponsiblePersons = Array.isArray(sourceMeeting?.responsiblePersons)
+            ? sourceMeeting.responsiblePersons.filter(Boolean)
+            : [];
+
+        return {
+            title: sourceMeeting?.title || '',
+            responsiblePersons: copiedResponsiblePersons,
+            meetingType: sourceMeeting?.meetingType || 'In-Office (On-site)',
+            meetingDateTime: sourceMeeting?.meetingDateTime || '',
+            location: sourceMeeting?.location || '',
+            checkTriggerDate: sourceMeeting?.checkTriggerDate || '',
+            externalEnabled: !!sourceMeeting?.externalEnabled,
+            externalUsers: Array.isArray(sourceMeeting?.externalUsers) ? sourceMeeting.externalUsers : []
+        };
+    };
+
+    const initializeRerunTopic = (topicId: string, title: string, sourceTopic: ReturnType<typeof topicsService.getById>) => {
+        topicsService.update(topicId, {
+            title,
+            dueDate: '',
+            location: '',
+            locationId: '',
+            departmentId: '',
+            step: 'PLAN',
+            status: 'Monitoring',
+            plan: {
+                description: '',
+                goal: '',
+                asIs: '',
+                toBe: '',
+                rootCause: '',
+                improvementPurpose: [],
+                objectives: [],
+                meeting: buildCopiedPlanMeeting(sourceTopic),
+                completedAt: undefined
+            },
+            do: {
+                actions: [],
+                checkDate: '',
+                completedAt: undefined
+            },
+            check: {
+                kpis: [],
+                kpiResults: '',
+                effectivenessReview: '',
+                effectivenessStatus: undefined,
+                kpiEvaluations: [],
+                checkDecision: undefined,
+                meeting: undefined,
+                audit: undefined,
+                completedAt: undefined
+            },
+            act: {
+                effectivenessStatus: undefined,
+                actOutcome: undefined,
+                standardizationScope: [],
+                affectedAreas: [],
+                standardizationDescription: '',
+                lessonsLearned: '',
+                actConfirmation: { standardized: false, noActionsPending: false, readyToClose: false },
+                audit: undefined,
+                completedAt: undefined,
+                standardization: ''
+            }
+        });
+    };
+
+    const logRerunOpened = (topicId: string, sourceTopic: ReturnType<typeof topicsService.getById>, outcome: PDCAOutcome) => {
+        if (!sourceTopic) return;
+
+        activityService.log({
+            type: 'TOPIC_RERUN_OPENED',
+            message: `PDCA Re-run opened from Templates & Standards for ${outcome.ref}`,
+            entityType: 'Topic',
+            entityName: sourceTopic.title,
+            entityId: topicId,
+            location: outcome.location || sourceTopic.location,
+            department: outcome.department
+        });
+    };
+
+    const handleRerunOutcome = (outcome: PDCAOutcome) => {
+        const sourceTopic = topicsService.getById(outcome.ref);
+        if (!sourceTopic) {
+            alert(`No linked PDCA process was found for ${outcome.ref}.`);
+            return;
+        }
+
+        const existingRerunTopic = outcome.rerunTopicId ? topicsService.getById(outcome.rerunTopicId) : undefined;
+        if (existingRerunTopic) {
+            initializeRerunTopic(existingRerunTopic.id, sourceTopic.title, sourceTopic);
+            topicsService.update(existingRerunTopic.id, {
+                rerunSourceRef: outcome.ref
+            });
+            logRerunOpened(existingRerunTopic.id, sourceTopic, outcome);
+            outcomesService.save({
+                ...outcome,
+                rerunTopicId: existingRerunTopic.id
+            });
+            window.dispatchEvent(new Event('storage'));
+            navigate(`/app/cockpit?topicId=${existingRerunTopic.id}`);
+            return;
+        }
+
+        const rerunTopic = topicsService.add({
+            title: sourceTopic.title,
+            ownerId: sourceTopic.ownerId,
+            ownerName: sourceTopic.ownerName,
+            responsibleId: sourceTopic.responsibleId,
+            responsibleName: sourceTopic.responsibleName,
+            status: 'Monitoring',
+            category: sourceTopic.category,
+            kpi: sourceTopic.kpi,
+            objective: sourceTopic.objective,
+            dueDate: '',
+            step: 'PLAN',
+            type: sourceTopic.type,
+            rating: sourceTopic.rating,
+            location: '',
+            locationId: '',
+            departmentId: '',
+            auditReference: sourceTopic.auditReference,
+            auditType: sourceTopic.auditType,
+            rerunSourceRef: outcome.ref
+        });
+
+        initializeRerunTopic(rerunTopic.id, sourceTopic.title, sourceTopic);
+
+        logRerunOpened(rerunTopic.id, sourceTopic, outcome);
+        outcomesService.save({
+            ...outcome,
+            rerunTopicId: rerunTopic.id
+        });
+        window.dispatchEvent(new Event('storage'));
+        navigate(`/app/cockpit?topicId=${rerunTopic.id}`);
+    };
+
+    const handleDownloadTemplatePdf = (template: Template) => {
+        const linkedOutcome = getOutcomeFromSource(template.source);
+        const topicRef = linkedOutcome?.ref || template.source.match(/T-\d+/i)?.[0]?.toUpperCase();
+
+        if (!topicRef) {
+            alert(`No linked PDCA process was found for ${template.id}.`);
+            return;
+        }
+
+        const topic = topicsService.getById(topicRef);
+        if (!topic) {
+            alert(`No linked PDCA process was found for ${topicRef}.`);
+            return;
+        }
+
+        generatePlanDoCheckCombinedPdf(topic);
+    };
+
     const handleSaveOutcome = () => {
         if (!editingOutcome || !editingOutcome.ref || !editingOutcome.title) {
             return alert(t('templatesStandards.messages.validationError'));
@@ -596,6 +787,7 @@ const TemplatesStandards: React.FC = () => {
             whyNot: editingOutcome.whyNot,
             signoff: editingOutcome.signoff || { standardized: false, noPending: false, readyClose: false },
             standardId: editingOutcome.standardId,
+            rerunTopicId: editingOutcome.rerunTopicId,
             createdAt: editingOutcome.createdAt || new Date().toISOString()
         };
 
@@ -620,7 +812,7 @@ const TemplatesStandards: React.FC = () => {
             </div>
 
             {/* KPI SUMMARY ROW */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
                 <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(100,116,139,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <FileText size={20} color="#64748B" strokeWidth={1.5} />
@@ -646,8 +838,18 @@ const TemplatesStandards: React.FC = () => {
                         <RefreshCw size={20} color="#5FAE9E" strokeWidth={1.8} />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.badges.improveRerun')}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#5FAE9E' }}>{improveRerun}</div>
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: '1.25rem 1.5rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <X size={20} color="#EF4444" strokeWidth={1.8} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{t('templatesStandards.notStandardized')}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#5FAE9E' }}>{notStandardized}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: '#EF4444' }}>{notStandardized}</div>
                     </div>
                 </div>
 
@@ -731,6 +933,7 @@ const TemplatesStandards: React.FC = () => {
                                 <option value="All Decisions">{t('templatesStandards.filters.allDecisions')}</option>
                                 <option value="Standardize">{t('templatesStandards.badges.standardize')}</option>
                                 <option value="Improve & Re-run">{t('templatesStandards.badges.improveRerun')}</option>
+                                <option value="Close">{t('templatesStandards.badges.close')}</option>
                             </select>
                         )}
                     </div>
@@ -790,13 +993,24 @@ const TemplatesStandards: React.FC = () => {
                                                 </td>
                                                 <td style={{ padding: '1rem', textAlign: 'right' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                                        {outcome.decision === 'Improve & Re-run' && (
+                                                            <button
+                                                                onClick={() => handleRerunOutcome(outcome)}
+                                                                className="btn btn-outline"
+                                                                style={{ padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                                                title={outcome.rerunTopicId ? t('templatesStandards.actions.openRerun') : t('templatesStandards.actions.rerun')}
+                                                            >
+                                                                <RefreshCw size={13} />
+                                                                {outcome.rerunTopicId ? t('templatesStandards.actions.openRerun') : t('templatesStandards.actions.rerun')}
+                                                            </button>
+                                                        )}
                                                         <button
-                                                            onClick={() => { setViewingOutcome(outcome); setViewModalOpen(true); }}
+                                                            onClick={() => handleDownloadOutcomePdf(outcome)}
                                                             className="btn btn-outline"
                                                             style={{ padding: '4px 8px' }}
-                                                            title={t('common.view')}
+                                                            title="Download PDF"
                                                         >
-                                                            <Eye size={13} />
+                                                            <Download size={13} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -834,12 +1048,12 @@ const TemplatesStandards: React.FC = () => {
                                             <td style={{ padding: '1rem', textAlign: 'right' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                                                     <button
-                                                        onClick={() => { setViewingTemplate(template); setTemplateModalOpen(true); }}
+                                                        onClick={() => handleDownloadTemplatePdf(template)}
                                                         className="btn btn-outline"
                                                         style={{ padding: '4px 8px' }}
-                                                        title={t('common.view')}
+                                                        title="Download PDF"
                                                     >
-                                                        <Eye size={13} />
+                                                        <Download size={13} />
                                                     </button>
                                                 </div>
                                             </td>

@@ -4,6 +4,7 @@ export interface User {
     id: string;
     name: string;
     email: string;
+    password?: string;
     role: Role;
     avatar: string;
     status: 'Active' | 'Current User' | 'Suspended';
@@ -145,6 +146,7 @@ export interface Topic {
     responsibleId: string;
     responsibleName?: string;
     step: Step;
+    displayStep?: Step;
     dueDate: string;
     status: Status;
     //severity: Severity;
@@ -159,6 +161,8 @@ export interface Topic {
     departmentId?: string;
     auditReference?: string; // e.g. "ISO 9001:2015"
     auditType?: 'Internal' | 'External';
+    rerunSourceRef?: string;
+    updatedAt?: string;
     history: HistoryEntry[];
     plan: {
         description: string;

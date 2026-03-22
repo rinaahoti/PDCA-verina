@@ -3,8 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Topic, ToDo } from '../types';
 import { Search, Filter, X } from 'lucide-react';
 import { authService, topicsService } from '../services';
-import { getStatusColor, getStatusLabel } from '../utils/statusUtils';
+import { adminService } from '../services/adminService';
+import { getStatusColor, getStatusLabel, getStatusMeta } from '../utils/statusUtils';
+import { getTopicDisplayStep, getVisibleTopicStatus, isTopicVisibleInWorkflow } from '../utils/topicWorkflowUtils';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Location, Department } from '../types/admin';
 
 const CircularProgress = ({ value }: { value: number }) => {
     const [animated, setAnimated] = useState(false);
@@ -50,32 +53,198 @@ const Lists: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [topics, setTopics] = useState<Topic[]>([]);
+    const [locations, setLocations] = useState<Location[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
     const [search, setSearch] = useState('');
     const user = authService.getCurrentUser();
 
     // Read filters from URL
     const filterOwner = searchParams.get('owner');
     const filterStep = searchParams.get('step') || 'ALL';
+    const filterLocation = searchParams.get('location') || 'All';
+    const filterDepartment = searchParams.get('department') || 'All';
+    const filterStatus = searchParams.get('status') || 'All';
+    const filterTimeRange = searchParams.get('timeRange') || 'lastMonth';
 
     useEffect(() => {
-        setTopics(topicsService.getAll());
+        const load = () => {
+            setTopics(topicsService.getAll());
+            setLocations(adminService.getLocations());
+            setDepartments(adminService.getDepartments());
+        };
+
+        load();
+        window.addEventListener('storage', load);
+        window.addEventListener('storage-admin', load);
+
+        return () => {
+            window.removeEventListener('storage', load);
+            window.removeEventListener('storage-admin', load);
+        };
     }, []);
 
-    const filtered = topics.filter((t: Topic) => {
-        const matchesSearch = t.title.toLowerCase().includes(search.toLowerCase());
-        const matchesStep = filterStep === 'ALL' || t.step === filterStep;
-        const matchesOwner = filterOwner !== 'me' || t.ownerId === user?.id;
-        const isNotDone = t.status !== 'Done';
-        const isNotAct = t.step !== 'ACT';
-        return matchesSearch && matchesStep && matchesOwner && isNotDone && isNotAct;
-    });
+    const normalizeLookup = (value?: string) =>
+        (value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+
+    const splitStoredValues = (value?: string) =>
+        (value || '')
+            .split(',')
+            .map(entry => entry.trim())
+            .filter(Boolean);
+
+    const getTopicTimelineDate = (topic: Topic) => {
+        if (topic.updatedAt) return topic.updatedAt;
+        if (topic.act.audit?.closedOn) return topic.act.audit.closedOn;
+        if (topic.check.audit?.checkedOn) return topic.check.audit.checkedOn;
+        const lastHistoryEntry = topic.history?.[topic.history.length - 1];
+        return lastHistoryEntry?.date || topic.dueDate;
+    };
+
+    const selectedLocation = filterLocation === 'All'
+        ? null
+        : locations.find(loc => loc.id === filterLocation || (loc.name || '').trim() === filterLocation || (loc.city || '').trim() === filterLocation) || null;
+
+    const selectedDepartment = filterDepartment === 'All'
+        ? null
+        : departments.find(dep => dep.id === filterDepartment || (dep.name || '').trim() === filterDepartment) || null;
+
+    const topicMatchesLocation = (topic: Topic, location: Location) => {
+        const tokens = [
+            ...splitStoredValues(topic.location),
+            ...splitStoredValues(topic.locationId)
+        ];
+        if (tokens.length === 0) return false;
+
+        const normalizedName = normalizeLookup(location.name);
+        const normalizedCity = normalizeLookup(location.city || '');
+        const normalizedCode = normalizeLookup(location.code || '');
+        const aliases = new Set(
+            [
+                location.id,
+                location.name,
+                location.city,
+                location.code,
+                `${location.code || ''} - ${location.name || ''}`,
+                `${location.code || ''} - ${location.city || ''}`
+            ]
+                .map(value => normalizeLookup(value))
+                .filter(Boolean)
+        );
+
+        return tokens.some(token => {
+            const normalizedToken = normalizeLookup(token);
+            if (!normalizedToken) return false;
+            if (aliases.has(normalizedToken)) return true;
+            if (normalizedCode && (normalizedToken.includes(`(${normalizedCode})`) || normalizedToken.endsWith(` ${normalizedCode}`))) {
+                return true;
+            }
+            if (normalizedName && normalizedToken.includes(normalizedName)) return true;
+            if (normalizedCity && normalizedToken.includes(normalizedCity)) return true;
+            return false;
+        });
+    };
+
+    const topicMatchesDepartment = (topic: Topic, departmentId: string) => {
+        if (!departmentId || departmentId === 'All') return true;
+
+        return splitStoredValues(topic.departmentId).some(token => {
+            const normalizedToken = normalizeLookup(token);
+            if (!normalizedToken) return false;
+
+            const matchedById = departments.find(dep => normalizeLookup(dep.id) === normalizedToken);
+            if (matchedById) return matchedById.id === departmentId;
+
+            const matchedByName = departments.find(dep => normalizeLookup(dep.name) === normalizedToken);
+            return !!matchedByName && matchedByName.id === departmentId;
+        });
+    };
+
+    const matchesTimeRange = (topic: Topic) => {
+        if (filterTimeRange === 'custom') return true;
+
+        const referenceDate = new Date(getTopicTimelineDate(topic));
+        if (Number.isNaN(referenceDate.getTime())) return true;
+
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (filterTimeRange === 'today' && referenceDate < startOfDay) return false;
+        if (filterTimeRange === 'lastWeek') {
+            const limit = new Date(now);
+            limit.setDate(now.getDate() - 7);
+            if (referenceDate < limit) return false;
+        }
+        if (filterTimeRange === 'lastMonth') {
+            const limit = new Date(now);
+            limit.setMonth(now.getMonth() - 1);
+            if (referenceDate < limit) return false;
+        }
+        if (filterTimeRange === 'last6Months') {
+            const limit = new Date(now);
+            limit.setMonth(now.getMonth() - 6);
+            if (referenceDate < limit) return false;
+        }
+        if (filterTimeRange === 'lastYear') {
+            const limit = new Date(now);
+            limit.setFullYear(now.getFullYear() - 1);
+            if (referenceDate < limit) return false;
+        }
+
+        return true;
+    };
+
+    const getTopicSortTimestamp = (topic: Topic) => {
+        const createdHistoryEntry = topic.history?.find(entry => entry.action === 'Created');
+        if (createdHistoryEntry?.date) {
+            return new Date(createdHistoryEntry.date).getTime() || 0;
+        }
+
+        const generatedIdMatch = topic.id.match(/^T-(\d{13,})-\d+$/);
+        if (generatedIdMatch) {
+            return Number(generatedIdMatch[1]) || 0;
+        }
+
+        return topic.updatedAt ? new Date(topic.updatedAt).getTime() || 0 : 0;
+    };
+
+    const getDeadlineDerivedStatus = (dueDate?: string) => {
+        const statusClass = getStatusMeta('', dueDate).class;
+        if (statusClass === 'status-critical') return 'Critical';
+        if (statusClass === 'status-warning') return 'Warning';
+        return 'Monitoring';
+    };
+
+    const isVisibleInLists = (topic: Topic) => {
+        return isTopicVisibleInWorkflow(topic);
+    };
+
+    const filtered = topics.filter((topic: Topic) => {
+        const visibleStatus = getVisibleTopicStatus(topic);
+        const displayStep = getTopicDisplayStep(topic);
+        const matchesSearch = topic.title.toLowerCase().includes(search.toLowerCase());
+        const matchesStep = filterStep === 'ALL' || displayStep === filterStep;
+        const matchesOwner = filterOwner !== 'me' || topic.ownerId === user?.id;
+        const matchesLocation = !selectedLocation || topicMatchesLocation(topic, selectedLocation);
+        const matchesDepartment = !selectedDepartment || topicMatchesDepartment(topic, selectedDepartment.id);
+        const matchesStatus =
+            filterStatus === 'All' ||
+            filterStatus === 'ALL' ||
+            normalizeLookup(getStatusLabel(t, visibleStatus, topic.dueDate)) === normalizeLookup(filterStatus) ||
+            normalizeLookup(visibleStatus) === normalizeLookup(filterStatus);
+        const matchesTime = matchesTimeRange(topic);
+        return matchesSearch && matchesStep && matchesOwner && matchesLocation && matchesDepartment && matchesStatus && matchesTime && isVisibleInLists(topic);
+    }).sort((a, b) => getTopicSortTimestamp(b) - getTopicSortTimestamp(a));
 
     const clearFilters = () => {
         setSearchParams({});
         setSearch('');
     };
 
-    const hasActiveFilters = filterOwner || filterStep !== 'ALL' || search;
+    const hasActiveFilters = filterOwner || filterStep !== 'ALL' || filterLocation !== 'All' || filterDepartment !== 'All' || filterStatus !== 'All' || filterTimeRange !== 'lastMonth' || search;
 
     const getTranslatedTitle = (title: string) => {
         const titleMap: Record<string, string> = {
@@ -87,11 +256,11 @@ const Lists: React.FC = () => {
     };
 
     const getProgressPercentage = (topic: Topic) => {
-        if (topic.status === 'Done') {
+        if (getVisibleTopicStatus(topic) === 'Done') {
             return 100;
         }
 
-        switch (topic.step) {
+        switch (getTopicDisplayStep(topic)) {
             case 'PLAN':
                 return 25;
             case 'DO':
@@ -174,13 +343,13 @@ const Lists: React.FC = () => {
                             <td>{topic.id}</td>
                             <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span className="status-dot" style={{ backgroundColor: getStatusColor(topic.status) }}></span>
-                                    <span style={{ fontSize: '12px' }}>{getStatusLabel(t, topic.status)}</span>
+                                    <span className="status-dot" style={{ backgroundColor: getStatusColor(getVisibleTopicStatus(topic), topic.dueDate) }}></span>
+                                    <span style={{ fontSize: '12px' }}>{getStatusLabel(t, getVisibleTopicStatus(topic), topic.dueDate)}</span>
                                 </div>
                             </td>
                             <td style={{ fontWeight: 500 }}>{getTranslatedTitle(topic.title)}</td>
-                            <td>{t(`pdca.${topic.step.toLowerCase()}`)}</td>
-                            <td>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</td>
+                            <td>{t(`pdca.${getTopicDisplayStep(topic).toLowerCase()}`)}</td>
+                            <td>{topic.dueDate ? new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}</td>
                             <td><CircularProgress value={getProgressPercentage(topic)} /></td>
                         </tr>
                     ))}

@@ -17,6 +17,7 @@ export interface AppUser {
     id: string;
     name: string;
     email: string;
+    password?: string;
     role: 'Admin' | 'Owner' | 'Assigned' | 'Viewer';
     locationId: string;
     departmentId: string;

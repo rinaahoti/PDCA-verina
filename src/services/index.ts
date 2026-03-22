@@ -1,4 +1,4 @@
-import { User, Topic, ToDo, Status, SupportTicket, HistoryEntry, Organization, Department, GovernanceRules, NotificationSettings, UserPreferences } from '../types';
+import { User, Topic, ToDo, Status, SupportTicket, HistoryEntry, Organization, Department, GovernanceRules, NotificationSettings, UserPreferences, PhaseMeetingData } from '../types';
 import { normalizeStatus } from '../utils/statusUtils';
 import { initialData } from '../data/seed';
 import { activityService } from './activityService';
@@ -13,6 +13,115 @@ const KEYS = {
     PREFERENCES: 'mso_v5_preferences',
     NOTIFICATIONS: 'mso_v5_notifications'
 };
+
+const normalizeResponsiblePersons = (responsiblePersons?: string[] | string) => {
+    const rawValues = Array.isArray(responsiblePersons)
+        ? responsiblePersons
+        : typeof responsiblePersons === 'string'
+            ? responsiblePersons.split(',')
+            : [];
+
+    return Array.from(new Set(rawValues.map(value => `${value || ''}`.trim()).filter(Boolean)));
+};
+
+const normalizePhaseMeetingData = (meeting?: PhaseMeetingData): PhaseMeetingData | undefined => {
+    if (!meeting) return undefined;
+
+    return {
+        ...meeting,
+        responsiblePersons: normalizeResponsiblePersons(meeting.responsiblePersons),
+        externalUsers: Array.isArray(meeting.externalUsers) ? meeting.externalUsers : []
+    };
+};
+
+const normalizeTopicData = (topic: Topic): Topic => ({
+    ...topic,
+    displayStep: topic.displayStep || (topic.step === 'ACT' && !topic.act?.completedAt ? 'CHECK' : topic.step),
+    plan: {
+        ...topic.plan,
+        meeting: normalizePhaseMeetingData(topic.plan.meeting)
+    },
+    do: {
+        ...topic.do,
+        actions: Array.isArray(topic.do.actions)
+            ? topic.do.actions.map(action => ({
+                ...action,
+                assignments: Array.isArray(action.assignments)
+                    ? action.assignments
+                        .filter(assign => !!assign && !!assign.userName)
+                        .map(assign => ({
+                            ...assign,
+                            userId: assign.userId || assign.userName,
+                            userName: assign.userName.trim()
+                        }))
+                    : []
+            }))
+            : []
+    },
+    check: {
+        ...topic.check,
+        meeting: normalizePhaseMeetingData(topic.check.meeting)
+    }
+});
+
+const generateUniqueTopicId = (usedIds: Set<string>) => {
+    let candidate = '';
+
+    do {
+        candidate = `T-${Date.now()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    } while (usedIds.has(candidate));
+
+    usedIds.add(candidate);
+    return candidate;
+};
+
+const healDuplicateTopicIds = (topics: Topic[], todos: ToDo[]) => {
+    const usedIds = new Set<string>();
+    let healedTodos = [...todos];
+    let changed = false;
+
+    const healedTopics = topics.map(topic => {
+        if (!usedIds.has(topic.id)) {
+            usedIds.add(topic.id);
+            return topic;
+        }
+
+        const previousId = topic.id;
+        const nextId = generateUniqueTopicId(usedIds);
+        changed = true;
+
+        healedTodos = healedTodos.map(todo => (
+            todo.topicId === previousId && todo.topicTitle === topic.title
+                ? { ...todo, topicId: nextId }
+                : todo
+        ));
+
+        return { ...topic, id: nextId };
+    });
+
+    return { topics: healedTopics, todos: healedTodos, changed };
+};
+
+const mergeTopicWithDefaults = (existingTopic: Topic, defaultTopic: Topic): Topic => normalizeTopicData({
+    ...defaultTopic,
+    ...existingTopic,
+    plan: {
+        ...defaultTopic.plan,
+        ...existingTopic.plan
+    },
+    do: {
+        ...defaultTopic.do,
+        ...existingTopic.do
+    },
+    check: {
+        ...defaultTopic.check,
+        ...existingTopic.check
+    },
+    act: {
+        ...defaultTopic.act,
+        ...existingTopic.act
+    }
+});
 
 export const authService = {
     init: () => {
@@ -216,24 +325,33 @@ export const topicsService = {
         }
 
         const rawTopics = localStorage.getItem(KEYS.TOPICS);
-        const topics: Topic[] = rawTopics ? JSON.parse(rawTopics) : [];
+        let topics: Topic[] = rawTopics ? JSON.parse(rawTopics).map((topic: Topic) => normalizeTopicData(topic)) : [];
+        let todos: ToDo[] = JSON.parse(localStorage.getItem(KEYS.TODOS) || '[]');
         const sampleTopics = initialData.topics.filter(topic => ['T-001', 'T-910', 'T-911', 'T-912'].includes(topic.id)) as Topic[];
         let changed = false;
 
         sampleTopics.forEach(sampleTopic => {
             const existingIndex = topics.findIndex(existingTopic => existingTopic.id === sampleTopic.id);
             if (existingIndex === -1) {
-                topics.push(sampleTopic);
-                changed = true;
-                return;
-            }
-
-            topics[existingIndex] = {
-                ...topics[existingIndex],
-                ...sampleTopic
-            };
+            topics.push(normalizeTopicData(sampleTopic));
             changed = true;
+            return;
+        }
+
+            const mergedTopic = mergeTopicWithDefaults(topics[existingIndex], sampleTopic);
+            if (JSON.stringify(mergedTopic) !== JSON.stringify(topics[existingIndex])) {
+                topics[existingIndex] = mergedTopic;
+                changed = true;
+            }
         });
+
+        const healed = healDuplicateTopicIds(topics, todos);
+        if (healed.changed) {
+            topics = healed.topics;
+            todos = healed.todos;
+            changed = true;
+            localStorage.setItem(KEYS.TODOS, JSON.stringify(todos));
+        }
 
         if (changed) {
             localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics));
@@ -241,7 +359,7 @@ export const topicsService = {
     },
     getAll: (): Topic[] => {
         topicsService.init();
-        const topics: Topic[] = JSON.parse(localStorage.getItem(KEYS.TOPICS) || '[]');
+        const topics: Topic[] = JSON.parse(localStorage.getItem(KEYS.TOPICS) || '[]').map((topic: Topic) => normalizeTopicData(topic));
         const now = new Date();
         const governance = organizationService.getGovernance();
         const thresholdDate = new Date();
@@ -274,16 +392,18 @@ export const topicsService = {
             return { ...t, status: 'Monitoring' as const };
         });
     },
-    save: (topics: Topic[]) => localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics)),
+    save: (topics: Topic[]) => {
+        localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics.map(topic => normalizeTopicData(topic))));
+        window.dispatchEvent(new Event('storage'));
+    },
     update: (id: string, updates: Partial<Topic>) => {
         const raw = localStorage.getItem(KEYS.TOPICS);
-        const topics: Topic[] = raw ? JSON.parse(raw) : [];
+        const topics: Topic[] = raw ? JSON.parse(raw).map((topic: Topic) => normalizeTopicData(topic)) : [];
         const index = topics.findIndex(t => t.id === id);
         if (index !== -1) {
             const current = topics[index];
             const deepFields: (keyof Topic)[] = ['plan', 'do', 'check', 'act'];
-
-            const merged = { ...current, ...updates };
+            const merged = { ...current, ...updates, updatedAt: new Date().toISOString() };
 
             // History Logging
             const history: HistoryEntry[] = current.history || [];
@@ -322,8 +442,9 @@ export const topicsService = {
                 }
             });
 
-            topics[index] = merged;
+            topics[index] = normalizeTopicData(merged);
             localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics));
+            window.dispatchEvent(new Event('storage'));
 
             if (updates.step && updates.step !== current.step) {
                 const loc = adminService.getLocations().find(l => l.id === merged.locationId);
@@ -346,17 +467,20 @@ export const topicsService = {
     add: (topic: Omit<Topic, 'id' | 'history' | 'plan' | 'do' | 'check' | 'act'>) => {
         const raw = localStorage.getItem(KEYS.TOPICS);
         const topics: Topic[] = raw ? JSON.parse(raw) : [];
-        const newTopic: Topic = {
+        const usedIds = new Set(topics.map(existingTopic => existingTopic.id));
+        const newTopic: Topic = normalizeTopicData({
             ...topic,
-            id: `T-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+            id: generateUniqueTopicId(usedIds),
+            updatedAt: new Date().toISOString(),
             history: [{ user: 'System', date: new Date().toISOString(), action: 'Created', oldValue: '', newValue: 'New' }],
-            plan: { description: '', asIs: '', toBe: '', rootCause: '', objectives: [] },
+            plan: { description: '', goal: '', asIs: '', toBe: '', rootCause: '', objectives: [], improvementPurpose: [] },
             do: { actions: [] },
             check: { kpis: [], kpiResults: '', effectivenessReview: '', kpiEvaluations: [] },
             act: { standardization: '', lessonsLearned: '' }
-        };
+        });
         topics.push(newTopic);
         localStorage.setItem(KEYS.TOPICS, JSON.stringify(topics));
+        window.dispatchEvent(new Event('storage'));
 
         const loc = adminService.getLocations().find(l => l.id === newTopic.locationId);
         const dep = adminService.getDepartments().find(d => d.id === newTopic.departmentId);
