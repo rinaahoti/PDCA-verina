@@ -112,7 +112,7 @@ const seedOutcomes = (): PDCAOutcome[] => [
     },
     {
         ref: 'T-003',
-        title: 'Einhaltung des SturzprÃ¤ventionsprotokolls',
+        title: 'Einhaltung des Sturzpräventionsprotokolls',
         owner: 'Sarah Johnson (RN)',
         category: 'Patientensicherheit',
         location: 'UniversitÃ¤tsspital Basel (BS)',
@@ -144,7 +144,7 @@ const seedTemplates = (): Template[] => [
     },
     {
         id: 'STD-T-003',
-        title: 'Standard: Einhaltung des SturzprÃ¤ventionsprotokolls',
+        title: 'Standard: Einhaltung des Sturzpräventionsprotokolls',
         kind: 'standard',
         category: 'Patientensicherheit',
         step: 'ACT',
@@ -390,7 +390,7 @@ const TemplatesStandards: React.FC = () => {
         const titleMap: Record<string, string> = {
             'Reduction of Post-operative Infection Rates': 'Reduktion postoperativer Infektionsraten',
             'Medication Administration Error Reduction': 'Reduktion von Medikationsfehlern',
-            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des SturzprÃ¤ventionsprotokolls',
+            'Patient Fall Prevention Protocol Compliance': 'Einhaltung des Sturzpräventionsprotokolls',
             'Reduktion von Fehlern bei der Medikamentenabgabe': 'Reduktion von Medikationsfehlern'
         };
         return titleMap[title] || title;

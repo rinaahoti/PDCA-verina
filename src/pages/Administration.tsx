@@ -637,10 +637,10 @@ const Administration: React.FC = () => {
     };
 
     const roleBadgeStyle = (role: AppUser['role']): React.CSSProperties => {
-        if (role === 'Admin') return { background: '#fff3e0', color: '#e67e22' };
-        if (role === 'Owner') return { background: '#e8f0fe', color: '#3b6fd4' };
-        if (role === 'Assigned') return { background: '#e8f7f0', color: '#2e9e68' };
-        return { background: '#f3f0ff', color: '#7c5cbf' };
+        if (role === 'Admin') return { background: '#d9f0ed', color: '#2f7f72', border: '1px solid #b7deda' };
+        if (role === 'Owner') return { background: '#5ba8a0', color: '#ffffff', border: '1px solid #5ba8a0' };
+        if (role === 'Assigned') return { background: '#e8f4f3', color: '#3f9088', border: '1px solid #b7deda' };
+        return { background: '#f3f7f7', color: '#5f7b86', border: '1px solid #d7e6e4' };
     };
 
     const openAddUserModal = (locationId?: string, departmentId?: string, acrossLocationDepartments = false) => {
@@ -2105,8 +2105,7 @@ const Administration: React.FC = () => {
                                                                 <td style={{ padding: '0.875rem 1rem' }}>
                                                                     <span style={{
                                                                         padding: '2px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 600,
-                                                                        background: user.role === 'Admin' ? '#f3e8ff' : user.role === 'Owner' ? '#dbeafe' : user.role === 'Assigned' ? '#dcfce7' : '#f1f5f9',
-                                                                        color: user.role === 'Admin' ? '#7e22ce' : user.role === 'Owner' ? '#1e40af' : user.role === 'Assigned' ? '#15803d' : '#475569'
+                                                                        ...roleBadgeStyle(user.role)
                                                                     }}>{getTranslatedRole(user.role)}</span>
                                                                 </td>
                                                                 <td style={{ padding: '0.875rem 1rem', color: '#64748b' }}>{getUserDepartmentName(user)}</td>

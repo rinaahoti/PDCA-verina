@@ -33,7 +33,7 @@
         "completed": "ABGESCHLOSSEN",
         "markComplete": "Als erledigt markieren",
         "kpi": "KPI",
-        "teamsMeeting": "Teams Meeting",
+        "teamsMeeting": "Besprechung",
         "comment": "Kommentar",
         "searchTopics": "Themen suchen...",
         "invalidDate": "UngÃ¼ltiges Datum",
@@ -61,7 +61,7 @@
         "templates": "Vorlagen & Standards",
         "templatesStandards": "Vorlagen & Standards",
         "new": "Neu",
-        "pdcaManagement": "KVP MANAGEMENT"
+        "pdcaManagement": "PDCA MANAGEMENT"
     },
     "header": {
         "signOut": "Abmelden",
@@ -321,8 +321,8 @@
         "locationDepartment": "Standort & Betriebe",
         "locations": "Standorte",
         "departments": "Betriebe",
-        "selectedLocations": "AUSGEWÃ„HLTE STANDORTE",
-        "selectedDepartments": "AUSGEWÃ„HLTE BETRIEBE",
+        "selectedLocations": "AUSGEWÄHLTE STANDORTE",
+        "selectedDepartments": "AUSGEWÄHLTE BETRIEBE",
         "planPhaseMeeting": "PLAN-Phasen-Meeting",
         "checkPhaseMeeting": "CHECK-Phasen-Meeting",
         "meetingTitlePlaceholder": "Besprechungstitel",
@@ -405,7 +405,7 @@
         "date": "Datum:",
         "inputFromCheck": "Input aus CHECK:",
         "standardize": "Standardisieren",
-        "improveRerun": "Verbessern & KVP wiederholen",
+        "improveRerun": "Verbessern & PDCA wiederholen",
         "closeWithoutStandardization": "Abschließen ohne Standardisierung",
         "measureSuccessful": "Maßnahme ist erfolgreich. Rollout und Aktualisierung der Standards.",
         "improveRerunLong": "Teilweise wirksam. Neu planen und einen weiteren Zyklus durchfÃ¼hren.",
@@ -507,7 +507,7 @@
     },
     "templatesStandards": {
         "pageTitle": "Vorlagen & Standards",
-        "subtitle": "KVP-Ergebnisse â†’ Standardisierungs-EintrÃ¤ge und generierte Standards",
+        "subtitle": "PDCA-Ergebnisse → Standardisierungs-Einträge und generierte Standards",
         "exportJson": "JSON Exportieren",
         "restoreDefaults": "Standarddaten wiederherstellen",
         "newOutcome": "Neues KVP",
@@ -550,7 +550,7 @@
         },
         "badges": {
             "standardize": "Standardisieren",
-            "improveRerun": "Verbessern & KVP wiederholen",
+            "improveRerun": "Verbessern & PDCA wiederholen",
             "close": "Nicht standardisieren",
             "effective": "Wirksam",
             "partiallyEffective": "Teilweise wirksam",
@@ -567,7 +567,7 @@
         "actions": {
             "generate": "Generieren",
             "rerun": "KVP neu starten",
-            "openRerun": "KVP-Neustart öffnen",
+            "openRerun": "PDCA-Neustart öffnen",
             "saveOutcome": "Ergebnis speichern",
             "editOutcome": "Ergebnis bearbeiten",
             "outcomeDetails": "Ergebnis-Details"

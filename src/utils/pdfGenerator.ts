@@ -47,8 +47,8 @@ const translatePdfText = (input: string): string => {
         ['Office / Location', 'Büro / Standort'],
         ['Online Meeting Link', 'Online-Meeting-Link'],
         ['External Users', 'EXTERNE BENUTZER'],
-        ['AS-IS - Current State', 'AS-IS - Ist-Zustand'],
-        ['TO-BE - Target State', 'TO-BE - Soll-Zustand'],
+        ['AS-IS - Current State', 'Ist-Zustand'],
+        ['TO-BE - Target State', 'Soll-Zustand'],
         ['Generated', 'Erstellt'],
         ['Page', 'Seite'],
         ['Owner', 'Besitzer'],
@@ -146,7 +146,7 @@ const translatePdfText = (input: string): string => {
         ['Diagnostics', 'Diagnostik'],
         ['Administration', 'Verwaltung'],
         ['Other', 'Andere'],
-        ['Patient Fall Prevention Protocol Compliance', 'Einhaltung des SturzprÃ¤ventionsprotokolls'],
+        ['Patient Fall Prevention Protocol Compliance', 'Einhaltung des Sturzpräventionsprotokolls'],
         ['Reduction of Post-operative Infection Rates', 'Reduktion postoperativer Infektionsraten'],
         ['Medication Administration Error Reduction', 'Reduktion von Medikationsfehlern'],
         ['Infection rate < 0.5%', 'Infektionsrate < 0,5 %'],
@@ -166,6 +166,12 @@ const translatePdfText = (input: string): string => {
 };
 
 const getRenderedPdfText = (input: string): string => translatePdfText(input);
+
+const getSectionLabelText = (label: string): string =>
+    translatePdfText(label)
+        .toUpperCase()
+        .split('')
+        .join(' ');
 
 const localizePdfDoc = (doc: jsPDF) => {
     if (getPdfLanguage() !== 'de') return;
@@ -471,17 +477,11 @@ const renderExecutiveSummaryPage = (doc: jsPDF, topic: Topic, startPage = 1): nu
         doc.text(`Page ${pageNumber}`, rightX, footerTextY, { align: 'right' });
     };
 
-    const sectionLabelText = (label: string) =>
-        label
-            .toUpperCase()
-            .split('')
-            .join(' ');
-
     const drawSectionHeader = (label: string, y: number) => {
         setFont('bold');
         doc.setFontSize(9);
         doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
-        doc.text(sectionLabelText(label), leftMargin, y);
+        doc.text(getSectionLabelText(label), leftMargin, y);
         return y + 8;
     };
 
@@ -665,12 +665,6 @@ const renderPlanPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
     const meetingLocationLabel = getMeetingLocationLabel(planMeeting?.meetingType);
     const meetingLocationValue = getMeetingLocationValue(planMeeting?.meetingType, planMeeting?.location);
     const externalUsers = formatExternalUsers(planMeeting?.externalUsers);
-    const sectionLabelText = (label: string) =>
-        label
-            .toUpperCase()
-            .split('')
-            .join(' ');
-
     const setFont = (style: 'normal' | 'bold') => {
         doc.setFont(sansFont, style);
     };
@@ -703,7 +697,7 @@ const renderPlanPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
         setFont('bold');
         doc.setFontSize(9);
         doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
-        const trackedLabel = sectionLabelText(label);
+        const trackedLabel = getSectionLabelText(label);
         doc.text(trackedLabel, leftMargin, y);
         return y + 8;
     };
@@ -925,12 +919,6 @@ const renderDoPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
         doc.setFont(sansFont, style);
     };
 
-    const sectionLabelText = (label: string) =>
-        label
-            .toUpperCase()
-            .split('')
-            .join(' ');
-
     const drawPageChrome = (page: number) => {
         setFont('bold');
         doc.setFontSize(9);
@@ -973,7 +961,7 @@ const renderDoPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
         setFont('bold');
         doc.setFontSize(9);
         doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
-        const trackedLabel = sectionLabelText(label);
+        const trackedLabel = getSectionLabelText(label);
         doc.text(trackedLabel, leftMargin, startY);
         return startY + 8;
     };
@@ -1201,12 +1189,6 @@ const renderCheckPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
         doc.setFont(sansFont, style);
     };
 
-    const sectionLabelText = (label: string) =>
-        label
-            .toUpperCase()
-            .split('')
-            .join(' ');
-
     const drawPageChrome = (page: number) => {
         setFont('bold');
         doc.setFontSize(9);
@@ -1233,7 +1215,7 @@ const renderCheckPage = (doc: jsPDF, topic: Topic, startPage = 1): number => {
         setFont('bold');
         doc.setFontSize(9);
         doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
-        const trackedLabel = sectionLabelText(label);
+        const trackedLabel = getSectionLabelText(label);
         doc.text(trackedLabel, leftMargin, startY);
         return startY + 8;
     };
@@ -1513,12 +1495,6 @@ const renderActPage = (doc: jsPDF, topic: Topic, startPage = 1) => {
         doc.setFont(sansFont, style);
     };
 
-    const sectionLabelText = (label: string) =>
-        label
-            .toUpperCase()
-            .split('')
-            .join(' ');
-
     const drawPageChrome = (page: number) => {
         setFont('bold');
         doc.setFontSize(9);
@@ -1545,7 +1521,7 @@ const renderActPage = (doc: jsPDF, topic: Topic, startPage = 1) => {
         setFont('bold');
         doc.setFontSize(9);
         doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
-        const trackedLabel = sectionLabelText(label);
+        const trackedLabel = getSectionLabelText(label);
         doc.text(trackedLabel, leftMargin, startY);
         return startY + 8;
     };

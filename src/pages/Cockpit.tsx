@@ -1595,7 +1595,7 @@ const Cockpit: React.FC = () => {
                                 resetCreateDraft();
                                 setSearchParams({});
                             }}
-                            style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', width: '100px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}
+                            style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', minWidth: '140px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}
                         >
                             <ArrowLeft size={16} /> {t('common.back')}
                         </button>
@@ -2369,7 +2369,7 @@ const Cockpit: React.FC = () => {
                 {/* Detail View Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                     <div className="action-bar">
-                        <button className="action-btn" type="button" onClick={handleBackToCockpit} style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', width: '100px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}>
+                        <button className="action-btn" type="button" onClick={handleBackToCockpit} style={{ background: '#cbeee2', color: '#5FAE9E', border: 'none', minWidth: '140px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}>
                             <ArrowLeft size={16} /> {t('common.back')}
                         </button>
                         <button className="action-btn" type="button" onClick={handlePrimarySave} style={{ background: '#5FAE9E', color: '#ffffff', border: 'none', minWidth: '100px', flexDirection: 'row', gap: '8px', fontSize: '14px' }}>
@@ -4476,6 +4476,7 @@ const Cockpit: React.FC = () => {
                                               generatePlanDoCheckCombinedPdf(topicForPdf);
                                               syncTopicToTemplatesStandards(topicForPdf, resolveTopicOwnerName(topicForPdf));
                                               setShowPdfModal(false);
+                                              handleBackToCockpit();
                                           }}
                                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
                                     >
