@@ -6,9 +6,9 @@ import {
     X, RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { LocationModal } from './administration/components/LocationModal';
+import { LocationDeleteDialog, LocationModal } from './administration/components/LocationModal';
 import { DepartmentModal, DepartmentDeleteDialog } from './administration/components/DepartmentModals';
-import { AddEditUserModal, TransferUserModal, UserProfileModal } from './administration/components/UserModals';
+import { AddEditUserModal, TransferUserModal, UserDeleteDialog, UserProfileModal } from './administration/components/UserModals';
 
 const INITIAL_USER_FORM: {
     name: string;
@@ -480,10 +480,12 @@ const Administration: React.FC = () => {
     // --- MODAL STATES ---
     const [isLocationModalOpen, setLocModalOpen] = useState(false);
     const [editingLoc, setEditingLoc] = useState<Partial<Location>>({});
+    const [locationDeleteTargetId, setLocationDeleteTargetId] = useState<string | null>(null);
 
     const [isDepModalOpen, setDepModalOpen] = useState(false);
     const [editingDep, setEditingDep] = useState<Partial<Department>>({});
     const [departmentDeleteTarget, setDepartmentDeleteTarget] = useState<Department | null>(null);
+    const [userDeleteTargetIds, setUserDeleteTargetIds] = useState<string[]>([]);
 
     // --- HANDLERS ---
 
@@ -511,19 +513,19 @@ const Administration: React.FC = () => {
         showToast(isEditing ? 'Location updated' : 'Location added');
     };
     const handleDeleteLocation = (id: string, e?: React.MouseEvent) => {
-        e?.stopPropagation(); // Prevent drawer opening
-        const deps = getLocationDependencies(id);
-        const confirmText = deps.departmentsCount > 0 || deps.usersCount > 0
-            ? `Delete this location and its ${deps.departmentsCount} departments / ${deps.usersCount} users?`
-            : (t('admin.confirm.deleteLocation') || 'Delete this location?');
-        if (confirm(confirmText)) {
-            try {
-                deleteLocation(id);
-                if (selectedLocation?.id === id) setSelectedLocation(null);
-                showToast('Location removed');
-            } catch (e: any) {
-                alert(e.message);
-            }
+        e?.stopPropagation();
+        setLocationDeleteTargetId(id);
+    };
+
+    const confirmDeleteLocation = () => {
+        if (!locationDeleteTargetId) return;
+        try {
+            deleteLocation(locationDeleteTargetId);
+            if (selectedLocation?.id === locationDeleteTargetId) setSelectedLocation(null);
+            setLocationDeleteTargetId(null);
+            showToast('Location removed');
+        } catch (e: any) {
+            alert(e.message);
         }
     };
 
@@ -561,11 +563,6 @@ const Administration: React.FC = () => {
     const confirmDeleteDepartment = () => {
         if (!departmentDeleteTarget) return;
         try {
-            const deps = getDepartmentDependencies(departmentDeleteTarget.id);
-            if (deps.usersCount > 0) {
-                const ok = confirm(`Delete this department and ${deps.usersCount} related users?`);
-                if (!ok) return;
-            }
             deleteDepartment(departmentDeleteTarget.id);
             setDepartmentDeleteTarget(null);
             showToast('Department removed');
@@ -577,15 +574,19 @@ const Administration: React.FC = () => {
     const handleDeleteUser = (id: string | string[], e?: React.MouseEvent) => {
         e?.stopPropagation();
         const userIds = Array.isArray(id) ? id : [id];
-        if (confirm(t('admin.confirm.deleteUser'))) {
-            try {
-                userIds.forEach(userId => {
-                    deleteUser(userId);
-                });
-                showToast('User removed');
-            } catch (err: any) {
-                alert(err.message);
-            }
+        setUserDeleteTargetIds(userIds);
+    };
+
+    const confirmDeleteUser = () => {
+        if (userDeleteTargetIds.length === 0) return;
+        try {
+            userDeleteTargetIds.forEach(userId => {
+                deleteUser(userId);
+            });
+            setUserDeleteTargetIds([]);
+            showToast(userDeleteTargetIds.length > 1 ? 'Users removed' : 'User removed');
+        } catch (err: any) {
+            alert(err.message);
         }
     };
 
@@ -2143,6 +2144,15 @@ const Administration: React.FC = () => {
                 onSave={handleSaveLocation}
             />
 
+            <LocationDeleteDialog
+                target={locations.find(loc => loc.id === locationDeleteTargetId) || null}
+                departmentsCount={locationDeleteTargetId ? getLocationDependencies(locationDeleteTargetId).departmentsCount : 0}
+                usersCount={locationDeleteTargetId ? getLocationDependencies(locationDeleteTargetId).usersCount : 0}
+                getTranslatedLocationName={getTranslatedLocationName}
+                onCancel={() => setLocationDeleteTargetId(null)}
+                onConfirm={confirmDeleteLocation}
+            />
+
             <DepartmentModal
                 isOpen={isDepModalOpen}
                 editingDepartmentId={editingDepartmentId}
@@ -2153,6 +2163,7 @@ const Administration: React.FC = () => {
                 departmentFormError={departmentFormError}
                 usersCountInDepartment={editingDepartmentId ? users.filter(u => u.departmentId === editingDepartmentId).length : 0}
                 getTranslatedLocationName={getTranslatedLocationName}
+                getTranslatedDepartmentName={getTranslatedDepartmentName}
                 onChangeDep={setEditingDep}
                 onChangeDepCode={setDepFormCode}
                 onClose={() => {
@@ -2166,9 +2177,18 @@ const Administration: React.FC = () => {
 
             <DepartmentDeleteDialog
                 target={departmentDeleteTarget}
+                usersCount={departmentDeleteTarget ? getDepartmentDependencies(departmentDeleteTarget.id).usersCount : 0}
                 getTranslatedDepartmentName={getTranslatedDepartmentName}
                 onCancel={() => setDepartmentDeleteTarget(null)}
                 onConfirm={confirmDeleteDepartment}
+            />
+
+            <UserDeleteDialog
+                targetUsers={users.filter(user => userDeleteTargetIds.includes(user.id))}
+                departments={departments}
+                getTranslatedDepartmentName={getTranslatedDepartmentName}
+                onCancel={() => setUserDeleteTargetIds([])}
+                onConfirm={confirmDeleteUser}
             />
 
             <div

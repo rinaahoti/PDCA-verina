@@ -12,6 +12,7 @@ interface DepartmentModalProps {
     departmentFormError: string;
     usersCountInDepartment: number;
     getTranslatedLocationName: (name: string) => string;
+    getTranslatedDepartmentName?: (name: string) => string;
     onChangeDep: (next: Partial<Department>) => void;
     onChangeDepCode: (value: string) => void;
     onClose: () => void;
@@ -28,12 +29,14 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     departmentFormError,
     usersCountInDepartment,
     getTranslatedLocationName,
+    getTranslatedDepartmentName,
     onChangeDep,
     onChangeDepCode,
     onClose,
     onSave
 }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const translateDepartmentName = (name: string) => getTranslatedDepartmentName ? getTranslatedDepartmentName(name) : name;
 
     if (!isOpen) return null;
     const isLocationFixed = isLocationLocked && !editingDepartmentId;
@@ -128,7 +131,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                         {t('admin.departmentName')}
                     </label>
                     <input
-                        value={editingDep.name || ''}
+                        value={language === 'de' ? translateDepartmentName(editingDep.name || '') : (editingDep.name || '')}
                         onChange={e => onChangeDep({ ...editingDep, name: e.target.value })}
                         placeholder={t('admin.departmentPlaceholder')}
                         style={{
@@ -169,7 +172,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
                 {editingDepartmentId && (
                     <div style={{ marginBottom: '14px', fontSize: '12px', color: '#6b8583' }}>
-                        Users in this department: <strong style={{ color: '#1a2e2d' }}>{usersCountInDepartment}</strong>
+                        {language === 'de' ? 'Benutzer in dieser Abteilung' : 'Users in this department'}: <strong style={{ color: '#1a2e2d' }}>{usersCountInDepartment}</strong>
                     </div>
                 )}
 
@@ -218,17 +221,21 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
 interface DepartmentDeleteDialogProps {
     target: Department | null;
-    getTranslatedDepartmentName: (name: string) => string;
+    usersCount?: number;
+    getTranslatedDepartmentName?: (name: string) => string;
     onCancel: () => void;
     onConfirm: () => void;
 }
 
 export const DepartmentDeleteDialog: React.FC<DepartmentDeleteDialogProps> = ({
     target,
+    usersCount,
     getTranslatedDepartmentName,
     onCancel,
     onConfirm
 }) => {
+    const { t, language } = useLanguage();
+    const translateDepartmentName = (name: string) => getTranslatedDepartmentName ? getTranslatedDepartmentName(name) : name;
     if (!target) return null;
 
     return (
@@ -251,18 +258,35 @@ export const DepartmentDeleteDialog: React.FC<DepartmentDeleteDialogProps> = ({
                 style={{
                     background: '#ffffff',
                     borderRadius: '14px',
-                    padding: '24px',
-                    width: '430px',
+                    padding: '28px',
+                    width: '460px',
                     maxWidth: '95vw',
                     boxShadow: '0 20px 60px rgba(0,0,0,.15)'
                 }}
             >
-                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '6px', color: '#1a2e2d' }}>
-                    Delete Department?
+                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>
+                    {language === 'de' ? 'Abteilung löschen?' : 'Delete Department?'}
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '18px', lineHeight: 1.45 }}>
-                    Do you want to delete <strong style={{ color: '#1a2e2d' }}>{getTranslatedDepartmentName(target.name)}</strong>?
-                    This action cannot be undone.
+                    {language === 'de'
+                        ? 'Möchten Sie wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.'
+                        : 'Do you want to delete? This action cannot be undone.'}
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
+                        {language === 'de' ? 'Abteilung' : t('admin.departmentName')}
+                    </label>
+                    <div style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px', color: '#1a2e2d', fontWeight: 500 }}>
+                        {translateDepartmentName(target.name)}
+                    </div>
+                </div>
+                <div style={{ marginBottom: '18px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
+                        {language === 'de' ? 'Betroffene Benutzer' : 'Affected Users'}
+                    </label>
+                    <div style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px', color: '#1a2e2d', fontWeight: 500 }}>
+                        {usersCount ?? 0}
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button
@@ -279,7 +303,7 @@ export const DepartmentDeleteDialog: React.FC<DepartmentDeleteDialogProps> = ({
                             cursor: 'pointer'
                         }}
                     >
-                        No
+                        {language === 'de' ? 'Nein' : 'No'}
                     </button>
                     <button
                         onClick={onConfirm}
@@ -287,15 +311,21 @@ export const DepartmentDeleteDialog: React.FC<DepartmentDeleteDialogProps> = ({
                             fontFamily: 'DM Sans, sans-serif',
                             fontSize: '14px',
                             fontWeight: 600,
-                            padding: '9px 18px',
+                            padding: '9px 22px',
                             border: 'none',
                             borderRadius: '8px',
-                            background: '#dc2626',
+                            background: '#5ba8a0',
                             color: '#ffffff',
                             cursor: 'pointer'
                         }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#3d8880';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#5ba8a0';
+                        }}
                     >
-                        Yes
+                        {language === 'de' ? 'Ja' : 'Yes'}
                     </button>
                 </div>
             </div>

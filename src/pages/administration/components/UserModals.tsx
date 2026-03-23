@@ -265,3 +265,143 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
     );
 };
+
+interface UserDeleteDialogProps {
+    targetUsers: AppUser[];
+    departments: Department[];
+    getTranslatedDepartmentName: (name: string) => string;
+    onCancel: () => void;
+    onConfirm: () => void;
+}
+
+export const UserDeleteDialog: React.FC<UserDeleteDialogProps> = ({
+    targetUsers,
+    departments,
+    getTranslatedDepartmentName,
+    onCancel,
+    onConfirm
+}) => {
+    const { t, language } = useLanguage();
+
+    if (targetUsers.length === 0) return null;
+
+    const isMultiple = targetUsers.length > 1;
+    const firstUser = targetUsers[0];
+    const firstDepartment = departments.find(dep => dep.id === firstUser.departmentId);
+
+    return (
+        <div
+            style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(20,45,44,.45)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 110,
+                backdropFilter: 'blur(3px)'
+            }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) onCancel();
+            }}
+        >
+            <div
+                style={{
+                    background: '#ffffff',
+                    borderRadius: '14px',
+                    padding: '28px',
+                    width: '460px',
+                    maxWidth: '95vw',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+                    animation: 'urSlideUp .2s ease'
+                }}
+            >
+                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>
+                    {language === 'de' ? 'Benutzer löschen' : 'Delete User'}
+                </div>
+                <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '18px', lineHeight: 1.45 }}>
+                    {isMultiple
+                        ? (language === 'de'
+                            ? `Diese ${targetUsers.length} Benutzer werden entfernt.`
+                            : `These ${targetUsers.length} users will be removed.`)
+                        : (language === 'de'
+                            ? 'Dieser Benutzer wird entfernt.'
+                            : 'This user will be removed.')}
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
+                        {t('admin.fullName')}
+                    </label>
+                    {isMultiple ? (
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                            {targetUsers.map(user => {
+                                const department = departments.find(dep => dep.id === user.departmentId);
+                                return (
+                                    <div key={user.id} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
+                                        <div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a2e2d' }}>{user.name}</div>
+                                            <div style={{ fontSize: '12px', color: '#6b8583' }}>{user.email}</div>
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#6b8583', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                            {department ? getTranslatedDepartmentName(department.name) : '-'}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a2e2d' }}>{firstUser.name}</div>
+                            <div style={{ fontSize: '13px', color: '#6b8583' }}>{firstUser.email}</div>
+                            <div style={{ fontSize: '12px', color: '#6b8583' }}>
+                                {firstDepartment ? getTranslatedDepartmentName(firstDepartment.name) : t('common.department')}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            fontFamily: 'DM Sans, sans-serif',
+                            fontSize: '14px',
+                            fontWeight: 500,
+                            padding: '9px 18px',
+                            border: '1.5px solid #ddecea',
+                            borderRadius: '8px',
+                            background: '#ffffff',
+                            color: '#6b8583',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {t('common.cancel')}
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        style={{
+                            fontFamily: 'DM Sans, sans-serif',
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            padding: '9px 22px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            background: '#5ba8a0',
+                            color: '#ffffff',
+                            cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#3d8880';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#5ba8a0';
+                        }}
+                    >
+                        {t('common.delete')}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
