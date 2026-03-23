@@ -10,23 +10,62 @@ import { LocationModal } from './administration/components/LocationModal';
 import { DepartmentModal, DepartmentDeleteDialog } from './administration/components/DepartmentModals';
 import { AddEditUserModal, TransferUserModal, UserProfileModal } from './administration/components/UserModals';
 
-type UserFormState = {
+const INITIAL_USER_FORM: {
     name: string;
     email: string;
     password: string;
     locationId: string;
     departmentId: string;
     role: AppUser['role'];
+} = {
+    name: '',
+    email: '',
+    password: '',
+    locationId: '',
+    departmentId: '',
+    role: 'Assigned'
 };
 
-type TransferFormState = {
+const INITIAL_TRANSFER_FORM: {
     locationId: string;
     departmentId: string;
     role: AppUser['role'];
+} = {
+    locationId: '',
+    departmentId: '',
+    role: 'Assigned'
 };
 
 const Administration: React.FC = () => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const departmentSectionLabels = {
+        searchPlaceholder: language === 'de' ? 'Abteilungen oder Standorte suchen' : 'Search departments or locations...',
+        allCities: language === 'de' ? 'Alle Städte' : 'All Cities',
+        expandAll: language === 'de' ? 'Alle erweitern' : 'Expand All',
+        collapseAll: language === 'de' ? 'Alle einklappen' : 'Collapse All',
+        addDepartment: language === 'de' ? 'Abteilung hinzufügen' : 'Add Department',
+        departments: language === 'de' ? 'Abteilungen' : 'departments',
+        users: language === 'de' ? 'Benutzer' : 'users',
+        shortDepartments: language === 'de' ? 'Abteilungen' : 'dept',
+        noResults: language === 'de' ? 'Keine Abteilungen oder Standorte entsprechen Ihrer Suche.' : 'No departments or locations match your search.',
+        noDepartmentsYet: language === 'de' ? 'Noch keine Abteilungen vorhanden — oben hinzufügen.' : 'No departments yet — add one above.',
+        usersHeader: language === 'de' ? 'Benutzer' : 'Users'
+    };
+    const userSectionLabels = {
+        title: language === 'de' ? 'Benutzer & Rollen' : 'Users & Roles',
+        searchPlaceholder: language === 'de' ? 'Name oder E-Mail suchen...' : 'Search name or email...',
+        allCities: language === 'de' ? 'Alle Städte' : 'All Cities',
+        allDepartments: language === 'de' ? 'Alle Betriebe' : 'All Departments',
+        expandAll: language === 'de' ? 'Alle erweitern' : 'Expand All',
+        collapseAll: language === 'de' ? 'Alle einklappen' : 'Collapse All',
+        addUser: language === 'de' ? 'Benutzer hinzufügen' : 'Add User',
+        users: language === 'de' ? 'Benutzer' : 'users',
+        totalUsers: language === 'de' ? 'GESAMT BENUTZER' : 'TOTAL USERS',
+        allRoles: language === 'de' ? 'Alle Rollen' : 'All Roles',
+        userHeader: language === 'de' ? 'Benutzer' : 'User',
+        roleHeader: language === 'de' ? 'Rolle' : 'Role',
+        actionsHeader: language === 'de' ? 'Aktionen' : 'Actions'
+    };
 
     // Helper to translate known location names
     const getTranslatedLocationName = (name: string) => {
@@ -103,19 +142,8 @@ const Administration: React.FC = () => {
     const [transferUserId] = useState<string | null>(null);
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
     const [addUserAcrossLocationDepartments, setAddUserAcrossLocationDepartments] = useState(false);
-    const [userForm, setUserForm] = useState<UserFormState>({
-        name: '',
-        email: '',
-        password: '',
-        locationId: '',
-        departmentId: '',
-        role: 'Assigned' as AppUser['role']
-    });
-    const [transferForm, setTransferForm] = useState<TransferFormState>({
-        locationId: '',
-        departmentId: '',
-        role: 'Assigned' as AppUser['role']
-    });
+    const [userForm, setUserForm] = useState(INITIAL_USER_FORM);
+    const [transferForm, setTransferForm] = useState(INITIAL_TRANSFER_FORM);
 
     const filteredLocations = useMemo(() => {
         const query = locationSearch.trim().toLowerCase();
@@ -150,7 +178,7 @@ const Administration: React.FC = () => {
         if (dep.address?.trim()) return dep.address;
         if (dep.name === 'Quality & Patient Safety') return 'M\u00fcllackerstrasse 2/4\n8152 Glattbrugg';
         if (dep.name === 'Tertianum Restelberg') return 'Restelbergstrasse 108\n8044 Z\u00fcrich';
-        if (dep.name === 'Surgery Department') return 'K\u00f6nizstrasse 74\n3008 Bern';
+        if (dep.name === 'Surgery Department') return 'Restelbergstrasse 108\n8044 Z\u00fcrich';
         const base = (dep.name || '')
             .replace(/[^a-zA-Z0-9 ]/g, '')
             .split(' ')
@@ -409,7 +437,7 @@ const Administration: React.FC = () => {
         if (!userForm.locationId || !userForm.departmentId) return;
         const valid = departments.some(dep => dep.id === userForm.departmentId && dep.locationId === userForm.locationId);
         if (!valid) {
-            setUserForm((prev: UserFormState) => ({ ...prev, departmentId: '' }));
+            setUserForm(prev => ({ ...prev, departmentId: '' }));
         }
     }, [departments, userForm.locationId, userForm.departmentId]);
 
@@ -417,7 +445,7 @@ const Administration: React.FC = () => {
         if (!transferForm.locationId || !transferForm.departmentId) return;
         const valid = departments.some(dep => dep.id === transferForm.departmentId && dep.locationId === transferForm.locationId);
         if (!valid) {
-            setTransferForm((prev: TransferFormState) => ({ ...prev, departmentId: '' }));
+            setTransferForm(prev => ({ ...prev, departmentId: '' }));
         }
     }, [departments, transferForm.locationId, transferForm.departmentId]);
 
@@ -861,7 +889,7 @@ const Administration: React.FC = () => {
                                     type="text"
                                     value={locationSearch}
                                     onChange={e => setLocationSearch(e.target.value)}
-                                    placeholder="Search locations..."
+                                    placeholder={t('admin.searchLocationsPlaceholder')}
                                     style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', padding: '8px 30px 8px 34px', border: '1.5px solid #c8d8d6', borderRadius: '10px', outline: 'none', background: '#f2f9f8', color: '#1a2e2d', width: '275px', transition: 'all .2s' }}
                                     onFocus={(e) => {
                                         e.currentTarget.style.borderColor = '#5ba8a0';
@@ -890,7 +918,7 @@ const Administration: React.FC = () => {
                                     e.currentTarget.style.borderColor = '#c8d8d6';
                                 }}
                             >
-                                <option value="">All Countries</option>
+                                <option value="">{t('admin.allCountries')}</option>
                                 {locationCountries.map(country => (
                                     <option key={country} value={country}>{country}</option>
                                 ))}
@@ -906,24 +934,24 @@ const Administration: React.FC = () => {
                                     <line x1="12" y1="5" x2="12" y2="19" />
                                     <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
-                                Add Location
+                                {t('admin.addLocation')}
                             </button>
                         </div>
 
                         <div style={{ display: 'flex', gap: '24px', padding: '9px 18px', background: '#ffffff', borderTop: '1px solid #ddecea', borderBottom: '1px solid #ddecea', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{locationStats.totalLocations}</span> locations
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{locationStats.totalLocations}</span> {t('admin.locations')}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" /></svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{locationStats.totalCountries}</span> countries
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{locationStats.totalCountries}</span> {t('admin.countries')}
                             </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', padding: '9px 20px', background: '#f7fbfb', borderBottom: '1px solid #ddecea' }}>
                             <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583' }}>Name</div>
-                            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583', textAlign: 'right' }}>Actions</div>
+                            <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6b8583', textAlign: 'right' }}>{t('common.actions')}</div>
                         </div>
 
                         {filteredLocations.length === 0 ? (
@@ -1037,7 +1065,7 @@ const Administration: React.FC = () => {
                                         type="text"
                                         value={departmentSearch}
                                         onChange={e => setDepartmentSearch(e.target.value)}
-                                        placeholder="Search departments or locations..."
+                                        placeholder={departmentSectionLabels.searchPlaceholder}
                                         style={{
                                             fontFamily: 'DM Sans, sans-serif',
                                             fontSize: '13.5px',
@@ -1088,7 +1116,7 @@ const Administration: React.FC = () => {
                                         flexShrink: 0
                                     }}
                                 >
-                                    <option value="">All Cities</option>
+                                    <option value="">{departmentSectionLabels.allCities}</option>
                                     {departmentCities.map(city => (
                                         <option key={city} value={city}>
                                             {city}
@@ -1110,7 +1138,7 @@ const Administration: React.FC = () => {
                                     cursor: 'pointer'
                                 }}
                             >
-                                {allExpanded ? 'Collapse All' : 'Expand All'}
+                                {allExpanded ? departmentSectionLabels.collapseAll : departmentSectionLabels.expandAll}
                             </button>
                             <button
                                 onClick={() => {
@@ -1141,7 +1169,7 @@ const Administration: React.FC = () => {
                                     <line x1="12" y1="5" x2="12" y2="19" />
                                     <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
-                                Add Department
+                                {departmentSectionLabels.addDepartment}
                             </button>
                         </div>
 
@@ -1162,7 +1190,7 @@ const Administration: React.FC = () => {
                                     <path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" />
                                     <circle cx="12" cy="10" r="3" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.locationsShown}</span> locations
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.locationsShown}</span> {t('admin.locations')}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -1171,14 +1199,14 @@ const Administration: React.FC = () => {
                                     <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.departmentsTotal}</span> departments
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.departmentsTotal}</span> {departmentSectionLabels.departments}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                     <circle cx="12" cy="8" r="4" />
                                     <path d="M20 21a8 8 0 1 0-16 0" />
                                 </svg>
-                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.usersAssigned}</span> users
+                                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{departmentStats.usersAssigned}</span> {departmentSectionLabels.users}
                             </div>
                         </div>
 
@@ -1194,7 +1222,7 @@ const Administration: React.FC = () => {
                             {visibleDepartmentGroups.length === 0 && (
                                 <div style={{ padding: '48px', textAlign: 'center', color: '#6b8583', fontSize: '14px' }}>
                                     <div style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.5 }}>??</div>
-                                    <div>No departments or locations match your search.</div>
+                                    <div>{departmentSectionLabels.noResults}</div>
                                 </div>
                             )}
 
@@ -1270,14 +1298,14 @@ const Administration: React.FC = () => {
                                                         whiteSpace: 'nowrap'
                                                     }}
                                                 >
-                                                    {depts.length} dept{depts.length !== 1 ? 's' : ''}
+                                                    {depts.length} {departmentSectionLabels.shortDepartments}
                                                 </span>
                                                 <span style={{ fontSize: '12px', color: '#6b8583', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                                         <circle cx="12" cy="8" r="4" />
                                                         <path d="M20 21a8 8 0 1 0-16 0" />
                                                     </svg>
-                                                    {totalUsers} users
+                                                    {totalUsers} {departmentSectionLabels.users}
                                                 </span>
                                                 <button
                                                     onClick={(e) => {
@@ -1304,7 +1332,7 @@ const Administration: React.FC = () => {
                                                         <line x1="12" y1="5" x2="12" y2="19" />
                                                         <line x1="5" y1="12" x2="19" y2="12" />
                                                     </svg>
-                                                    Add Dept
+                                                    {departmentSectionLabels.addDepartment}
                                                 </button>
                                             </div>
                                         </div>
@@ -1320,14 +1348,14 @@ const Administration: React.FC = () => {
                                                         borderBottom: '1px solid #ddecea'
                                                     }}
                                                 >
-                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583' }}>{t('admin.departments')}</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583' }}>{language === 'de' ? 'Abteilungen' : t('admin.departments')}</div>
                                                     <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583' }}>{t('common.code')}</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583' }}>Users</div>
-                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583', textAlign: 'right' }}>Actions</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583' }}>{departmentSectionLabels.usersHeader}</div>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.07em', color: '#6b8583', textAlign: 'right' }}>{t('common.actions')}</div>
                                                 </div>
 
                                                 {depts.length === 0 ? (
-                                                    <div style={{ padding: '20px 110px', fontSize: '13px', color: '#6b8583', fontStyle: 'italic' }}>No departments yet — add one above.</div>
+                                                    <div style={{ padding: '20px 110px', fontSize: '13px', color: '#6b8583', fontStyle: 'italic' }}>{departmentSectionLabels.noDepartmentsYet}</div>
                                                 ) : (
                                                     depts.map(dep => (
                                                         <div
@@ -1431,7 +1459,7 @@ const Administration: React.FC = () => {
                     <div style={{ padding: '0 0 1rem 0' }}>
                         <div style={{ display: selectedUsersDepartment || selectedUsersLocationId ? 'none' : 'block', background: '#ffffff', border: '1px solid #dbe5ec', borderRadius: '14px', overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap', background: 'transparent', border: 'none', borderRadius: 0, padding: '12px 18px', borderBottom: 'none' }}>
-                            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>Users & Roles</span>
+                            <span style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '17px', fontWeight: 600, color: '#0f2530', lineHeight: 1, height: '40px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>{userSectionLabels.title}</span>
 
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                 <svg style={{ position: 'absolute', left: '11px', color: '#6b8583', pointerEvents: 'none' }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
@@ -1439,7 +1467,7 @@ const Administration: React.FC = () => {
                                     type="text"
                                     value={userSearch}
                                     onChange={(e) => setUserSearch(e.target.value)}
-                                    placeholder="Search name or email..."
+                                    placeholder={userSectionLabels.searchPlaceholder}
                                     style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13.5px', padding: '8px 30px 8px 34px', border: '1.5px solid #c8d8d6', borderRadius: '10px', outline: 'none', background: '#f2f9f8', color: '#1a2e2d', width: '275px' }}
                                 />
                                 {userSearch.length > 0 && (
@@ -1448,19 +1476,19 @@ const Administration: React.FC = () => {
                             </div>
 
                             <select value={userCityFilter} onChange={(e) => setUserCityFilter(e.target.value)} style={{ width: '139px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none' }}>
-                                <option value="">All Cities</option>
+                                <option value="">{userSectionLabels.allCities}</option>
                                 {userCities.map(city => <option key={city} value={city}>{city}</option>)}
                             </select>
 
                             <select value={userDepartmentFilter} onChange={(e) => setUserDepartmentFilter(e.target.value)} style={{ width: '139px', fontFamily: 'DM Sans, sans-serif', fontSize: '13px', fontWeight: 500, padding: '8px 12px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#f2f9f8', color: '#315a69', outline: 'none' }}>
-                                <option value="">All Departments</option>
+                                <option value="">{userSectionLabels.allDepartments}</option>
                                 {allDepartmentNames.map(dep => <option key={dep} value={dep}>{dep}</option>)}
                             </select>
 
                             <div style={{ flex: 1 }} />
 
                             <button onClick={toggleUsersExpandAll} style={{ padding: '8px 16px', border: '1.5px solid #c8d8d6', borderRadius: '10px', background: '#eef1f1', color: '#315a69', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-                                {usersAllExpanded ? 'Collapse All' : 'Expand All'}
+                                {usersAllExpanded ? userSectionLabels.collapseAll : userSectionLabels.expandAll}
                             </button>
 
                             <button onClick={() => openAddUserModal()} style={{ padding: '9px 15px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13.5px', fontWeight: 500, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1468,13 +1496,13 @@ const Administration: React.FC = () => {
                                     <line x1="12" y1="5" x2="12" y2="19" />
                                     <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
-                                Add User
+                                {userSectionLabels.addUser}
                             </button>
                         </div>
 
                         <div style={{ display: 'flex', gap: '24px', background: 'transparent', border: 'none', borderTop: '1px solid #ddecea', borderBottom: 'none', padding: '9px 18px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalLocations}</span> locations</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalUsersShown}</span> users</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 13-9 13s-9-7-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalLocations}</span> {t('admin.locations')}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6b8583' }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M20 21a8 8 0 1 0-16 0" /></svg><span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 500, fontSize: '14px', color: '#1a2e2d' }}>{usersViewData.stats.totalUsersShown}</span> {userSectionLabels.users}</div>
                         </div>
 
                         <div style={{ background: '#f8fbfb', border: 'none', borderRadius: 0, overflow: 'hidden', boxShadow: 'none' }}>
@@ -1634,7 +1662,7 @@ const Administration: React.FC = () => {
                                                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
                                                                                 <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
                                                                                 <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
-                                                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>{userSectionLabels.actionsHeader}</div>
                                                                             </div>
                                                                             {detailUsers.length === 0 ? (
                                                                                 <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this Betrieb.</div>
@@ -1697,7 +1725,7 @@ const Administration: React.FC = () => {
                                                         style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }}
                                                     >
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                                                        Users & Roles
+                                                        {userSectionLabels.title}
                                                     </button>
                                                     <span style={{ color: '#9fb3c4', fontSize: '13px', lineHeight: 1.3 }}>/</span>
                                                     <span style={{ color: '#1e2b3a', fontWeight: 600, fontSize: '13px', lineHeight: 1.3 }}>{getLocationShortName(loc.name)}</span>
@@ -1722,7 +1750,7 @@ const Administration: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '0' }}>
-                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{locationUserGroups.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{locationUserGroups.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>{userSectionLabels.totalUsers}</div></div>
                                             </div>
                                         </div>
 
@@ -1730,26 +1758,26 @@ const Administration: React.FC = () => {
                                             <div style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '340px 110px 1fr', gap: '10px', alignItems: 'center' }}>
                                                 <div style={{ position: 'relative' }}>
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '10px', color: '#8aa0b5' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name or email..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
+                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder={userSectionLabels.searchPlaceholder} style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
                                                 </div>
                                                 <select value={localRole} onChange={(e) => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: e.target.value as 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer' }))} style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#315a69', outline: 'none' }}>
-                                                    <option value="All">All Roles</option>
+                                                    <option value="All">{userSectionLabels.allRoles}</option>
                                                     <option value="Admin">Admin</option>
-                                                    <option value="Owner">Owner</option>
-                                                    <option value="Assigned">Assigned</option>
+                                                    <option value="Owner">{getTranslatedRole('Owner')}</option>
+                                                    <option value="Assigned">{getTranslatedRole('Assigned')}</option>
                                                     <option value="Viewer">Viewer</option>
                                                 </select>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                                     <button onClick={() => openAddUserModal(loc.id, undefined, true)} style={{ padding: '8px 14px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                                                        Add User
+                                                        {userSectionLabels.addUser}
                                                     </button>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>{userSectionLabels.userHeader}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>{userSectionLabels.roleHeader}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>{userSectionLabels.actionsHeader}</div>
                                             </div>
                                             {detailUserGroups.length === 0 ? (
                                                 <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this location.</div>
@@ -1775,7 +1803,7 @@ const Administration: React.FC = () => {
                                                                 : user.role === 'Assigned'
                                                                     ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#e8f4f3', color: '#3f9088', border: '1px solid #b7deda', display: 'inline-flex', alignItems: 'center', gap: '5px' }
                                                                     : { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', ...roleBadgeStyle(user.role), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                                                <span style={{ fontSize: '10px' }}>•</span>{user.role}
+                                                                <span style={{ fontSize: '10px' }}>•</span>{getTranslatedRole(user.role)}
                                                             </span>
                                                         </div>
                                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
@@ -1821,7 +1849,7 @@ const Administration: React.FC = () => {
                                                         style={{ background: 'transparent', border: 'none', color: '#5ba8a0', cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }}
                                                     >
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                                                        Users & Roles
+                                                        {userSectionLabels.title}
                                                     </button>
                                                     <span style={{ color: '#9fb3c4', fontSize: '13px', lineHeight: 1.3 }}>/</span>
                                                     <span style={{ color: '#1e2b3a', fontWeight: 600, fontSize: '13px', lineHeight: 1.3 }}>{depName}</span>
@@ -1846,7 +1874,7 @@ const Administration: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: '0' }}>
-                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{depUsersAll.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>TOTAL USERS</div></div>
+                                                <div style={{ textAlign: 'center', padding: '0 22px' }}><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '46px', lineHeight: 1, color: '#ffffff', fontWeight: 700 }}>{depUsersAll.length}</div><div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', letterSpacing: '.06em', color: '#ffffff', fontWeight: 600 }}>{userSectionLabels.totalUsers}</div></div>
                                             </div>
                                         </div>
 
@@ -1854,26 +1882,26 @@ const Administration: React.FC = () => {
                                             <div style={{ padding: '14px 16px', display: 'grid', gridTemplateColumns: '340px 110px 1fr', gap: '10px', alignItems: 'center' }}>
                                                 <div style={{ position: 'relative' }}>
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ position: 'absolute', left: '10px', top: '10px', color: '#8aa0b5' }}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Search by name or email..." style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
+                                                    <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder={userSectionLabels.searchPlaceholder} style={{ width: '100%', padding: '8px 10px 8px 30px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#294b52', outline: 'none' }} />
                                                 </div>
                                                 <select value={localRole} onChange={(e) => setUserLocalRoleFilters(prev => ({ ...prev, [loc.id]: e.target.value as 'All' | 'Admin' | 'Owner' | 'Assigned' | 'Viewer' }))} style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #dde5ee', borderRadius: '9px', background: '#f8fbfb', fontSize: '13px', color: '#315a69', outline: 'none' }}>
-                                                    <option value="All">All Roles</option>
+                                                    <option value="All">{userSectionLabels.allRoles}</option>
                                                     <option value="Admin">Admin</option>
-                                                    <option value="Owner">Owner</option>
-                                                    <option value="Assigned">Assigned</option>
+                                                    <option value="Owner">{getTranslatedRole('Owner')}</option>
+                                                    <option value="Assigned">{getTranslatedRole('Assigned')}</option>
                                                     <option value="Viewer">Viewer</option>
                                                 </select>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                                     <button onClick={() => openAddUserModal(loc.id, dep.id)} style={{ padding: '8px 14px', background: '#5ba8a0', color: '#ffffff', borderRadius: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                                                        Add User
+                                                        {userSectionLabels.addUser}
                                                     </button>
                                                 </div>
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px', padding: '10px 16px', background: '#f7fbfb', borderTop: '1px solid #edf5f4', borderBottom: '1px solid #edf5f4' }}>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>User</div>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>Role</div>
-                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>Actions</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>{userSectionLabels.userHeader}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5' }}>{userSectionLabels.roleHeader}</div>
+                                                <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#8aa0b5', textAlign: 'right' }}>{userSectionLabels.actionsHeader}</div>
                                             </div>
                                             {detailUsers.length === 0 ? (
                                                 <div style={{ padding: '18px 16px', color: '#6b8583', fontSize: '13px' }}>No users in this Betrieb.</div>
@@ -1895,7 +1923,7 @@ const Administration: React.FC = () => {
                                                                 : user.role === 'Assigned'
                                                                     ? { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', background: '#e8f4f3', color: '#3f9088', border: '1px solid #b7deda', display: 'inline-flex', alignItems: 'center', gap: '5px' }
                                                                     : { fontSize: '11px', fontWeight: 600, padding: '4px 11px', borderRadius: '999px', ...roleBadgeStyle(user.role), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                                                <span style={{ fontSize: '10px' }}>•</span>{user.role}
+                                                                <span style={{ fontSize: '10px' }}>•</span>{getTranslatedRole(user.role)}
                                                             </span>
                                                         </div>
                                                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>

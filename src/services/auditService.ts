@@ -1,11 +1,23 @@
 import { Audit, AuditFinding, Step } from '../types';
 import { MOCK_AUDITS, MOCK_FINDINGS } from '../data/mock_audits';
 import { activityService } from './activityService';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 
 const KEYS = {
     AUDITS: 'mso_v6_audits',
     FINDINGS: 'mso_v6_audit_findings'
 };
+
+const normalizeAudit = (audit: Audit): Audit => ({
+    ...audit,
+    auditor: stripDoctorPrefix(audit.auditor)
+});
+
+const normalizeFinding = (finding: AuditFinding): AuditFinding => ({
+    ...finding,
+    responsible: stripDoctorPrefix(finding.responsible),
+    assigned: stripDoctorPrefix(finding.assigned)
+});
 
 export const auditService = {
     init: () => {
@@ -15,11 +27,25 @@ export const auditService = {
         if (!localStorage.getItem(KEYS.FINDINGS)) {
             localStorage.setItem(KEYS.FINDINGS, JSON.stringify(MOCK_FINDINGS));
         }
+
+        const rawAudits = localStorage.getItem(KEYS.AUDITS) || '[]';
+        const normalizedAudits = (JSON.parse(rawAudits) as Audit[]).map(normalizeAudit);
+        const serializedAudits = JSON.stringify(normalizedAudits);
+        if (serializedAudits !== rawAudits) {
+            localStorage.setItem(KEYS.AUDITS, serializedAudits);
+        }
+
+        const rawFindings = localStorage.getItem(KEYS.FINDINGS) || '[]';
+        const normalizedFindings = (JSON.parse(rawFindings) as AuditFinding[]).map(normalizeFinding);
+        const serializedFindings = JSON.stringify(normalizedFindings);
+        if (serializedFindings !== rawFindings) {
+            localStorage.setItem(KEYS.FINDINGS, serializedFindings);
+        }
     },
 
     getAllAudits: (): Audit[] => {
         auditService.init();
-        return JSON.parse(localStorage.getItem(KEYS.AUDITS) || '[]');
+        return (JSON.parse(localStorage.getItem(KEYS.AUDITS) || '[]') as Audit[]).map(normalizeAudit);
     },
 
     getAuditById: (id: string): Audit | undefined => {
@@ -32,39 +58,41 @@ export const auditService = {
         const isNew = index < 0;
         const oldStatus = !isNew ? audits[index].status : null;
 
+        const normalizedAudit = normalizeAudit(audit);
+
         if (index >= 0) {
-            audits[index] = audit;
+            audits[index] = normalizedAudit;
         } else {
-            audits.push(audit);
+            audits.push(normalizedAudit);
         }
         localStorage.setItem(KEYS.AUDITS, JSON.stringify(audits));
 
         if (isNew) {
             activityService.log({
                 type: 'AUDIT_CREATED',
-                message: `Audit ${audit.id} created`,
+                message: `Audit ${normalizedAudit.id} created`,
                 entityType: 'Audit',
-                entityName: audit.id,
-                location: audit.location
+                entityName: normalizedAudit.id,
+                location: normalizedAudit.location
             });
-        } else if (oldStatus !== audit.status) {
+        } else if (oldStatus !== normalizedAudit.status) {
             activityService.log({
                 type: 'AUDIT_STATUS_CHANGED',
-                message: `Audit ${audit.id} status changed to ${audit.status}`,
+                message: `Audit ${normalizedAudit.id} status changed to ${normalizedAudit.status}`,
                 entityType: 'Audit',
-                entityName: audit.id,
-                location: audit.location
+                entityName: normalizedAudit.id,
+                location: normalizedAudit.location
             });
         }
 
         // Dispatch storage event to notify other tabs/components
         window.dispatchEvent(new Event('storage'));
-        return audit;
+        return normalizedAudit;
     },
 
     getAllFindings: (): AuditFinding[] => {
         auditService.init();
-        return JSON.parse(localStorage.getItem(KEYS.FINDINGS) || '[]');
+        return (JSON.parse(localStorage.getItem(KEYS.FINDINGS) || '[]') as AuditFinding[]).map(normalizeFinding);
     },
 
     getFindingsByAudit: (auditId: string): AuditFinding[] => {
@@ -76,25 +104,27 @@ export const auditService = {
         const index = findings.findIndex(f => f.id === finding.id);
         const isNew = index < 0;
 
+        const normalizedFinding = normalizeFinding(finding);
+
         if (index >= 0) {
-            findings[index] = finding;
+            findings[index] = normalizedFinding;
         } else {
-            findings.push(finding);
+            findings.push(normalizedFinding);
         }
         localStorage.setItem(KEYS.FINDINGS, JSON.stringify(findings));
 
         if (isNew) {
             activityService.log({
                 type: 'FINDING_ADDED',
-                message: `Finding added to Audit ${finding.auditId}`,
+                message: `Finding added to Audit ${normalizedFinding.auditId}`,
                 entityType: 'Finding',
-                entityName: finding.title,
-                location: finding.location
+                entityName: normalizedFinding.title,
+                location: normalizedFinding.location
             });
         }
 
         window.dispatchEvent(new Event('storage'));
-        return finding;
+        return normalizedFinding;
     },
 
     generateDemoFindings: (audit: Audit) => {

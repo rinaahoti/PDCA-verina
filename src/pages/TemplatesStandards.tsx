@@ -10,6 +10,7 @@ import { adminService } from '../services/adminService';
 import { topicsService } from '../services';
 import { activityService } from '../services/activityService';
 import { generatePlanDoCheckCombinedPdf } from '../utils/pdfGenerator';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 
 // --- TYPES --- 
 
@@ -61,13 +62,18 @@ interface Template {
 const STORAGE_KEY_OUTCOMES = 'virena_pdca_outcomes';
 const STORAGE_KEY_TEMPLATES = 'virena_templates';
 
+const normalizeOutcome = (outcome: PDCAOutcome): PDCAOutcome => ({
+    ...outcome,
+    owner: stripDoctorPrefix(outcome.owner)
+});
+
 // --- SEED DATA ---
 
 const seedOutcomes = (): PDCAOutcome[] => [
     {
         ref: 'T-001',
         title: 'Reduktion postoperativer Infektionsraten',
-        owner: 'Dr. Marcus Weber',
+        owner: 'Marcus Weber',
         category: 'Patientensicherheit',
         location: 'UniversitÃ¤tsspital Basel (BS)',
         department: 'Surgery Department',
@@ -87,7 +93,7 @@ const seedOutcomes = (): PDCAOutcome[] => [
     {
         ref: 'T-002',
         title: 'Reduktion von Medikationsfehlern',
-        owner: 'Dr. Elena Rossi',
+        owner: 'Elena Rossi',
         category: 'Medikamentensicherheit',
         location: 'Bern',
         department: 'Quality & Patient Safety',
@@ -151,19 +157,25 @@ const seedTemplates = (): Template[] => [
 
 const outcomesService = {
     getAll: (): PDCAOutcome[] => {
-        const data = localStorage.getItem(STORAGE_KEY_OUTCOMES);
-        if (!data) {
-            const seed = seedOutcomes();
+        const raw = localStorage.getItem(STORAGE_KEY_OUTCOMES);
+        if (!raw) {
+            const seed = seedOutcomes().map(normalizeOutcome);
             localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(seed));
             return seed;
         }
-        return JSON.parse(data);
+        const outcomes = (JSON.parse(raw) as PDCAOutcome[]).map(normalizeOutcome);
+        const serialized = JSON.stringify(outcomes);
+        if (serialized !== raw) {
+            localStorage.setItem(STORAGE_KEY_OUTCOMES, serialized);
+        }
+        return outcomes;
     },
     save: (outcome: PDCAOutcome) => {
         const all = outcomesService.getAll();
-        const idx = all.findIndex(o => o.ref === outcome.ref);
-        if (idx >= 0) all[idx] = outcome;
-        else all.push(outcome);
+        const normalizedOutcome = normalizeOutcome(outcome);
+        const idx = all.findIndex(o => o.ref === normalizedOutcome.ref);
+        if (idx >= 0) all[idx] = normalizedOutcome;
+        else all.push(normalizedOutcome);
         localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(all));
         window.dispatchEvent(new Event('storage-outcomes'));
     },
@@ -173,7 +185,7 @@ const outcomesService = {
         window.dispatchEvent(new Event('storage-outcomes'));
     },
     reset: () => {
-        localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(seedOutcomes()));
+        localStorage.setItem(STORAGE_KEY_OUTCOMES, JSON.stringify(seedOutcomes().map(normalizeOutcome)));
         window.dispatchEvent(new Event('storage-outcomes'));
     }
 };
@@ -382,6 +394,12 @@ const TemplatesStandards: React.FC = () => {
             'Reduktion von Fehlern bei der Medikamentenabgabe': 'Reduktion von Medikationsfehlern'
         };
         return titleMap[title] || title;
+    };
+
+    const getTranslatedDepartmentName = (name: string) => {
+        if (name === 'Quality & Patient Safety') return t('admin.qualityPatientSafety');
+        if (name === 'Surgery Department') return t('admin.surgeryDepartment');
+        return name;
     };
 
     const getTranslatedTag = (tag: string) => {
@@ -922,7 +940,7 @@ const TemplatesStandards: React.FC = () => {
                             style={{ width: '170px', padding: '10px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', background: 'white', fontSize: '14px', cursor: 'pointer', flexShrink: 0 }}
                         >
                             <option value="All Departments">{language === 'de' ? 'Alle Betriebe' : 'All Departments'}</option>
-                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                            {departments.map(d => <option key={d} value={d}>{getTranslatedDepartmentName(d)}</option>)}
                         </select>
                         {activeTab === 'standardizations' && (
                             <select

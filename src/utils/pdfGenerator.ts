@@ -12,9 +12,11 @@ const translatePdfText = (input: string): string => {
 
     const replacements: Array<[string, string]> = [
         ['PDCA Plan Protocol', 'PDCA Plan-Protokoll'],
-        ['Plan Phase Meeting', 'PLAN-Phasen-Meeting'],
-        ['Check Phase Activation', 'Check-Phase Aktivierung'],
-        ['CHECK Phase Meeting', 'CHECK-Phasen-Meeting'],
+        ['Executive Summary', 'Zusammenfassung'],
+        ['Plan Phase Meeting', 'PLAN-PHASEN-MEETING'],
+        ['Phase Activation', 'PHASENAKTIVIERUNG'],
+        ['Check Phase Activation', 'AKTIVIERUNG DER CHECK-PHASE'],
+        ['CHECK Phase Meeting', 'CHECK-PHASEN-MEETING'],
         ['CHECK PHASE', 'CHECK-PHASE'],
         ['DO PHASE', 'DO-PHASE'],
         ['ACT PHASE', 'ACT-PHASE'],
@@ -24,27 +26,27 @@ const translatePdfText = (input: string): string => {
         ['Act Phase', 'Act-Phase'],
         ['Input from Check', 'Input aus CHECK'],
         ['Topic Title', 'Thementitel'],
-        ['Topic', 'Thema'],
+        ['Topic', 'THEMA'],
         ['Title', 'Titel'],
         ['Goal', 'Ziel'],
         ['Target Goal (From Plan)', 'Zielvorgabe (aus PLAN)'],
         ['Meeting Title', 'Besprechungstitel'],
         ['Internal Participants', 'Interne Teilnehmende'],
         ['External Participants', 'Externe Teilnehmende'],
-        ['Plan Data', 'Planungsdaten'],
+        ['Plan Data', 'PLAN-DATEN'],
         ['Root Cause', 'Hauptursache'],
         ['Improvement Purpose', 'Verbesserungszweck'],
-        ['Location & Department', 'Standort & Betriebe'],
-        ['Locations', 'Standorte'],
-        ['Departments', 'Betriebe'],
+        ['Location & Department', 'STANDORT & BETRIEB'],
+        ['Locations', 'Standort'],
+        ['Departments', 'Betrieb'],
         ['Status', 'Status'],
         ['Meeting Type', 'Sitzungstyp'],
         ['Responsible Person', 'Verantwortliche Person'],
         ['Responsible Persons', 'VERANTWORTLICHE PERSONEN'],
         ['Meeting Date & Time', 'Sitzungstermin'],
-        ['Office / Location', 'BÃ¼ro / Standort'],
+        ['Office / Location', 'Büro / Standort'],
         ['Online Meeting Link', 'Online-Meeting-Link'],
-        ['External Users', 'Externe Benutzer'],
+        ['External Users', 'EXTERNE BENUTZER'],
         ['AS-IS - Current State', 'AS-IS - Ist-Zustand'],
         ['TO-BE - Target State', 'TO-BE - Soll-Zustand'],
         ['Generated', 'Erstellt'],
@@ -52,41 +54,42 @@ const translatePdfText = (input: string): string => {
         ['Owner', 'Besitzer'],
         ['Comments', 'Kommentare'],
         ['Action Due Date', 'Faelligkeitsdatum der Massnahme'],
-        ['Check Decision & Audit', 'CHECK-Entscheidung & Audit'],
+        ['Check Decision & Audit', 'ENTSCHEIDUNG & PRÜFUNG'],
         ['Decision Outcome', 'Entscheidung'],
-        ['Checked By', 'Geprueft von'],
-        ['Due Date', 'FÃ¤lligkeitsdatum'],
+        ['Checked By', 'Geprüft von'],
+        ['Due Date', 'Fälligkeitsdatum'],
         ['DO Phase Activation', 'DO-Phasen-Aktivierung'],
-        ['Execution Summary (From DO Phase)', 'Zusammenfassung der AusfÃ¼hrung (aus DO-Phase)'],
-        ['Total Actions', 'Gesamtzahl MaÃŸnahmen'],
+        ['Execution Summary (From DO Phase)', 'ZUSAMMENFASSUNG DER AUSFÜHRUNG (AUS DO-PHASE)'],
+        ['Total Actions', 'Gesamtzahl Maßnahmen'],
         ['Involved Users', 'Beteiligte Benutzer'],
-        ['Effectiveness Assessment', 'Wirksamkeitsbewertung'],
+        ['Effectiveness Assessment', 'WIRKSAMKEITSBEWERTUNG'],
         ['Assessment Result', 'Bewertungsergebnis'],
         ['Assessment Description', 'Bewertungsbeschreibung'],
-        ['KPI Evaluation', 'KPI-Bewertung'],
+        ['KPI Evaluation', 'KPI-AUSWERTUNG'],
         ['Indicator', 'Indikator'],
         ['Target', 'Zielwert'],
         ['Result', 'Ergebnis'],
-        ['Effectiveness Review', 'WirksamkeitsprÃ¼fung'],
-        ['Review', 'PrÃ¼fung'],
-        ['ACT Phase Activation', 'ACT-Phasen-Aktivierung'],
-        ['DO & Execution Actions', 'DO & AusfÃ¼hrungsmaÃŸnahmen'],
+        ['Effectiveness Review', 'WIRKSAMKEITSPRÜFUNG'],
+        ['Review', 'Prüfung'],
+        ['ACT Phase Activation', 'AKTIVIERUNG DER ACT-PHASE'],
+        ['Execution Actions', 'AUSFÜHRUNGSMASSNAHMEN'],
+        ['DO & Execution Actions', 'DO & AUSFÜHRUNGSMASSNAHMEN'],
         ['Description', 'Beschreibung'],
-        ['Outcome Decision', 'Outcome-Entscheidung'],
+        ['Outcome Decision', 'ERGEBNIS-ENTSCHEIDUNG'],
         ['Decision', 'Entscheidung'],
-        ['Standardization Scope', 'Standardisierungs-Umfang'],
-        ['Affected Areas / Rollout', 'Betroffene Bereiche / Rollout'],
+        ['Standardization Scope', 'Umfang'],
+        ['Affected Areas / Rollout', 'Betroffene Bereiche'],
         ['Standardization Description', 'Beschreibung Standardisierung'],
-        ['Lessons Learned', 'Erkenntnisse'],
-        ['Key Takeaways', 'Wichtigste Erkenntnisse'],
-        ['ACT Phase Confirmation & Sign-off', 'BestÃ¤tigung & Abschluss ACT-Phase'],
+        ['Lessons Learned', 'ERKENNTNISSE'],
+        ['Key Takeaways', 'WICHTIGSTE ERKENNTNISSE'],
+        ['ACT Phase Confirmation & Sign-off', 'BESTÄTIGUNG & ABSCHLUSS DER ACT-PHASE'],
         ['Confirmation', 'BestÃ¤tigung'],
         ['Signed By', 'Abgeschlossen von'],
         ['Date', 'Datum'],
-        ['Objective fully met. Proceed to Standardization.', 'Ziel vollstÃ¤ndig erreicht. Weiter zur Standardisierung.'],
+        ['Objective fully met. Proceed to Standardization.', 'Ziel vollständig erreicht. Weiter zur Standardisierung.'],
         ['Objective partially met. Improvements needed before full standardization.', 'Ziel teilweise erreicht. Verbesserungen vor vollstÃ¤ndiger Standardisierung erforderlich.'],
         ['Objective not met. Re-planning and corrective action required.', 'Ziel nicht erreicht. Neuplanung und KorrekturmaÃŸnahmen erforderlich.'],
-        ['Measure is successful. Roll out and update standards.', 'MaÃŸnahme ist erfolgreich. Rollout und Aktualisierung der Standards.'],
+        ['Measure is successful. Roll out and update standards.', 'Maßnahme ist erfolgreich. Rollout und Aktualisierung der Standards.'],
         ['Improve and re-run PDCA based on findings.', 'Verbessern und PDCA auf Basis der Erkenntnisse erneut durchfÃ¼hren.'],
         ['Close process without standardization.', 'Prozess ohne Standardisierung abschlieÃŸen.'],
         ['I confirm that the improvement has been standardized and documented.', 'Ich bestÃ¤tige, dass die Verbesserung standardisiert und dokumentiert wurde.'],
@@ -101,10 +104,11 @@ const translatePdfText = (input: string): string => {
         ['[ ] Confirmation not provided.', '[ ] BestÃ¤tigung nicht angegeben.'],
         ['Standardize', 'Standardisieren'],
         ['Improve & Re-run PDCA', 'Verbessern & PDCA wiederholen'],
-        ['Close without Standardization', 'AbschlieÃŸen ohne Standardisierung'],
+        ['Close without Standardization', 'Abschließen ohne Standardisierung'],
         ['Effective', 'Wirksam'],
         ['Partially Effective', 'Teilweise wirksam'],
         ['Not Effective', 'Nicht wirksam'],
+        ['Not Achieved', 'Nicht erreicht'],
         ['Monitoring', 'Monitoring'],
         ['Warning', 'Warnung'],
         ['Critical', 'Kritisch'],
@@ -116,7 +120,18 @@ const translatePdfText = (input: string): string => {
         ['Gästezufriedenheit', 'Gästezufriedenheit'],
         ['Mitarberiterzufriedenheit', 'Mitarberiterzufriedenheit'],
         ['Qualität verbessern', 'Qualität verbessern'],
-        ['Process', 'Prozess'],
+        ['Process', 'PROZESS'],
+        ['Outcome', 'ERGEBNIS'],
+        ['Problem', 'PROBLEM'],
+        ['Actions Taken', 'DURCHGEFÜHRTE MASSNAHMEN'],
+        ['Scope', 'Umfang'],
+        ['Standardization', 'STANDARDISIERUNG'],
+        ['Affected Areas', 'Betroffene Bereiche'],
+        ['Key Takeaway', 'WICHTIGSTE ERKENNTNISSE'],
+        ['PLAN PHASE', 'PLAN-PHASE'],
+        ['Overview', 'ÜBERSICHT'],
+        ['ACTION', 'MASSNAHME'],
+        ['External Users & Comments', 'EXTERNE BENUTZER & KOMMENTARE'],
         ['Clinical Guide', 'Klinischer Leitfaden'],
         ['Policy', 'Richtlinie'],
         ['Checklist', 'Checkliste'],
@@ -149,6 +164,8 @@ const translatePdfText = (input: string): string => {
     });
     return output;
 };
+
+const getRenderedPdfText = (input: string): string => translatePdfText(input);
 
 const localizePdfDoc = (doc: jsPDF) => {
     if (getPdfLanguage() !== 'de') return;
@@ -1642,21 +1659,24 @@ const renderActPage = (doc: jsPDF, topic: Topic, startPage = 1) => {
     setFont('normal');
     doc.setFontSize(PHASE_SUBTITLE_FONT_SIZE);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
-    const prefix = 'Act Phase · ';
+    const prefix = getPdfLanguage() === 'de' ? 'Act-Phase · ' : 'Act Phase · ';
     const statusText = status;
-    const middle = ' · Input from Check: ';
+    const middle = getPdfLanguage() === 'de' ? ' · Input aus CHECK: ' : ' · Input from Check: ';
     const suffix = inputFromCheck;
+    const renderedPrefix = getRenderedPdfText(prefix);
+    const renderedStatus = getRenderedPdfText(statusText);
+    const renderedMiddle = getRenderedPdfText(middle);
     doc.text(prefix, leftMargin, y);
-    const prefixWidth = doc.getTextWidth(prefix);
+    const prefixWidth = doc.getTextWidth(renderedPrefix);
     setFont('bold');
     doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
     doc.text(statusText, leftMargin + prefixWidth, y);
-    const statusWidth = doc.getTextWidth(statusText);
+    const statusWidth = doc.getTextWidth(renderedStatus);
     setFont('normal');
     doc.setFontSize(PHASE_SUBTITLE_FONT_SIZE);
     doc.setTextColor(mutedColor[0], mutedColor[1], mutedColor[2]);
     doc.text(middle, leftMargin + prefixWidth + statusWidth, y);
-    const middleWidth = doc.getTextWidth(middle);
+    const middleWidth = doc.getTextWidth(renderedMiddle);
     setFont('bold');
     doc.setTextColor(tealColor[0], tealColor[1], tealColor[2]);
     doc.text(suffix, leftMargin + prefixWidth + statusWidth + middleWidth, y);

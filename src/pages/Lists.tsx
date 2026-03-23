@@ -339,7 +339,7 @@ const Lists: React.FC = () => {
                 </thead>
                 <tbody>
                     {filtered.map((topic: Topic) => (
-                        <tr key={topic.id} onClick={() => navigate(`/app/topic/${topic.id}?tab=${topic.step}`)} style={{ cursor: 'pointer' }}>
+                        <tr key={topic.id} onClick={() => navigate(`/app/topic/${topic.id}?tab=${getTopicDisplayStep(topic)}&source=lists`)} style={{ cursor: 'pointer' }}>
                             <td>{topic.id}</td>
                             <td>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

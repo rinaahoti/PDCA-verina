@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { AppUser, Department, Location } from '../../../types/admin';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 export interface UserFormState {
     name: string;
@@ -45,6 +46,8 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
     onClose,
     onSave
 }) => {
+    const { t } = useLanguage();
+
     if (!isOpen) return null;
 
     return (
@@ -57,25 +60,25 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
             }}
         >
             <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingUserId ? 'Edit User' : 'Add User'}</div>
-                <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingUserId ? 'Update user details and role' : 'Assign a user to a location and role'}</div>
+                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingUserId ? t('admin.editUser') : t('admin.addUser')}</div>
+                <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingUserId ? t('admin.updateUserDetailsAndRole') : t('admin.assignUserToLocationAndRole')}</div>
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Full Name</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('admin.fullName')}</label>
                     <input value={userForm.name} onChange={(e) => onChangeUserForm({ ...userForm, name: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
                 </div>
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Email</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('admin.email')}</label>
                     <input type="email" value={userForm.email} onChange={(e) => onChangeUserForm({ ...userForm, email: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
                 </div>
                 {!editingUserId && (
                     <div style={{ marginBottom: '14px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Password</label>
+                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('auth.password')}</label>
                         <input type="password" value={userForm.password} onChange={(e) => onChangeUserForm({ ...userForm, password: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }} />
                     </div>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: hideDepartmentField ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
                     <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location</label>
+                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('common.location')}</label>
                         <select
                             value={userForm.locationId}
                             onChange={(e) => {
@@ -89,15 +92,15 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                             }}
                             style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}
                         >
-                            <option value="">Select location</option>
+                            <option value="">{t('admin.selectLocation')}</option>
                             {locations.map(l => <option key={l.id} value={l.id}>{l.code ? `${l.code} - ` : ''}{getTranslatedLocationName(l.name).replace(/ \([A-Z]+\)$/, '')}</option>)}
                         </select>
                     </div>
                     {!hideDepartmentField && (
                     <div>
-                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Department</label>
+                        <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('common.department')}</label>
                         <select value={userForm.departmentId} onChange={(e) => onChangeUserForm({ ...userForm, departmentId: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
-                            <option value="">Select department</option>
+                            <option value="">{t('admin.selectDepartment')}</option>
                             {departments.filter(dep => dep.locationId === userForm.locationId).map(dep => <option key={dep.id} value={dep.id}>{getTranslatedDepartmentName(dep.name)}</option>)}
                         </select>
                     </div>
@@ -107,17 +110,17 @@ export const AddEditUserModal: React.FC<AddEditUserModalProps> = ({
                     <div style={{ marginBottom: '12px', fontSize: '12px', color: '#dc2626' }}>{userFormError}</div>
                 )}
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Role</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('common.role')}</label>
                     <select value={userForm.role} onChange={(e) => onChangeUserForm({ ...userForm, role: e.target.value as AppUser['role'] })} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#f2f9f8', fontSize: '14px' }}>
                         <option value="Admin">Admin</option>
                         <option value="Owner">Owner</option>
-                        <option value="Assigned">Assigned</option>
+                        <option value="Assigned">{t('admin.assigned')}</option>
                         <option value="Viewer">Viewer</option>
                     </select>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <button onClick={onClose} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>Cancel</button>
-                    <button onClick={onSave} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>Save User</button>
+                    <button onClick={onClose} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>{t('common.cancel')}</button>
+                    <button onClick={onSave} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>{t('admin.saveUser')}</button>
                 </div>
             </div>
         </div>
@@ -223,6 +226,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onClose,
     onEditUser
 }) => {
+    const { t } = useLanguage();
+
     if (!isOpen) return null;
 
     const user = users.find(u => u.id === profileUserId);
@@ -239,7 +244,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             }}
         >
             <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '16px' }}>User Profile</div>
+                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '16px' }}>{t('admin.userProfile')}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                     <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#5ba8a0', color: '#ffffff', fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials}</div>
                     <div>
@@ -248,14 +253,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Role</div><div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{user.role}</div></div>
-                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Location</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{loc?.code || '-'}</div></div>
-                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Department</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{getUserDepartmentName(user)}</div></div>
-                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>Hospital</div><div style={{ fontSize: '13px', fontWeight: 500 }}>{loc ? getTranslatedLocationName(loc.name).replace(/ \([A-Z]+\)$/, '') : '-'}</div></div>
+                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>{t('common.role')}</div><div style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{t(`roles.${user.role.toLowerCase()}`)}</div></div>
+                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>{t('common.location')}</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{loc?.code || '-'}</div></div>
+                    <div style={{ background: '#f2f9f8', borderRadius: '8px', padding: '12px 14px' }}><div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', fontWeight: 600, marginBottom: '4px' }}>{t('common.department')}</div><div style={{ fontSize: '14px', fontWeight: 500 }}>{getUserDepartmentName(user)}</div></div>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <button onClick={onClose} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>Close</button>
-                    <button onClick={() => onEditUser(user)} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>Edit User</button>
+                    <button onClick={onClose} style={{ padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', fontSize: '14px', fontWeight: 500 }}>{t('common.close')}</button>
+                    <button onClick={() => onEditUser(user)} style={{ padding: '9px 22px', border: 'none', borderRadius: '8px', background: '#5ba8a0', color: '#ffffff', fontSize: '14px', fontWeight: 600 }}>{t('admin.editUser')}</button>
                 </div>
             </div>
         </div>

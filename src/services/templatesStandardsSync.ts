@@ -1,4 +1,5 @@
 import { Topic } from '../types';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 
 type EffectivenessStatus = 'Effective' | 'Partially Effective' | 'Not Effective';
 type DecisionType = 'Standardize' | 'Improve & Re-run' | 'Close';
@@ -153,7 +154,7 @@ export const syncTopicToTemplatesStandards = (topic: Topic, ownerName: string) =
     const outcome: PDCAOutcome = {
         ref: topic.id,
         title: topic.title,
-        owner: ownerName,
+        owner: stripDoctorPrefix(ownerName),
         category: topic.category || '',
         location: topic.location || '',
         department: topic.departmentId || '',

@@ -1,5 +1,6 @@
 import { User, Topic, ToDo, Status, SupportTicket, HistoryEntry, Organization, Department, GovernanceRules, NotificationSettings, UserPreferences, PhaseMeetingData } from '../types';
 import { normalizeStatus } from '../utils/statusUtils';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 import { initialData } from '../data/seed';
 import { activityService } from './activityService';
 import { adminService } from './adminService';
@@ -21,7 +22,7 @@ const normalizeResponsiblePersons = (responsiblePersons?: string[] | string) => 
             ? responsiblePersons.split(',')
             : [];
 
-    return Array.from(new Set(rawValues.map(value => `${value || ''}`.trim()).filter(Boolean)));
+    return Array.from(new Set(rawValues.map(value => stripDoctorPrefix(`${value || ''}`.trim())).filter(Boolean)));
 };
 
 const normalizePhaseMeetingData = (meeting?: PhaseMeetingData): PhaseMeetingData | undefined => {
@@ -30,12 +31,35 @@ const normalizePhaseMeetingData = (meeting?: PhaseMeetingData): PhaseMeetingData
     return {
         ...meeting,
         responsiblePersons: normalizeResponsiblePersons(meeting.responsiblePersons),
-        externalUsers: Array.isArray(meeting.externalUsers) ? meeting.externalUsers : []
+        externalUsers: Array.isArray(meeting.externalUsers)
+            ? meeting.externalUsers.map(user => ({
+                ...user,
+                fullName: stripDoctorPrefix(user.fullName || '')
+            }))
+            : []
     };
 };
 
+const normalizeStoredUser = (user: User): User => ({
+    ...user,
+    name: stripDoctorPrefix(user.name)
+});
+
+const normalizeSupportTicket = (ticket: SupportTicket): SupportTicket => ({
+    ...ticket,
+    userName: stripDoctorPrefix(ticket.userName)
+});
+
 const normalizeTopicData = (topic: Topic): Topic => ({
     ...topic,
+    ownerName: topic.ownerName ? stripDoctorPrefix(topic.ownerName) : topic.ownerName,
+    responsibleName: topic.responsibleName ? stripDoctorPrefix(topic.responsibleName) : topic.responsibleName,
+    history: Array.isArray(topic.history)
+        ? topic.history.map(entry => ({
+            ...entry,
+            user: stripDoctorPrefix(entry.user)
+        }))
+        : [],
     displayStep: topic.displayStep || (topic.step === 'ACT' && !topic.act?.completedAt ? 'CHECK' : topic.step),
     plan: {
         ...topic.plan,
@@ -46,21 +70,48 @@ const normalizeTopicData = (topic: Topic): Topic => ({
         actions: Array.isArray(topic.do.actions)
             ? topic.do.actions.map(action => ({
                 ...action,
+                comments: Array.isArray(action.comments)
+                    ? action.comments.map(comment => ({
+                        ...comment,
+                        userName: stripDoctorPrefix(comment.userName)
+                    }))
+                    : [],
                 assignments: Array.isArray(action.assignments)
                     ? action.assignments
                         .filter(assign => !!assign && !!assign.userName)
                         .map(assign => ({
                             ...assign,
                             userId: assign.userId || assign.userName,
-                            userName: assign.userName.trim()
+                            userName: stripDoctorPrefix(assign.userName.trim())
                         }))
+                    : [],
+                externalUsers: Array.isArray(action.externalUsers)
+                    ? action.externalUsers.map(user => ({
+                        ...user,
+                        fullName: stripDoctorPrefix(user.fullName || '')
+                    }))
                     : []
             }))
             : []
     },
     check: {
         ...topic.check,
-        meeting: normalizePhaseMeetingData(topic.check.meeting)
+        meeting: normalizePhaseMeetingData(topic.check.meeting),
+        audit: topic.check.audit
+            ? {
+                ...topic.check.audit,
+                checkedBy: stripDoctorPrefix(topic.check.audit.checkedBy)
+            }
+            : topic.check.audit
+    },
+    act: {
+        ...topic.act,
+        audit: topic.act.audit
+            ? {
+                ...topic.act.audit,
+                closedBy: stripDoctorPrefix(topic.act.audit.closedBy)
+            }
+            : topic.act.audit
     }
 });
 
@@ -131,13 +182,19 @@ export const authService = {
     },
     getAllUsers: (): User[] => {
         authService.init();
-        return JSON.parse(localStorage.getItem(KEYS.USER + '_list') || '[]');
+        const raw = localStorage.getItem(KEYS.USER + '_list') || '[]';
+        const users = (JSON.parse(raw) as User[]).map(normalizeStoredUser);
+        const serialized = JSON.stringify(users);
+        if (serialized !== raw) {
+            localStorage.setItem(KEYS.USER + '_list', serialized);
+        }
+        return users;
     },
     updateUser: (id: string, updates: Partial<User>) => {
         const users = authService.getAllUsers();
         const index = users.findIndex(u => u.id === id);
         if (index !== -1) {
-            users[index] = { ...users[index], ...updates };
+            users[index] = normalizeStoredUser({ ...users[index], ...updates });
             localStorage.setItem(KEYS.USER + '_list', JSON.stringify(users));
 
             // If the updated user is the current user, update their session too
@@ -152,12 +209,12 @@ export const authService = {
     },
     addUser: (user: Omit<User, 'id' | 'avatar' | 'status'>) => {
         const users = authService.getAllUsers();
-        const newUser: User = {
+        const newUser: User = normalizeStoredUser({
             ...user,
             id: `u${Date.now()}`,
             avatar: '👤',
             status: 'Active'
-        };
+        });
         users.push(newUser);
         localStorage.setItem(KEYS.USER + '_list', JSON.stringify(users));
         return newUser;
@@ -166,7 +223,7 @@ export const authService = {
         const users = authService.getAllUsers();
         const user = users.find(u => u.email === email);
         if (user) {
-            localStorage.setItem(KEYS.USER, JSON.stringify(user));
+            localStorage.setItem(KEYS.USER, JSON.stringify(normalizeStoredUser(user)));
             return user;
         }
         return null;
@@ -174,7 +231,15 @@ export const authService = {
     logout: () => localStorage.removeItem(KEYS.USER),
     getCurrentUser: (): User | null => {
         const data = localStorage.getItem(KEYS.USER);
-        return data ? JSON.parse(data) : null;
+        if (!data) return null;
+
+        const user = normalizeStoredUser(JSON.parse(data) as User);
+        const serialized = JSON.stringify(user);
+        if (serialized !== data) {
+            localStorage.setItem(KEYS.USER, serialized);
+        }
+
+        return user;
     }
 };
 
@@ -294,10 +359,10 @@ export const settingsService = {
         try {
             const text = await file.text();
             const data = JSON.parse(text);
-            if (data.topics) localStorage.setItem(KEYS.TOPICS, JSON.stringify(data.topics));
+            if (data.topics) localStorage.setItem(KEYS.TOPICS, JSON.stringify(data.topics.map((topic: Topic) => normalizeTopicData(topic))));
             if (data.todos) localStorage.setItem(KEYS.TODOS, JSON.stringify(data.todos));
             if (data.organization) localStorage.setItem(KEYS.ORGANIZATION, JSON.stringify(data.organization));
-            if (data.users) localStorage.setItem(KEYS.USER + '_list', JSON.stringify(data.users));
+            if (data.users) localStorage.setItem(KEYS.USER + '_list', JSON.stringify(data.users.map((user: User) => normalizeStoredUser(user))));
             window.dispatchEvent(new Event('storage'));
             return true;
         } catch (e) {
@@ -328,7 +393,7 @@ export const topicsService = {
         let topics: Topic[] = rawTopics ? JSON.parse(rawTopics).map((topic: Topic) => normalizeTopicData(topic)) : [];
         let todos: ToDo[] = JSON.parse(localStorage.getItem(KEYS.TODOS) || '[]');
         const sampleTopics = initialData.topics.filter(topic => ['T-001', 'T-910', 'T-911', 'T-912'].includes(topic.id)) as Topic[];
-        let changed = false;
+        let changed = rawTopics ? JSON.stringify(topics) !== rawTopics : false;
 
         sampleTopics.forEach(sampleTopic => {
             const existingIndex = topics.findIndex(existingTopic => existingTopic.id === sampleTopic.id);
@@ -359,7 +424,12 @@ export const topicsService = {
     },
     getAll: (): Topic[] => {
         topicsService.init();
-        const topics: Topic[] = JSON.parse(localStorage.getItem(KEYS.TOPICS) || '[]').map((topic: Topic) => normalizeTopicData(topic));
+        const raw = localStorage.getItem(KEYS.TOPICS) || '[]';
+        const topics: Topic[] = JSON.parse(raw).map((topic: Topic) => normalizeTopicData(topic));
+        const serialized = JSON.stringify(topics);
+        if (serialized !== raw) {
+            localStorage.setItem(KEYS.TOPICS, serialized);
+        }
         const now = new Date();
         const governance = organizationService.getGovernance();
         const thresholdDate = new Date();
@@ -505,14 +575,22 @@ export const todosService = {
 };
 
 export const supportService = {
-    getTickets: (): SupportTicket[] => JSON.parse(localStorage.getItem(KEYS.TICKETS) || '[]'),
+    getTickets: (): SupportTicket[] => {
+        const raw = localStorage.getItem(KEYS.TICKETS) || '[]';
+        const tickets = (JSON.parse(raw) as SupportTicket[]).map(normalizeSupportTicket);
+        const serialized = JSON.stringify(tickets);
+        if (serialized !== raw) {
+            localStorage.setItem(KEYS.TICKETS, serialized);
+        }
+        return tickets;
+    },
     addTicket: (ticket: Omit<SupportTicket, 'id' | 'date'>) => {
         const tickets = supportService.getTickets();
-        const newTicket: SupportTicket = {
+        const newTicket: SupportTicket = normalizeSupportTicket({
             ...ticket,
             id: Date.now().toString(),
             date: new Date().toISOString()
-        };
+        });
         tickets.push(newTicket);
         localStorage.setItem(KEYS.TICKETS, JSON.stringify(tickets));
     }

@@ -5,6 +5,7 @@ import { Topic, Step } from '../types';
 import { adminService } from '../services/adminService';
 import { ChevronRight, ArrowLeft, CheckCircle2, Clock, AlertTriangle, FileText, Activity, BarChart3, MapPin, Shield, MessageSquare, Lock, CalendarDays, User } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getTopicDisplayStep } from '../utils/topicWorkflowUtils';
 
 const TopicWorkspace: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -13,6 +14,7 @@ const TopicWorkspace: React.FC = () => {
     const { t, language } = useLanguage();
     const [topic, setTopic] = useState<Topic | null>(null);
     const [activeTab, setActiveTab] = useState<Step>('PLAN');
+    const hideActPhase = searchParams.get('source') === 'lists';
 
     useEffect(() => {
         if (id) {
@@ -20,24 +22,24 @@ const TopicWorkspace: React.FC = () => {
             if (t) {
                 setTopic(t);
                 const tabParam = (searchParams.get('tab') || '').toUpperCase();
-                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK' || tabParam === 'ACT')
+                const requestedTab = (tabParam === 'PLAN' || tabParam === 'DO' || tabParam === 'CHECK' || (!hideActPhase && tabParam === 'ACT'))
                     ? (tabParam as Step)
-                    : t.step;
+                    : (hideActPhase ? getTopicDisplayStep(t) : t.step);
 
                 const canOpenRequested =
                     (t.step === 'PLAN' && requestedTab === 'PLAN') ||
                     (t.step === 'DO' && (requestedTab === 'PLAN' || requestedTab === 'DO')) ||
                     (t.step === 'CHECK' && requestedTab !== 'ACT') ||
-                    t.step === 'ACT';
+                    (t.step === 'ACT' && (hideActPhase ? requestedTab !== 'ACT' : true));
 
                 if (canOpenRequested) {
                     setActiveTab(requestedTab);
                 } else {
-                    setActiveTab(t.step === 'ACT' ? 'ACT' : t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN');
+                    setActiveTab(hideActPhase ? getTopicDisplayStep(t) : (t.step === 'ACT' ? 'ACT' : t.step === 'DO' ? 'DO' : t.step === 'CHECK' ? 'CHECK' : 'PLAN'));
                 }
             }
         }
-    }, [id, searchParams]);
+    }, [hideActPhase, id, searchParams]);
 
     if (!topic) return <div style={{ padding: '2rem' }}>{t('common.noTopicsFound')}</div>;
 
@@ -48,12 +50,17 @@ const TopicWorkspace: React.FC = () => {
                 ? (language === 'de' ? 'Check-Phase Aktivierung' : 'Check Phase Activation')
                 : (language === 'de' ? 'Durchführen-Phase Aktivierung' : 'DO Phase Activation');
 
-    const currentPhaseLabel = `${topic.step} ${language === 'de' ? 'Phase' : 'Phase'}`;
+    const displayedActivationLabel =
+        hideActPhase && activeTab === 'CHECK'
+            ? (language === 'de' ? 'Check-Phase' : 'Check Phase')
+            : activationLabel;
+    const displayedCurrentPhaseLabel = `${hideActPhase ? getTopicDisplayStep(topic) : topic.step} ${language === 'de' ? 'Phase' : 'Phase'}`;
     const workspaceAccent = '#46c0bc';
 
     const canOpenTab = (target: Step): boolean => {
         if (!topic) return false;
         const current = topic.step;
+        if (hideActPhase && target === 'ACT') return false;
 
         // PLAN topics: only PLAN is accessible until moved in Cockpit.
         if (current === 'PLAN') return target === 'PLAN';
@@ -163,6 +170,17 @@ const TopicWorkspace: React.FC = () => {
         if (outcome === 'Close without Standardization') return t('pdca.closeWithoutStandardization');
         return outcome;
     };
+    const getTranslatedDepartmentName = (name: string) => {
+        if (name === 'Quality & Patient Safety') return t('admin.qualityPatientSafety');
+        if (name === 'Surgery Department') return t('admin.surgeryDepartment');
+        return name;
+    };
+    const getTranslatedDepartmentList = (value: string) =>
+        `${value || ''}`
+            .split(',')
+            .map(item => getTranslatedDepartmentName(item.trim()))
+            .filter(Boolean)
+            .join(', ');
 
     const isAudit = topic.type === 'Audit Finding' || topic.type === 'Audit-Feststellung';
     const planPurposes = (topic.plan.improvementPurpose && topic.plan.improvementPurpose.length > 0)
@@ -181,11 +199,12 @@ const TopicWorkspace: React.FC = () => {
         : undefined;
 
     const planLocation = resolvedLocation?.name || topic.location || topic.locationId || '';
-    const planDepartment =
+    const planDepartment = getTranslatedDepartmentList(
         resolvedDepartment?.name ||
         topic.departmentId ||
         fallbackDepartment?.name ||
-        '';
+        ''
+    );
 
     const renderActionCards = (title?: string) => (
         <div style={{ marginTop: title ? '2rem' : 0 }}>
@@ -365,13 +384,13 @@ const TopicWorkspace: React.FC = () => {
                         {activeTab !== 'ACT' && (
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
                                 <CalendarDays size={14} />
-                                <span style={{ opacity: 0.85 }}>{activationLabel}:</span>
+                                <span style={{ opacity: 0.85 }}>{displayedActivationLabel}:</span>
                                 <span style={{ fontWeight: 700 }}>{new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE')}</span>
                             </div>
                         )}
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.45rem 0.9rem', borderRadius: '10px', background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.24)', fontWeight: 700 }}>
                             <Activity size={14} />
-                            <span>{language === 'de' ? 'Aktiv:' : 'Active:'} {currentPhaseLabel}</span>
+                            <span>{language === 'de' ? 'Aktiv:' : 'Active:'} {displayedCurrentPhaseLabel}</span>
                         </div>
                         {isAudit && topic.location && (
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -391,7 +410,7 @@ const TopicWorkspace: React.FC = () => {
                     <TabButton step="PLAN" label={t('pdca.plan')} icon={FileText} />
                     <TabButton step="DO" label={t('pdca.do')} icon={Activity} />
                     <TabButton step="CHECK" label={t('pdca.check')} icon={BarChart3} />
-                    <TabButton step="ACT" label={t('pdca.act')} icon={CheckCircle2} />
+                    {!hideActPhase && <TabButton step="ACT" label={t('pdca.act')} icon={CheckCircle2} />}
                 </div>
 
                 <div style={{ padding: '2rem' }}>

@@ -211,7 +211,6 @@ const ActivityLog: React.FC = () => {
                             <option value="All Entities">{isGerman ? 'Alle Einheiten' : 'All Entities'}</option>
                             <option value="Topics">{isGerman ? 'Themen' : 'Topics'}</option>
                             <option value="Users">{isGerman ? 'Benutzer' : 'Users'}</option>
-                            <option value="Audits">{isGerman ? 'QM' : 'Audits'}</option>
                             <option value="Findings">{isGerman ? 'Feststellungen' : 'Findings'}</option>
                             <option value="Locations">{isGerman ? 'Standorte' : 'Locations'}</option>
                             <option value="Departments">{isGerman ? 'Betriebe' : 'Departments'}</option>

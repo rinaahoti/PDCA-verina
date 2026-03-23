@@ -2,11 +2,11 @@
 
 export const initialData = {
     users: [
-        { id: 'u1', name: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'ADMIN' as const, avatar: '👩‍⚕️', status: 'Active' as const, organizationId: 'org1' },
-        { id: 'u2', name: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'OWNER' as const, avatar: '👨‍⚕️', status: 'Active' as const, organizationId: 'org1' },
+        { id: 'u1', name: 'Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'ADMIN' as const, avatar: '👩‍⚕️', status: 'Active' as const, organizationId: 'org1' },
+        { id: 'u2', name: 'Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'OWNER' as const, avatar: '👨‍⚕️', status: 'Active' as const, organizationId: 'org1' },
         { id: 'u3', name: 'Sarah Johnson', email: 'sarah.johnson@hospital.ch', role: 'ASSIGNED' as const, avatar: '👩‍⚕️', status: 'Active' as const, organizationId: 'org1' },
         { id: 'u4', name: 'Robert Miller', email: 'robert.miller@hospital.ch', role: 'ASSIGNED' as const, avatar: '👨‍💼', status: 'Active' as const, organizationId: 'org1' },
-        { id: 'u5', name: 'Dr. Julia Chen', email: 'julia.chen@hospital.ch', role: 'ASSIGNED' as const, avatar: '👩‍🔬', status: 'Active' as const, organizationId: 'org1' },
+        { id: 'u5', name: 'Julia Chen', email: 'julia.chen@hospital.ch', role: 'ASSIGNED' as const, avatar: '👩‍🔬', status: 'Active' as const, organizationId: 'org1' },
         { id: 'u6', name: 'James Wilson', email: 'james.wilson@hospital.ch', role: 'ASSIGNED' as const, avatar: '👨‍🔬', status: 'Active' as const, organizationId: 'org1' },
         { id: 'u7', name: 'Linda Thompson', email: 'linda.thompson@hospital.ch', role: 'VIEWER' as const, avatar: '👤', status: 'Active' as const, organizationId: 'org1' },
         { id: 'u8', name: 'Clinical Director', email: 'director@university-hospital.ch', role: 'CLIENT_ADMIN' as const, avatar: '🏢', status: 'Active' as const, organizationId: 'org1' }
@@ -40,24 +40,24 @@ export const initialData = {
                         title: 'Überprüfung der Sterilprotokoll-Dokumentation',
                         description: 'Audit der aktuellen Verfahren zur Einrichtung des sterilen Feldes und Identifizierung von Lücken in der Dokumentation.',
                         assignments: [
-                            { userId: 'u1', userName: 'Dr. Elena Rossi', completed: true, completedAt: '2026-03-12T09:10:00.000Z' },
-                            { userId: 'u2', userName: 'Dr. Marcus Weber', completed: true, completedAt: '2026-03-12T09:35:00.000Z' },
+                            { userId: 'u1', userName: 'Elena Rossi', completed: true, completedAt: '2026-03-12T09:10:00.000Z' },
+                            { userId: 'u2', userName: 'Marcus Weber', completed: true, completedAt: '2026-03-12T09:35:00.000Z' },
                             { userId: 'u3', userName: 'Sarah Johnson', completed: false, completedAt: undefined },
                             { userId: 'u4', userName: 'Robert Miller', completed: true, completedAt: '2026-03-12T10:05:00.000Z' },
-                            { userId: 'u5', userName: 'Dr. Julia Chen', completed: false, completedAt: undefined }
+                            { userId: 'u5', userName: 'Julia Chen', completed: false, completedAt: undefined }
                         ],
                         comments: [
                             {
                                 id: 'c-demo-001-1',
                                 userId: 'u1',
-                                userName: 'Dr. Elena Rossi',
+                                userName: 'Elena Rossi',
                                 text: 'Sterilprotokoll der Frühschicht vollständig geprüft; keine kritischen Abweichungen dokumentiert.',
                                 createdAt: '2026-03-12T09:10:00.000Z'
                             },
                             {
                                 id: 'c-demo-001-2',
                                 userId: 'u2',
-                                userName: 'Dr. Marcus Weber',
+                                userName: 'Marcus Weber',
                                 text: 'Die Checkliste für die sterile Vorbereitung sollte im Template stärker hervorgehoben werden.',
                                 createdAt: '2026-03-12T09:35:00.000Z'
                             },
@@ -78,7 +78,7 @@ export const initialData = {
                             {
                                 id: 'c-demo-001-5',
                                 userId: 'u5',
-                                userName: 'Dr. Julia Chen',
+                                userName: 'Julia Chen',
                                 text: 'Ich schlage vor, die Freigabe des sterilen Feldes zusätzlich mit Zeitstempel zu erfassen.',
                                 createdAt: '2026-03-12T10:20:00.000Z'
                             }
@@ -187,14 +187,14 @@ export const initialData = {
                             {
                                 id: 'c-demo-910-1',
                                 userId: 'u1',
-                                userName: 'Dr. Elena Rossi',
+                                userName: 'Elena Rossi',
                                 text: 'Pilot auf zwei Stationen durchgeführt; Rückmeldungen der Teams sind dokumentiert.',
                                 createdAt: '2026-03-12T10:30:00.000Z'
                             },
                             {
                                 id: 'c-demo-910-2',
                                 userId: 'u2',
-                                userName: 'Dr. Marcus Weber',
+                                userName: 'Marcus Weber',
                                 text: 'Bitte Rückmeldung aus Station B noch in die finale Version übernehmen.',
                                 createdAt: '2026-03-12T12:00:00.000Z'
                             },
@@ -215,17 +215,17 @@ export const initialData = {
                             {
                                 id: 'c-demo-910-5',
                                 userId: 'u5',
-                                userName: 'Dr. Julia Chen',
+                                userName: 'Julia Chen',
                                 text: 'Die medizinischen Pflichtfelder sind aus meiner Sicht vollständig abgedeckt.',
                                 createdAt: '2026-03-12T13:05:00.000Z'
                             }
                         ],
                         assignments: [
-                            { userId: 'u1', userName: 'Dr. Elena Rossi', completed: true, completedAt: '2026-03-12T10:30:00.000Z' },
-                            { userId: 'u2', userName: 'Dr. Marcus Weber', completed: true, completedAt: '2026-03-12T12:00:00.000Z' },
+                            { userId: 'u1', userName: 'Elena Rossi', completed: true, completedAt: '2026-03-12T10:30:00.000Z' },
+                            { userId: 'u2', userName: 'Marcus Weber', completed: true, completedAt: '2026-03-12T12:00:00.000Z' },
                             { userId: 'u3', userName: 'Sarah Johnson', completed: false, completedAt: undefined },
                             { userId: 'u4', userName: 'Robert Miller', completed: true, completedAt: '2026-03-12T12:40:00.000Z' },
-                            { userId: 'u5', userName: 'Dr. Julia Chen', completed: false, completedAt: undefined }
+                            { userId: 'u5', userName: 'Julia Chen', completed: false, completedAt: undefined }
                         ],
                         dueDate: '2026-04-10',
                         teamsMeeting: '2026-04-08T14:00'
@@ -266,14 +266,14 @@ export const initialData = {
                             {
                                 id: 'c-demo-911-1',
                                 userId: 'u1',
-                                userName: 'Dr. Elena Rossi',
+                                userName: 'Elena Rossi',
                                 text: 'Eskalationsmatrix wurde eine Woche getestet; Nachtschicht meldete bessere Transparenz.',
                                 createdAt: '2026-03-11T08:15:00.000Z'
                             },
                             {
                                 id: 'c-demo-911-2',
                                 userId: 'u2',
-                                userName: 'Dr. Marcus Weber',
+                                userName: 'Marcus Weber',
                                 text: 'Die Rolle der Laborleitung in Stufe 3 sollte im Ablaufdiagramm klarer formuliert werden.',
                                 createdAt: '2026-03-11T08:40:00.000Z'
                             },
@@ -294,17 +294,17 @@ export const initialData = {
                             {
                                 id: 'c-demo-911-5',
                                 userId: 'u5',
-                                userName: 'Dr. Julia Chen',
+                                userName: 'Julia Chen',
                                 text: 'Aus ärztlicher Sicht ist die neue Eskalationskette nachvollziehbar und ausreichend schnell.',
                                 createdAt: '2026-03-11T09:35:00.000Z'
                             }
                         ],
                         assignments: [
-                            { userId: 'u1', userName: 'Dr. Elena Rossi', completed: true, completedAt: '2026-03-11T08:15:00.000Z' },
-                            { userId: 'u2', userName: 'Dr. Marcus Weber', completed: true, completedAt: '2026-03-11T08:40:00.000Z' },
+                            { userId: 'u1', userName: 'Elena Rossi', completed: true, completedAt: '2026-03-11T08:15:00.000Z' },
+                            { userId: 'u2', userName: 'Marcus Weber', completed: true, completedAt: '2026-03-11T08:40:00.000Z' },
                             { userId: 'u3', userName: 'Sarah Johnson', completed: false, completedAt: undefined },
                             { userId: 'u4', userName: 'Robert Miller', completed: true, completedAt: '2026-03-11T09:20:00.000Z' },
-                            { userId: 'u5', userName: 'Dr. Julia Chen', completed: true, completedAt: '2026-03-11T09:35:00.000Z' }
+                            { userId: 'u5', userName: 'Julia Chen', completed: true, completedAt: '2026-03-11T09:35:00.000Z' }
                         ],
                         dueDate: '2026-04-12',
                         teamsMeeting: '2026-04-11T09:00'
@@ -345,21 +345,21 @@ export const initialData = {
                             {
                                 id: 'c-demo-912-1',
                                 userId: 'u1',
-                                userName: 'Dr. Elena Rossi',
+                                userName: 'Elena Rossi',
                                 text: 'Feedback aus drei OP-Teams konsolidiert; Standardisierungsfreigabe vorbereitet.',
                                 createdAt: '2026-03-10T15:45:00.000Z'
                             },
                             {
                                 id: 'c-demo-912-2',
                                 userId: 'u5',
-                                userName: 'Dr. Julia Chen',
+                                userName: 'Julia Chen',
                                 text: 'Die finale Freigabe aus dem OP-Bereich kann aus meiner Sicht erteilt werden.',
                                 createdAt: '2026-03-10T16:20:00.000Z'
                             },
                             {
                                 id: 'c-demo-912-3',
                                 userId: 'u2',
-                                userName: 'Dr. Marcus Weber',
+                                userName: 'Marcus Weber',
                                 text: 'Für den Rollout sollten wir die Einführung auf zwei zusätzliche Säle vorziehen.',
                                 createdAt: '2026-03-10T16:35:00.000Z'
                             },
@@ -379,11 +379,11 @@ export const initialData = {
                             }
                         ],
                         assignments: [
-                            { userId: 'u1', userName: 'Dr. Elena Rossi', completed: true, completedAt: '2026-03-10T15:45:00.000Z' },
-                            { userId: 'u2', userName: 'Dr. Marcus Weber', completed: true, completedAt: '2026-03-10T16:35:00.000Z' },
+                            { userId: 'u1', userName: 'Elena Rossi', completed: true, completedAt: '2026-03-10T15:45:00.000Z' },
+                            { userId: 'u2', userName: 'Marcus Weber', completed: true, completedAt: '2026-03-10T16:35:00.000Z' },
                             { userId: 'u3', userName: 'Sarah Johnson', completed: false, completedAt: undefined },
                             { userId: 'u4', userName: 'Robert Miller', completed: true, completedAt: '2026-03-10T17:10:00.000Z' },
-                            { userId: 'u5', userName: 'Dr. Julia Chen', completed: true, completedAt: '2026-03-10T16:20:00.000Z' }
+                            { userId: 'u5', userName: 'Julia Chen', completed: true, completedAt: '2026-03-10T16:20:00.000Z' }
                         ],
                         dueDate: '2026-04-19',
                         teamsMeeting: '2026-04-18T13:30'

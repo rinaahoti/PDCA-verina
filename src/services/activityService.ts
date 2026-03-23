@@ -1,29 +1,43 @@
 import { ActivityEntry, ActivityType } from '../types/activity';
 import { authService } from './index';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 
 const STORAGE_KEY = 'mso_activity_log';
 
+const normalizeActivityEntry = (entry: ActivityEntry): ActivityEntry => ({
+    ...entry,
+    entityName: stripDoctorPrefix(entry.entityName),
+    performedBy: stripDoctorPrefix(entry.performedBy)
+});
+
 export const activityService = {
     getActivities: (): ActivityEntry[] => {
-        const data = localStorage.getItem(STORAGE_KEY);
-        if (!data) {
-            const seed = activityService.seedDemo();
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            const seed = activityService.seedDemo().map(normalizeActivityEntry);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
             return seed;
         }
-        return JSON.parse(data);
+
+        const activities = (JSON.parse(raw) as ActivityEntry[]).map(normalizeActivityEntry);
+        const serialized = JSON.stringify(activities);
+        if (serialized !== raw) {
+            localStorage.setItem(STORAGE_KEY, serialized);
+        }
+
+        return activities;
     },
 
     log: (entry: Omit<ActivityEntry, 'id' | 'timestamp' | 'performedBy'>) => {
         const activities = activityService.getActivities();
         const currentUser = authService.getCurrentUser();
 
-        const newEntry: ActivityEntry = {
+        const newEntry = normalizeActivityEntry({
             ...entry,
             id: `ACT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
             timestamp: new Date().toISOString(),
             performedBy: currentUser?.name || 'System'
-        };
+        });
 
         activities.unshift(newEntry); // Latest first
         localStorage.setItem(STORAGE_KEY, JSON.stringify(activities.slice(0, 100))); // Keep last 100
@@ -41,9 +55,9 @@ export const activityService = {
                 type: 'USER_ADDED',
                 message: 'New clinical staff registered',
                 entityType: 'User',
-                entityName: 'Dr. Julia Chen',
+                entityName: 'Julia Chen',
                 entityId: 'U-102',
-                performedBy: 'Dr. Elena Rossi',
+                performedBy: 'Elena Rossi',
                 timestamp: new Date(now.getTime() - hour * 2).toISOString(),
                 location: 'Zurich',
                 department: 'Infectious Diseases'
@@ -67,7 +81,7 @@ export const activityService = {
                 entityType: 'Topic',
                 entityName: 'Reduction of Post-operative Infection Rates',
                 entityId: 'T-001',
-                performedBy: 'Dr. Marcus Weber',
+                performedBy: 'Marcus Weber',
                 timestamp: new Date(now.getTime() - day).toISOString(),
                 location: 'Basel',
                 department: 'Surgery Department'
@@ -79,7 +93,7 @@ export const activityService = {
                 entityType: 'Department',
                 entityName: 'Clinical Compliance',
                 entityId: 'DEP-COMP',
-                performedBy: 'Dr. Elena Rossi',
+                performedBy: 'Elena Rossi',
                 timestamp: new Date(now.getTime() - day * 1.5).toISOString(),
                 location: 'Lausanne',
                 department: 'Compliance & Ethics'
@@ -91,7 +105,7 @@ export const activityService = {
                 entityType: 'Location',
                 entityName: 'CHUV Lausanne',
                 entityId: 'LOC-VD',
-                performedBy: 'Dr. Elena Rossi',
+                performedBy: 'Elena Rossi',
                 timestamp: new Date(now.getTime() - day * 2).toISOString(),
                 location: 'Lausanne',
                 department: 'Quality & Patient Safety'
@@ -115,7 +129,7 @@ export const activityService = {
                 entityType: 'Topic',
                 entityName: 'Medication Administration Error Reduction',
                 entityId: 'T-002',
-                performedBy: 'Dr. Elena Rossi',
+                performedBy: 'Elena Rossi',
                 timestamp: new Date(now.getTime() - day * 3).toISOString(),
                 location: 'Bern',
                 department: 'Quality & Patient Safety'
@@ -151,7 +165,7 @@ export const activityService = {
                 entityType: 'Topic',
                 entityName: 'Patient Fall Prevention Protocol Compliance',
                 entityId: 'T-003',
-                performedBy: 'Dr. Marcus Weber',
+                performedBy: 'Marcus Weber',
                 timestamp: new Date(now.getTime() - hour * 4).toISOString(),
                 location: 'Basel',
                 department: 'Nursing'

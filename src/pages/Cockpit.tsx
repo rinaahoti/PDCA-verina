@@ -107,6 +107,7 @@ const Cockpit: React.FC = () => {
     const feedbackPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [feedbackPopupTitleKey, setFeedbackPopupTitleKey] = useState<'pdca.externalUsersConfirmedTitle' | 'pdca.meetingInvitesSentTitle' | null>(null);
     const seededTopicIds = useMemo(() => new Set(initialData.topics.map(topic => topic.id)), []);
+    const myTopicsStepOptions = (language === 'de' ? ['PLAN', 'DO', 'CHECK'] : ['PLAN', 'DO', 'CHECK', 'ACT']) as Step[];
 
     const locationRecords = useMemo(
         () =>
@@ -122,6 +123,21 @@ const Cockpit: React.FC = () => {
         () => Array.from(new Set(locationRecords.map(loc => loc.label))).sort((a, b) => a.localeCompare(b)),
         [locationRecords]
     );
+    const getTranslatedDepartmentName = (name: string) => {
+        if (name === 'Quality & Patient Safety') return t('admin.qualityPatientSafety');
+        if (name === 'Surgery Department') return t('admin.surgeryDepartment');
+        return name;
+    };
+    const normalizeStoredDepartmentName = (value: string) => {
+        const trimmed = `${value || ''}`.trim();
+        if (!trimmed) return '';
+
+        const matchedDepartment = adminDepartments.find(dep =>
+            dep.name === trimmed || getTranslatedDepartmentName(dep.name) === trimmed
+        );
+
+        return matchedDepartment?.name || trimmed;
+    };
     const DEPARTMENT_OPTIONS = useMemo(() => {
         const selectedLocationIds = locationRecords
             .filter(loc => selectedLocations.includes(loc.label))
@@ -226,16 +242,16 @@ const Cockpit: React.FC = () => {
     const [checkMeeting, setCheckMeeting] = useState<MeetingState>(createDefaultMeetingState);
 
     const PERSONS = [
-        'Dr. Elena Rossi',
-        'Dr. Marcus Weber',
+        'Elena Rossi',
+        'Marcus Weber',
         'Sarah Johnson',
         'Robert Miller',
-        'Dr. Julia Chen',
+        'Julia Chen',
         'James Wilson',
         'Anna Müller',
         'Thomas Becker',
         'Laura Schmidt',
-        'Dr. Stefan Vogel',
+        'Stefan Vogel',
         'Maria Hoffmann',
         'Florian Braun',
         'Katrin Neumann'
@@ -243,16 +259,16 @@ const Cockpit: React.FC = () => {
 
     // UI-only: department labels for the CHECK picker dropdown (Photo 3)
     const PERSON_DEPT: Record<string, string> = {
-        'Dr. Elena Rossi': 'Medical',
-        'Dr. Marcus Weber': 'Medical',
+        'Elena Rossi': 'Medical',
+        'Marcus Weber': 'Medical',
         'Sarah Johnson': 'HR & Staff',
         'Robert Miller': 'HR & Staff',
-        'Dr. Julia Chen': 'Medical',
+        'Julia Chen': 'Medical',
         'James Wilson': 'IT',
         'Anna Müller': 'HR & Staff',
         'Thomas Becker': 'IT',
         'Laura Schmidt': 'Finance',
-        'Dr. Stefan Vogel': 'Medical',
+        'Stefan Vogel': 'Medical',
         'Maria Hoffmann': 'Communications',
         'Florian Braun': 'IT',
         'Katrin Neumann': 'HR & Staff'
@@ -417,8 +433,8 @@ const Cockpit: React.FC = () => {
 
     const renderExternalUsersPanel = (phase: 'plan' | 'check', meeting: MeetingState) => (
         <div style={{ marginBottom: '1.25rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ marginBottom: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.35rem' }}>
                     <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', color: '#2f7a6b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Mail size={16} />
                     </div>
@@ -484,7 +500,7 @@ const Cockpit: React.FC = () => {
                             type="email"
                             value={externalUser.email}
                             onChange={e => updateExternalUserField(phase, externalUser.id, 'email', e.target.value)}
-                            placeholder="email@example.com"
+                            placeholder={language === 'de' ? 'email@beispiel.de' : 'email@example.com'}
                             style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #d7ebe5', background: '#fff', fontSize: '13px', color: '#334155', outline: 'none' }}
                         />
                     </div>
@@ -495,7 +511,7 @@ const Cockpit: React.FC = () => {
                             type="text"
                             value={externalUser.note || ''}
                             onChange={e => updateExternalUserField(phase, externalUser.id, 'note', e.target.value)}
-                            placeholder="Note..."
+                            placeholder={language === 'de' ? 'Notiz...' : 'Note...'}
                             style={{ width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #d7ebe5', background: '#fff', fontSize: '13px', color: '#334155', outline: 'none' }}
                         />
                     </div>
@@ -645,7 +661,7 @@ const Cockpit: React.FC = () => {
             );
             setSelectedDepartments(
                 selectedTopic.departmentId
-                    ? selectedTopic.departmentId.split(',').map(v => v.trim()).filter(Boolean)
+                    ? selectedTopic.departmentId.split(',').map(v => normalizeStoredDepartmentName(v)).filter(Boolean)
                     : []
             );
             setFormState({
@@ -718,6 +734,30 @@ const Cockpit: React.FC = () => {
         };
         return kpiMap[kpi] || kpi;
     };
+
+    const getGermanMyTopicsStepLabel = (step: Step) => {
+        const visibleStep = step === 'ACT' ? 'CHECK' : step;
+        if (visibleStep === 'PLAN') return 'Plan';
+        if (visibleStep === 'DO') return 'Do';
+        return 'Check';
+    };
+
+    const getMyTopicsFilterStepLabel = (step: Step) =>
+        language === 'de'
+            ? getGermanMyTopicsStepLabel(step)
+            : t(`phases.${step.toLowerCase()}`);
+
+    const getMyTopicsRowStepLabel = (step: Step) =>
+        language === 'de'
+            ? getGermanMyTopicsStepLabel(step)
+            : t(`pdca.${step.toLowerCase()}`);
+
+    const backToCockpitLabel = language === 'de' ? 'Zur\u00fcck zum Cockpit' : 'Back to Cockpit';
+    const allTopicsTitle = language === 'de' ? 'Alle Themen' : 'All Topics';
+    const allTopicsSubtitle = language === 'de'
+        ? 'Alle Initiativen, f\u00fcr die Sie verantwortlich sind'
+        : 'All initiatives you are responsible for';
+    const viewAllLabel = language === 'de' ? 'Alle anzeigen' : 'View all';
 
     const openTopicDetail = (topic: Topic) => {
         const latestTopic = topicsService.getById(topic.id) || topic;
@@ -873,6 +913,17 @@ const Cockpit: React.FC = () => {
     const toggleStatus = (status: string) => {
         setStatusFilter(prev => prev.includes(status) ? [] : [status]);
     };
+
+    useEffect(() => {
+        if (language !== 'de') return;
+        setStepFilter(prev => prev.filter(step => step !== 'ACT'));
+    }, [language]);
+
+    useEffect(() => {
+        if (allTopicsStepFilter === 'ACT') {
+            setAllTopicsStepFilter('All');
+        }
+    }, [allTopicsStepFilter]);
 
     const toggleStep = (step: Step) => {
         setStepFilter(prev => prev.includes(step) ? [] : [step]);
@@ -2029,7 +2080,7 @@ const Cockpit: React.FC = () => {
                                                     }}
                                                 >
                                                     <Building2 size={15} />
-                                                    Locations
+                                                    {language === 'de' ? 'Standort' : 'Locations'}
                                                 </button>
                                                 <button
                                                     type="button"
@@ -2053,7 +2104,7 @@ const Cockpit: React.FC = () => {
                                                     }}
                                                 >
                                                     <Users size={15} />
-                                                    Departments
+                                                    {language === 'de' ? 'Betriebe' : 'Departments'}
                                                 </button>
                                             </div>
 
@@ -2152,7 +2203,7 @@ const Cockpit: React.FC = () => {
                                                                     fontSize: '14px',
                                                                     color: isSelected ? '#1a202c' : '#475569',
                                                                     fontWeight: isSelected ? 600 : 400
-                                                                }}>{dept}</span>
+                                                                }}>{getTranslatedDepartmentName(dept)}</span>
                                                             </label>
                                                         );
                                                     })}
@@ -2252,7 +2303,7 @@ const Cockpit: React.FC = () => {
                                                                         lineHeight: '1.3'
                                                                     }}
                                                                 >
-                                                                    {dept}
+                                                                    {getTranslatedDepartmentName(dept)}
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
@@ -3320,7 +3371,7 @@ const Cockpit: React.FC = () => {
                                                         }}
                                                     >
                                                         <Building2 size={15} />
-                                                        Locations
+                                                        {language === 'de' ? 'Standort' : 'Locations'}
                                                     </button>
                                                     <button
                                                         onClick={() => setLocationDeptTab('departments')}
@@ -3343,7 +3394,7 @@ const Cockpit: React.FC = () => {
                                                         }}
                                                     >
                                                         <Users size={15} />
-                                                        Departments
+                                                        {language === 'de' ? 'Betriebe' : 'Departments'}
                                                     </button>
                                                 </div>
 
@@ -3444,7 +3495,7 @@ const Cockpit: React.FC = () => {
                                                                         fontSize: '14px',
                                                                         color: isSelected ? '#1a202c' : '#475569',
                                                                         fontWeight: isSelected ? 600 : 400
-                                                                    }}>{dept}</span>
+                                                                    }}>{getTranslatedDepartmentName(dept)}</span>
                                                                 </label>
                                                             );
                                                         })}
@@ -3547,7 +3598,7 @@ const Cockpit: React.FC = () => {
                                                                         lineHeight: '1.3'
                                                                     }}
                                                                 >
-                                                                    {dept}
+                                                                    {getTranslatedDepartmentName(dept)}
                                                                     <button
                                                                         onClick={() => setSelectedDepartments(prev => prev.filter(d => d !== dept))}
                                                                         style={{
@@ -3939,7 +3990,7 @@ const Cockpit: React.FC = () => {
                                                                                     type="email"
                                                                                     value={externalUser.email}
                                                                                     onChange={e => updateDoExternalUserField(idx, externalUser.id, 'email', e.target.value)}
-                                                                                    placeholder="email@example.com"
+                                                                                    placeholder={language === 'de' ? 'email@beispiel.de' : 'email@example.com'}
                                                                                     style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px' }}
                                                                                 />
                                                                             </div>
@@ -3950,7 +4001,7 @@ const Cockpit: React.FC = () => {
                                                                                     type="text"
                                                                                     value={externalUser.note || ''}
                                                                                     onChange={e => updateDoExternalUserField(idx, externalUser.id, 'note', e.target.value)}
-                                                                                    placeholder="Note..."
+                                                                                    placeholder={language === 'de' ? 'Notiz...' : 'Note...'}
                                                                                     style={{ width: '100%', boxSizing: 'border-box', fontSize: '12px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px' }}
                                                                                 />
                                                                             </div>
@@ -4398,12 +4449,14 @@ const Cockpit: React.FC = () => {
                                 </div>
 
                                 <h2 style={{ margin: '0 0 1rem 0', color: '#1e293b', fontSize: '1.5rem', fontWeight: 700 }}>
-                                    Export PDCA Process to PDF?
+                                    {language === 'de' ? 'PDCA-Prozess als PDF exportieren?' : 'Export PDCA Process to PDF?'}
                                 </h2>
 
                                 <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
                                     {pdfModalContext === 'standardize'
-                                        ? 'The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?'
+                                        ? (language === 'de'
+                                            ? 'Die Verbesserung wurde erfolgreich standardisiert und dokumentiert. Möchten Sie ein vollständiges PDF-Dokument mit allen Prozessdetails erstellen?'
+                                            : 'The improvement has been successfully standardized and documented. Would you like to generate a complete PDF document with all process details?')
                                         : pdfModalContext === 'rerun'
                                             ? 'The topic has been marked for Improve & Re-run. Would you like to generate a complete PDF document with all process details before sending it to Templates & Standards?'
                                             : 'The topic is ready to be closed without standardization. Would you like to generate a complete PDF document with all process details?'}
@@ -4414,7 +4467,7 @@ const Cockpit: React.FC = () => {
                                         onClick={handlePdfModalDismiss}
                                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#f1f5f9', color: '#475569', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
                                     >
-                                        Not Now
+                                        {language === 'de' ? 'Jetzt nicht' : 'Not Now'}
                                     </button>
                                       <button
                                           onClick={() => {
@@ -4426,7 +4479,7 @@ const Cockpit: React.FC = () => {
                                           }}
                                         style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
                                     >
-                                        Yes, Generate PDF
+                                        {language === 'de' ? 'Ja, PDF erstellen' : 'Yes, Generate PDF'}
                                     </button>
                                 </div>
                             </div>
@@ -4445,7 +4498,7 @@ const Cockpit: React.FC = () => {
                     onClick={() => setSearchParams({})}
                     style={{ border: 'none', background: 'transparent', padding: 0, marginBottom: '1rem', color: '#7b8ca5', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                 >
-                    <ArrowLeft size={14} /> Back to Cockpit
+                    <ArrowLeft size={14} /> {backToCockpitLabel}
                 </button>
 
                 <div style={{ marginBottom: '1.5rem' }}>
@@ -4585,13 +4638,13 @@ const Cockpit: React.FC = () => {
                     onClick={() => setSearchParams({})}
                     style={{ border: 'none', background: 'transparent', padding: 0, marginBottom: '1rem', color: '#7b8ca5', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
                 >
-                    <ArrowLeft size={14} /> Back to Cockpit
+                    <ArrowLeft size={14} /> {backToCockpitLabel}
                 </button>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                    <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>All Topics</h1>
+                    <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>{allTopicsTitle}</h1>
                     <div style={{ marginTop: '0.4rem', fontSize: '13px', color: '#7b8ca5' }}>
-                        All initiatives you are responsible for
+                        {allTopicsSubtitle}
                     </div>
                 </div>
 
@@ -4625,7 +4678,6 @@ const Cockpit: React.FC = () => {
                             <option value="PLAN">PLAN</option>
                             <option value="DO">DO</option>
                             <option value="CHECK">CHECK</option>
-                            <option value="ACT">ACT</option>
                         </select>
                     </div>
 
@@ -4682,7 +4734,7 @@ const Cockpit: React.FC = () => {
             <div style={{ marginBottom: '1.5rem' }}>
                 <h1 style={{ margin: 0, fontSize: '24px', lineHeight: 1.1, color: '#0f172a' }}>Cockpit</h1>
                 <div style={{ marginTop: '0.4rem', fontSize: '13px', color: '#64748b' }}>
-                    Your personal overview - actions, themes, and responsibilities
+                    {language === 'de' ? 'Ihre pers\u00f6nliche \u00dcbersicht' : 'Your personal overview - actions, themes, and responsibilities'}
                 </div>
             </div>
             {/* My Actions Section (New Worker View) */}
@@ -4692,7 +4744,7 @@ const Cockpit: React.FC = () => {
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myActions')}</h3>
                     </div>
                     <button onClick={() => setSearchParams({ mode: 'all-actions' })} style={{ border: 'none', background: 'transparent', color: '#0f172a', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
-                        View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
+                        {viewAllLabel} <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
                     </button>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -4791,7 +4843,7 @@ const Cockpit: React.FC = () => {
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>{t('pdca.myTopics')}</h3>
                     </div>
                     <button onClick={() => setSearchParams({ mode: 'all-topics' })} style={{ border: 'none', background: 'transparent', color: '#0f766e', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>
-                        View all <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
+                        {viewAllLabel} <ChevronRight size={18} style={{ verticalAlign: 'middle' }} />
                     </button>
                 </div>
 
@@ -4828,7 +4880,7 @@ const Cockpit: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontWeight: 600, color: '#64748b', fontSize: '12px' }}>{t('filters.step')}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            {(['PLAN', 'DO', 'CHECK', 'ACT'] as Step[]).map(s => (
+                            {myTopicsStepOptions.map(s => (
                                 <button
                                     key={s}
                                     onClick={() => toggleStep(s)}
@@ -4840,11 +4892,11 @@ const Cockpit: React.FC = () => {
                                         background: stepFilter.includes(s) ? '#ecfeff' : '#fff',
                                         color: stepFilter.includes(s) ? '#0f766e' : '#475569',
                                         fontSize: '11px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {t('phases.' + s.toLowerCase())}
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                    {getMyTopicsFilterStepLabel(s)}
                                 </button>
                             ))}
                         </div>
@@ -4894,7 +4946,7 @@ const Cockpit: React.FC = () => {
                                             <div style={{ fontWeight: 400, color: '#0f172a', fontSize: '12px' }}>{getTranslatedTopicTitle(topic.title)}</div>
                                         </td>
                                         <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px' }}>
-                                            {t(`pdca.${getTopicDisplayStep(topic).toLowerCase()}`)}
+                                            {getMyTopicsRowStepLabel(getTopicDisplayStep(topic))}
                                         </td>
                                         <td style={{ padding: '0.75rem 0.9rem', fontSize: '12px' }}>
                                             {topic.dueDate ? new Date(topic.dueDate).toLocaleDateString(language === 'en' ? 'en-US' : 'de-DE') : '-'}

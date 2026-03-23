@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { Department, Location } from '../../../types/admin';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 interface DepartmentModalProps {
     isOpen: boolean;
@@ -32,6 +33,8 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     onClose,
     onSave
 }) => {
+    const { t } = useLanguage();
+
     if (!isOpen) return null;
     const isLocationFixed = isLocationLocked && !editingDepartmentId;
     const selectedLocation = locations.find(loc => loc.id === editingDep.locationId);
@@ -68,15 +71,15 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 }}
             >
                 <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>
-                    {editingDepartmentId ? 'Edit Department' : 'Add Department'}
+                    {editingDepartmentId ? t('admin.editDepartment') : t('admin.addDepartment')}
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>
-                    {editingDepartmentId ? 'Update department details' : 'Assign a new department to a location'}
+                    {editingDepartmentId ? t('admin.updateDepartmentDetails') : t('admin.assignDepartmentToLocation')}
                 </div>
 
                 <div style={{ marginBottom: '14px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                        Location
+                        {t('common.location')}
                     </label>
                     {isLocationFixed ? (
                         <input
@@ -110,7 +113,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                                 background: '#f2f9f8'
                             }}
                         >
-                            <option value="">Select location</option>
+                            <option value="">{t('admin.selectLocation')}</option>
                             {locations.map(loc => (
                                 <option key={loc.id} value={loc.id}>
                                     {loc.code ? `${loc.code} - ` : ''}{getTranslatedLocationName(loc.name)}
@@ -122,12 +125,12 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
                 <div style={{ marginBottom: '14px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                        Department Name
+                        {t('admin.departmentName')}
                     </label>
                     <input
                         value={editingDep.name || ''}
                         onChange={e => onChangeDep({ ...editingDep, name: e.target.value })}
-                        placeholder="e.g. Cardiology"
+                        placeholder={t('admin.departmentPlaceholder')}
                         style={{
                             fontFamily: 'DM Sans, sans-serif',
                             fontSize: '14px',
@@ -144,7 +147,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
                 <div style={{ marginBottom: '14px' }}>
                     <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b8583', marginBottom: '6px', display: 'block' }}>
-                        Adresse
+                        {t('common.code')}
                     </label>
                     <input
                         value={depFormCode}
@@ -189,7 +192,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                             cursor: 'pointer'
                         }}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
                         onClick={onSave}
@@ -205,7 +208,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                             cursor: 'pointer'
                         }}
                     >
-                        Save Department
+                        {t('admin.saveDepartment')}
                     </button>
                 </div>
             </div>

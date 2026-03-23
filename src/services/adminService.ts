@@ -1,5 +1,6 @@
 ﻿import { AdminData, AppUser, Department, Location } from '../types/admin';
 import { activityService } from './activityService';
+import { stripDoctorPrefix } from '../utils/nameUtils';
 
 const STORAGE_KEY = 'mso_v7_admin_data';
 const LEGACY_KEYS = {
@@ -10,6 +11,11 @@ const LEGACY_KEYS = {
 
 const REMOVED_LOCATION_IDS = new Set<string>();
 const REMOVED_LOCATION_NAME_KEYS: string[] = ['location tbd'];
+const ZURICH_LOCATION_ID = 'LOC-001';
+const BERN_LOCATION_ID = 'LOC-002';
+const ZURICH_RESTELBERG_ADDRESS = 'Restelbergstrasse 108, 8044 Zurich';
+const BERN_FISCHERMATTELI_ADDRESS = 'Könizstrasse 74 008 Bern';
+const BERN_VIKTORIA_ADDRESS = 'Schänzlistrasse 63 3013';
 
 const DEFAULT_ADMIN_DATA: AdminData = {
     locations: [
@@ -18,13 +24,13 @@ const DEFAULT_ADMIN_DATA: AdminData = {
     ],
     departments: [
         { id: 'DEP-001', name: 'Quality & Patient Safety', locationId: 'LOC-001', address: 'Mullackerstrasse 2/4, 8152 Glattbrugg' },
-        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-001', address: 'Konizstrasse 74, 3008 Bern' },
-        { id: 'DEP-BERN-001', name: 'Tertianum Fischermatteli', locationId: 'LOC-002', address: 'Bern' },
-        { id: 'DEP-BERN-002', name: 'Tertianum Viktoria', locationId: 'LOC-002', address: 'Bern' }
+        { id: 'DEP-002', name: 'Surgery Department', locationId: 'LOC-001', address: ZURICH_RESTELBERG_ADDRESS },
+        { id: 'DEP-BERN-001', name: 'Tertianum Fischermatteli', locationId: 'LOC-002', address: BERN_FISCHERMATTELI_ADDRESS },
+        { id: 'DEP-BERN-002', name: 'Tertianum Viktoria', locationId: 'LOC-002', address: BERN_VIKTORIA_ADDRESS }
     ],
     users: [
-        { id: 'USR-001', name: 'Dr. Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
-        { id: 'USR-002', name: 'Dr. Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' }
+        { id: 'USR-001', name: 'Elena Rossi', email: 'elena.rossi@hospital.ch', role: 'Owner', locationId: 'LOC-001', departmentId: 'DEP-001' },
+        { id: 'USR-002', name: 'Marcus Weber', email: 'marcus.weber@hospital.ch', role: 'Assigned', locationId: 'LOC-001', departmentId: 'DEP-002' }
     ]
 };
 
@@ -57,8 +63,8 @@ const deriveLocationCode = (name: unknown): string => {
 
 const createUserName = (raw: any): string => {
     const name = trimValue(raw?.name);
-    if (name) return name;
-    return trimValue(raw?.fullName);
+    if (name) return stripDoctorPrefix(name);
+    return stripDoctorPrefix(trimValue(raw?.fullName));
 };
 
 const isRemovedLocationName = (name: string): boolean => {
@@ -100,12 +106,37 @@ const normalize = (raw: Partial<AdminData> | null | undefined): AdminData => {
 
     const departments = Array.isArray(raw?.departments)
         ? raw.departments
-            .map((dep: any) => ({
-                id: trimValue(dep?.id),
-                name: trimValue(dep?.name),
-                locationId: trimValue(dep?.locationId),
-                address: trimValue(dep?.address)
-            }))
+            .map((dep: any) => {
+                const id = trimValue(dep?.id);
+                let name = trimValue(dep?.name);
+                const locationId = trimValue(dep?.locationId);
+                let address = trimValue(dep?.address);
+
+                // Zurich's second default department was previously labeled/shipped with the wrong
+                // Fischermatteli/Bern data. Keep Bern unchanged and only heal Zurich records.
+                if (locationId === ZURICH_LOCATION_ID) {
+                    if (name === 'Tertianum Fischermatteli' || name === 'Tertianum Fischermätteli') {
+                        name = 'Tertianum Restelberg';
+                    }
+                    if (
+                        name === 'Surgery Department' ||
+                        name === 'Tertianum Restelberg'
+                    ) {
+                        address = ZURICH_RESTELBERG_ADDRESS;
+                    }
+                }
+
+                if (locationId === BERN_LOCATION_ID) {
+                    if (name === 'Tertianum Fischermatteli' || name === 'Tertianum Fischermätteli') {
+                        address = BERN_FISCHERMATTELI_ADDRESS;
+                    }
+                    if (name === 'Tertianum Viktoria') {
+                        address = BERN_VIKTORIA_ADDRESS;
+                    }
+                }
+
+                return { id, name, locationId, address };
+            })
             .filter(dep => !!dep.id && !!dep.name && !!dep.locationId && locationIds.has(dep.locationId))
             .map(dep => ({ ...dep } as Department))
         : [];
@@ -209,8 +240,8 @@ const requireDepartment = (data: AdminData, departmentId: string, locationId: st
 
 const toStoredUser = (user: AppUser): AppUser => ({
     id: trimValue(user.id),
-    name: trimValue(user.name || user.fullName),
-    fullName: trimValue(user.name || user.fullName),
+    name: stripDoctorPrefix(trimValue(user.name || user.fullName)),
+    fullName: stripDoctorPrefix(trimValue(user.name || user.fullName)),
     email: trimValue(user.email),
     password: trimValue(user.password) || undefined,
     role: user.role,

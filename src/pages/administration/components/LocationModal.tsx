@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { Location } from '../../../types/admin';
+import { useLanguage } from '../../../contexts/LanguageContext';
 
 interface LocationModalProps {
     isOpen: boolean;
@@ -31,6 +32,8 @@ export const LocationModal: React.FC<LocationModalProps> = ({
     onClose,
     onSave
 }) => {
+    const { t } = useLanguage();
+
     if (!isOpen) return null;
 
     return (
@@ -43,15 +46,15 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             }}
         >
             <div style={{ background: '#ffffff', borderRadius: '14px', padding: '28px', width: '440px', maxWidth: '95vw', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', animation: 'urSlideUp .2s ease' }}>
-                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingLoc.id ? 'Edit Location' : 'Add Location'}</div>
-                <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingLoc.id ? 'Update location details' : 'Fill in the location details'}</div>
+                <div style={{ fontSize: '17px', fontWeight: 600, marginBottom: '4px' }}>{editingLoc.id ? t('admin.editLocation') : t('admin.addLocation')}</div>
+                <div style={{ fontSize: '13px', color: '#6b8583', marginBottom: '20px' }}>{editingLoc.id ? t('admin.updateLocationDetails') : t('admin.fillLocationDetails')}</div>
 
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Location Name</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('admin.locationName')}</label>
                     <input
                         value={editingLoc.name || ''}
                         onChange={e => onChange({ ...editingLoc, name: e.target.value })}
-                        placeholder="e.g. University Hospital Zurich (ZH)"
+                        placeholder={t('admin.locationPlaceholder')}
                         style={fieldStyle}
                         onFocus={(e) => {
                             e.currentTarget.style.borderColor = '#5ba8a0';
@@ -67,11 +70,11 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 </div>
 
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>City</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('common.city')}</label>
                     <input
                         value={editingLoc.city || ''}
                         onChange={e => onChange({ ...editingLoc, city: e.target.value })}
-                        placeholder="e.g. Zurich"
+                        placeholder={t('admin.cityPlaceholder')}
                         style={fieldStyle}
                         onFocus={(e) => {
                             e.currentTarget.style.borderColor = '#5ba8a0';
@@ -87,11 +90,11 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 </div>
 
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>Country</label>
+                    <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b8583', marginBottom: '6px', display: 'block' }}>{t('common.country')}</label>
                     <input
                         value={editingLoc.country || ''}
                         onChange={e => onChange({ ...editingLoc, country: e.target.value })}
-                        placeholder="e.g. Switzerland"
+                        placeholder={t('admin.countryPlaceholder')}
                         style={fieldStyle}
                         onFocus={(e) => {
                             e.currentTarget.style.borderColor = '#5ba8a0';
@@ -115,7 +118,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                         onClick={onClose}
                         style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', fontWeight: 500, padding: '9px 18px', border: '1.5px solid #ddecea', borderRadius: '8px', background: '#ffffff', color: '#6b8583', cursor: 'pointer' }}
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
                         onClick={onSave}
@@ -127,7 +130,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                             e.currentTarget.style.background = '#5ba8a0';
                         }}
                     >
-                        Save Location
+                        {t('admin.saveLocation')}
                     </button>
                 </div>
             </div>
