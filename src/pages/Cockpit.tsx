@@ -103,6 +103,7 @@ const Cockpit: React.FC = () => {
     const [planMeetingPickerOpen, setPlanMeetingPickerOpen] = useState(false);
     const [doActionPickerOpenIdx, setDoActionPickerOpenIdx] = useState<number | null>(null);
     const doResponsiblePickerRef = useRef<HTMLDivElement | null>(null);
+    const pendingViewingStepRef = useRef<Step | null>(null);
     const savedIndicatorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const feedbackPopupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [feedbackPopupTitleKey, setFeedbackPopupTitleKey] = useState<'pdca.externalUsersConfirmedTitle' | 'pdca.meetingInvitesSentTitle' | null>(null);
@@ -653,7 +654,9 @@ const Cockpit: React.FC = () => {
             const shouldResetCurrentCheckPhase = isSeedTopic && selectedTopic.step === 'CHECK' && !selectedTopic.check.completedAt;
             const shouldResetCurrentActPhase = isSeedTopic && selectedTopic.step === 'ACT' && !selectedTopic.act.completedAt;
 
-            setViewingStep(selectedTopic.step);
+            const nextViewingStep = pendingViewingStepRef.current ?? selectedTopic.step;
+            setViewingStep(nextViewingStep);
+            pendingViewingStepRef.current = null;
             setSelectedLocations(
                 selectedTopic.location
                     ? selectedTopic.location.split(',').map(v => v.trim()).filter(Boolean)
@@ -1127,7 +1130,7 @@ const Cockpit: React.FC = () => {
 
         if (savedTopic) {
             setSelectedTopic(savedTopic);
-            setViewingStep(savedTopic.step);
+            setViewingStep(pendingViewingStepRef.current ?? savedTopic.step);
         }
 
         if (selectedTopic.step === 'PLAN' && selectedTopic.rerunSourceRef) {
@@ -2435,6 +2438,7 @@ const Cockpit: React.FC = () => {
                                                     if (targetIdx === currentIdx + 1) {
                                                         handleProceed();
                                                     } else if (targetIdx <= currentIdx) {
+                                                        pendingViewingStepRef.current = step;
                                                         handleSave();
                                                         setViewingStep(step);
                                                     }
